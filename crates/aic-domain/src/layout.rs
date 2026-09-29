@@ -54,6 +54,9 @@ pub struct PartMod {
     /// Extra machining added by tools, local panel frame.
     #[serde(default)]
     pub features: Vec<MachiningFeature>,
+    /// Manual edge-band overrides (on/off per edge) on top of the cabinet rule.
+    #[serde(default)]
+    pub edges: BTreeMap<EdgeSide, bool>,
 }
 
 impl PartMod {

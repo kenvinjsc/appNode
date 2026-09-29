@@ -163,3 +163,34 @@ fn zone_workflow_tao_tam_chinh_tam() {
     let r = call(&mut e, json!({"cmd": "zone_add_link", "cabinet": b, "zones": [z.result["zones"][0]["id"]], "kind": "OVAL_RAIL"}));
     assert!(r.ok, "{:?}", r.error);
 }
+
+#[test]
+fn costing_report_wardrobe() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let r = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(r.ok, "{:?}", r.error);
+    let c = &r.result;
+    let fit = |name: &str| c["fittings"].as_array().unwrap().iter().find(|l| l["name"].as_str().unwrap().starts_with(name)).map(|l| l["qty"].as_f64().unwrap());
+    assert_eq!(fit("Bản lề"), Some(16.0), "4 doors × 4 hinges");
+    assert_eq!(fit("Chốt tầng"), Some(16.0), "4 adjustable shelves × 4 pins");
+    assert_eq!(fit("Chén oval"), Some(2.0));
+    assert!(fit("Thanh Oval").is_some());
+    assert!(fit("Cam & Dowel").unwrap() > 0.0);
+    // Panels grouped by material and thickness; the 8.6 back is never banded.
+    let panels = c["panels"].as_array().unwrap();
+    assert!(panels.iter().any(|l| l["name"].as_str().unwrap().contains("8.6")));
+    let back = c["cut_list"].as_array().unwrap().iter().find(|r| r["name"] == "Hậu").unwrap();
+    assert!(back["edges"].as_array().unwrap().is_empty());
+    let side = c["cut_list"].as_array().unwrap().iter().find(|r| r["name"] == "HồiTrái").unwrap();
+    assert!(!side["edges"].as_array().unwrap().is_empty(), "exposed front edge of a side is banded");
+    assert!(c["edges"][0]["qty"].as_f64().unwrap() > 10.0);
+    assert!(c["totals"]["total"].as_f64().unwrap() > 0.0);
+    // Unit price edit is undoable.
+    assert!(call(&mut e, json!({"cmd": "set_price", "key": "panel:MDF17-WHITE|17.2", "value": 250000})).ok);
+    let r2 = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(r2.result["totals"]["panels"].as_f64().unwrap() > 0.0);
+    assert!(call(&mut e, json!({"cmd": "undo"})).ok);
+    assert_eq!(c["cabinets"][0]["name"], "TủQA01");
+    let _ = cab;
+}

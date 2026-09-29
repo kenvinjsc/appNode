@@ -9,6 +9,7 @@
 mod mfg;
 mod properties;
 pub mod protocol;
+mod costing;
 mod render;
 mod zones;
 
@@ -32,6 +33,7 @@ pub struct Engine {
     pub(crate) relations: Option<(u64, Arc<AssemblyGraph>)>,
     pub(crate) joints: Option<(u64, Arc<HashMap<ObjectId, Vec<aic_manufacturing::DerivedFeature>>>)>,
     pub(crate) nesting: HashMap<String, (u64, NestingResult)>,
+    pub(crate) nesting_settings: HashMap<String, aic_nesting::NestingSettings>,
     pub(crate) relation_settings: RelationSettings,
     pending_events: Vec<CoreEvent>,
 }
@@ -56,6 +58,7 @@ impl Engine {
             relations: None,
             joints: None,
             nesting: HashMap::new(),
+            nesting_settings: HashMap::new(),
             relation_settings: RelationSettings::default(),
             pending_events: Vec::new(),
         };
@@ -250,8 +253,12 @@ impl Engine {
                 ok(json!({}))
             }
             SetEdgeBand { id, edge, enabled } => {
-                let band = enabled.then(|| EdgeBand { edge, material_code: "ABS-1".into(), thickness_mm: 1.0 });
-                self.exec(Command::SetEdgeBand { id, edge, band })?;
+                self.set_edge(id, edge, enabled)?;
+                ok(json!({}))
+            }
+            GetCosting => ok(self.costing()?),
+            SetPrice { key, value } => {
+                self.exec(Command::SetPrice { key, value })?;
                 ok(json!({}))
             }
             AddFeature { id, feature } => {
@@ -383,11 +390,22 @@ impl Engine {
                     _ => return Err(CoreError::InvalidParameter { name: n.into(), reason: "unknown edge".into() }),
                 };
                 let enabled = matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes");
-                let band = enabled.then(|| EdgeBand { edge, material_code: "ABS-1".into(), thickness_mm: 1.0 });
-                self.exec(Command::SetEdgeBand { id, edge, band })
+                self.set_edge(id, edge, enabled)
             }
             _ => self.exec(Command::SetParameter { id, name: name.into(), value: value.into() }),
         }
+    }
+
+    /// Edge band on/off: generated parts store a manual override in the cabinet's part mods.
+    fn set_edge(&mut self, id: ObjectId, edge: aic_domain::EdgeSide, enabled: bool) -> Result<(), CoreError> {
+        if let Some((cab, key)) = self.part_ref(id) {
+            return self.edit_cabinet(cab, "Dán cạnh", |c| {
+                c.mods.entry(key).or_default().edges.insert(edge, enabled);
+                Ok(())
+            });
+        }
+        let band = enabled.then(|| EdgeBand { edge, material_code: "DON-1".into(), thickness_mm: 1.0 });
+        self.exec(Command::SetEdgeBand { id, edge, band })
     }
 
     fn set_material(&mut self, id: ObjectId, material: &str, slot: Option<&str>) -> Result<(), CoreError> {

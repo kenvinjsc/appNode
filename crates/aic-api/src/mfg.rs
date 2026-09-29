@@ -78,6 +78,10 @@ impl Engine {
         j
     }
 
+    pub(crate) fn joint_features_all(&mut self) -> Arc<HashMap<ObjectId, Vec<DerivedFeature>>> {
+        self.joint_features()
+    }
+
     pub(crate) fn flat_panel(&mut self, id: ObjectId) -> Result<FlatPanel, CoreError> {
         let joints = self.joint_features();
         let p = self.doc.panel(id).ok_or(CoreError::NotFound { id })?;
@@ -86,7 +90,11 @@ impl Engine {
             .map(|f| DerivedFeature { feature: f, origin: FeatureOrigin::Rule })
             .collect();
         derived.extend(joints.get(&id).cloned().unwrap_or_default());
-        Ok(flatten(p, derived))
+        let mut p = p.clone();
+        if self.part_ref(id).is_some() {
+            p.edge_bands = self.effective_edges(id);
+        }
+        Ok(flatten(&p, derived))
     }
 
     pub(crate) fn parts(&mut self) -> Value {
@@ -204,16 +212,19 @@ impl Engine {
                 "names": names,
             }));
             self.nesting.insert(m.clone(), (self.doc.revision, result));
+            self.nesting_settings.insert(m.clone(), settings);
         }
         Ok(json!({ "jobs": results }))
     }
 
     pub(crate) fn generate_cnc(&mut self, material: &str, sheet_id: u32) -> Result<Value, CoreError> {
+        // Use the settings of the nest shown to the user, never silently the defaults.
+        let settings = self.nesting_settings.get(material).copied().unwrap_or_default();
         let fresh = matches!(self.nesting.get(material), Some((rev, _)) if *rev == self.doc.revision);
         if !fresh {
-            self.run_nesting(Some(material.to_string()), NestingSettings::default())?;
+            self.run_nesting(Some(material.to_string()), settings)?;
         }
-        let (job, flats) = self.nesting_job(material, NestingSettings::default())?;
+        let (job, flats) = self.nesting_job(material, settings)?;
         let result: NestingResult = self.nesting.get(material).map(|r| r.1.clone()).ok_or(CoreError::NotFound { id: ObjectId(0) })?;
         let sheet = result
             .sheets

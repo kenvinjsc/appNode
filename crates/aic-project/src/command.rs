@@ -61,6 +61,8 @@ pub enum Command {
     RemoveFeature { id: ObjectId, index: usize },
     /// Replace a cabinet definition (zones, fronts, options, part mods); inverse = old definition.
     SetCabinet { id: ObjectId, cabinet: Box<aic_domain::Cabinet>, label: String },
+    /// Set (or clear) a unit price in the project price list.
+    SetPrice { key: String, value: Option<f64> },
     Batch { label: String, commands: Vec<Command> },
 }
 
@@ -85,6 +87,7 @@ impl Command {
             Command::AddFeature { .. } => "Add feature",
             Command::RemoveFeature { .. } => "Remove feature",
             Command::Batch { label, .. } | Command::SetCabinet { label, .. } => label,
+            Command::SetPrice { .. } => "Đơn giá",
         }
     }
 
@@ -329,6 +332,17 @@ impl Command {
                 doc.ensure_unlocked(id)?;
                 let old = doc.set_cabinet(id, *cabinet)?;
                 Ok(Command::SetCabinet { id, cabinet: Box::new(old), label })
+            }
+            Command::SetPrice { key, value } => {
+                if value.is_some_and(|v| !v.is_finite() || v < 0.0) {
+                    return Err(CoreError::InvalidParameter { name: key, reason: "price must be ≥ 0".into() });
+                }
+                let old = match value {
+                    Some(v) => doc.settings.prices.insert(key.clone(), v),
+                    None => doc.settings.prices.remove(&key),
+                };
+                doc.mark_settings();
+                Ok(Command::SetPrice { key, value: old })
             }
             Command::Batch { label, commands } => {
                 let mut inverses = Vec::new();

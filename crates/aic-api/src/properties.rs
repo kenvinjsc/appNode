@@ -286,6 +286,7 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
     let obj = e.doc.object(id)?.clone();
     let mut gen_groups = Vec::new();
     generated_groups(e, id, editable, &mut gen_groups)?;
+    let effective_edges = e.effective_edges(id);
     let doc = &e.doc;
     let mut groups: Vec<Group> = Vec::new();
     let mut general = vec![f("name", "Name", "text", json!(obj.name()))];
@@ -321,7 +322,7 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
                 .iter()
                 .map(|s| {
                     let name = format!("{s:?}").to_lowercase();
-                    let mut fl = f(&format!("edge_{name}"), &format!("{s:?}"), "bool", json!(p.edge_band(*s).is_some()));
+                    let mut fl = f(&format!("edge_{name}"), &format!("{s:?}"), "bool", json!(effective_edges.iter().any(|b| b.edge == *s)));
                     fl.editable = editable;
                     fl
                 })

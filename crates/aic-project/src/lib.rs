@@ -8,7 +8,7 @@ mod file;
 mod history;
 
 pub use command::{Command, Snapshot};
-pub use document::{ChangeSet, Document, ProjectMeta, ProjectSettings, STRUCTURAL_PARAMS};
+pub use document::{default_prices, ChangeSet, Document, ProjectMeta, ProjectSettings, ScrewRule, STRUCTURAL_PARAMS};
 pub use error::CoreError;
 pub use file::{migrate, ProjectFile, FORMAT, VERSION};
 pub use history::History;

@@ -171,6 +171,13 @@ pub enum Request {
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
+    // costing (báo giá)
+    GetCosting,
+    SetPrice {
+        key: String,
+        #[serde(default)]
+        value: Option<f64>,
+    },
     // queries
     GetSceneTree,
     GetProperties { id: ObjectId },

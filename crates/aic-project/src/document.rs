@@ -23,18 +23,63 @@ pub struct ProjectSettings {
     pub default_front_material: MaterialId,
     pub default_back_material: MaterialId,
     pub max_relation_gap_mm: f64,
+    /// Đơn giá (VND): `panel:<material>|<thickness>` per m², `edge:<code>` per m,
+    /// `fit:<fitting>` per unit, `edge_factor:<code>` multiplier.
+    #[serde(default)]
+    pub prices: BTreeMap<String, f64>,
+    /// Screws counted per fitting (vít).
+    #[serde(default)]
+    pub screws: ScrewRule,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScrewRule {
+    pub per_hinge: u32,
+    pub per_slide_set: u32,
+    pub per_oval_cup: u32,
+    pub per_handle: u32,
+}
+
+impl Default for ScrewRule {
+    fn default() -> Self {
+        Self { per_hinge: 2, per_slide_set: 8, per_oval_cup: 2, per_handle: 2 }
+    }
 }
 
 impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
             unit: "mm".into(),
-            default_carcass_material: MaterialId::new("MDF18-WHITE"),
-            default_front_material: MaterialId::new("MDF18-OAK"),
-            default_back_material: MaterialId::new("HDF5-WHITE"),
+            default_carcass_material: MaterialId::new("MDF17-WHITE"),
+            default_front_material: MaterialId::new("MDF17-OAK"),
+            default_back_material: MaterialId::new("MDF8-WHITE"),
             max_relation_gap_mm: 5.0,
+            prices: default_prices(),
+            screws: ScrewRule::default(),
         }
     }
+}
+
+/// Sample unit prices (VND) so a fresh project already produces a quote.
+pub fn default_prices() -> BTreeMap<String, f64> {
+    [
+        ("edge:DON-1", 15_000.0),
+        ("edge:DON-0.5", 8_000.0),
+        ("edge:DON-2", 25_000.0),
+        ("edge:KEP-1", 20_000.0),
+        ("fit:hinge", 35_000.0),
+        ("fit:cam_dowel", 3_000.0),
+        ("fit:shelf_pin", 3_000.0),
+        ("fit:oval_cup", 15_000.0),
+        ("fit:oval_rail", 15_000.0),
+        ("fit:slide", 40_000.0),
+        ("fit:handle", 25_000.0),
+        ("fit:screw", 2_000.0),
+        ("fit:sliding_track", 350_000.0),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
 }
 
 /// What changed since the last drain (turned into UI events by the API layer).
@@ -50,6 +95,7 @@ pub struct ChangeSet {
     pub transform: BTreeSet<ObjectId>,
     pub tree: bool,
     pub loaded: bool,
+    pub settings: bool,
 }
 
 impl ChangeSet {
@@ -229,6 +275,11 @@ impl Document {
     pub(crate) fn mark_geometry(&mut self, id: ObjectId) {
         self.changes.geometry.insert(id);
         self.changes.changed.insert(id);
+    }
+
+    /// Project-level settings changed (no object changes, but the revision must move).
+    pub(crate) fn mark_settings(&mut self) {
+        self.changes.settings = true;
     }
 
     pub(crate) fn mark_tree(&mut self) {
