@@ -5,7 +5,7 @@
 import { useRef, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { BayInfo, BayMode, ObjectId, Vec3, ZonesInfo } from '../../core-api/types';
+import type { BayInfo, BayMode, FrontBay, ObjectId, Vec3, ZonesInfo } from '../../core-api/types';
 import { fmt } from '../../shared/i18n';
 import type { Item } from './Drawing2D';
 
@@ -36,6 +36,7 @@ const NEXT: Record<BayMode, BayMode> = { LOCK: 'PERCENT', PERCENT: 'AUTO', AUTO:
 
 type Edit =
   | { kind: 'bay'; bay: BayInfo; x: number; y: number }
+  | { kind: 'front'; fb: FrontBay; x: number; y: number }
   | { kind: 'cab'; name: 'width' | 'height'; value: number; x: number; y: number };
 
 interface Drag {
@@ -54,6 +55,9 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  type FDrag = { uid: number; index: number; base: number; total: number; from: number; before: number; moved: boolean };
+  const [fdrag, setFdrag] = useState<FDrag | null>(null);
+  const fdragRef = useRef<FDrag | null>(null);
   const m = info.matrix;
   // Editing assumes an unrotated cabinet (front view = cabinet XY).
   const straight = Math.abs(m[0] - 1) < 1e-6 && Math.abs(m[5] - 1) < 1e-6;
@@ -85,6 +89,13 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
     if (!Number.isFinite(v)) return;
     if (e.kind === 'cab') {
       await Commands.setParameter(info.cabinet, e.name, String(v)).catch(() => undefined);
+      return;
+    }
+    if (e.kind === 'front') {
+      const f = e.fb;
+      if (pct) await Commands.setDrawerHeight(info.cabinet, f.uid, f.index, 'PERCENT', v).catch(() => undefined);
+      else if (f.mode === 'PERCENT') await Commands.setDrawerHeight(info.cabinet, f.uid, f.index, 'PERCENT', f.usable > 0 ? (v / f.usable) * 100 : 0).catch(() => undefined);
+      else await Commands.setDrawerHeight(info.cabinet, f.uid, f.index, 'LOCK', v).catch(() => undefined);
       return;
     }
     const b = e.bay;
@@ -164,6 +175,92 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
         </g>,
       );
     }
+  }
+
+  // Drawer stacks: height chain on the right of the fronts + drag of the dividers.
+  const fronts: JSX.Element[] = [];
+  const byStack = new Map<number, FrontBay[]>();
+  for (const f of info.front_bays) if (!byStack.has(f.uid) || !byStack.get(f.uid)!.some((x) => x.index === f.index)) byStack.set(f.uid, [...(byStack.get(f.uid) ?? []), f]);
+  for (const [uid, list] of byStack) {
+    list.sort((a, b) => a.index - b.index);
+    list.forEach((f, i) => {
+      const r = project(m, [f.x0, f.start, f.z], [f.x1 - f.x0, f.size, 0]);
+      let size = f.size;
+      if (fdrag && fdrag.uid === uid) {
+        if (i === fdrag.index) size = fdrag.before;
+        if (i === fdrag.index + 1) size = fdrag.total - fdrag.before;
+      }
+      const lx = r.x1 + unit * 2.6;
+      const ly = (r.y0 + r.y1) / 2;
+      const mode = f.mode;
+      fronts.push(
+        <g key={`f${uid}-${i}`} className={`d2e-bay ${mode === 'LOCK' ? 'lock' : mode === 'PERCENT' ? 'pct' : ''}`}>
+          <line x1={r.x1 + unit * 1.2} y1={r.y0} x2={r.x1 + unit * 1.2} y2={r.y1} markerStart="url(#d2a)" markerEnd="url(#d2a)" />
+          {label(lx, ly, fmt(size, 1), () => setEdit({ kind: 'front', fb: f, x: lx, y: ly }), 'Cao mặt ngăn kéo: nhập mm hoặc 40%', true)}
+          <text
+            x={lx}
+            y={ly}
+            dx={unit * 2.3}
+            className="d2e-mode"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={unit * 1.05}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              void Commands.setDrawerHeight(info.cabinet, uid, f.index, mode ? NEXT[mode] : 'LOCK').catch(() => undefined);
+            }}
+          >
+            <title>Chế độ ngăn: KHÓA → % → AUTO. Bấm để đổi.</title>
+            {mode ? MODE_TAG[mode] : '·'}
+          </text>
+        </g>,
+      );
+      // Divider handle between this front and the next.
+      if (i + 1 < list.length && straight) {
+        const next = list[i + 1];
+        const gapTop = project(m, [f.x0, f.start + f.size, f.z], [f.x1 - f.x0, Math.max(next.start - (f.start + f.size), 0.5), 0]);
+        const shift = fdrag && fdrag.uid === uid && fdrag.index === i ? -(fdrag.before - f.size) : 0;
+        const hh = Math.max(gapTop.y1 - gapTop.y0, unit * 0.7);
+        fronts.push(
+          <rect
+            key={`fh${uid}-${i}`}
+            className={`d2e-handle y ${fdrag && fdrag.uid === uid && fdrag.index === i ? 'on' : ''}`}
+            x={gapTop.x0}
+            y={(gapTop.y0 + gapTop.y1) / 2 - hh / 2 + shift}
+            width={gapTop.x1 - gapTop.x0}
+            height={hh}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.stopPropagation();
+              (e.target as Element).setPointerCapture(e.pointerId);
+              const d = { uid, index: i, base: f.size, total: f.size + next.size, from: toSvg(e).y, before: f.size, moved: false };
+              fdragRef.current = d;
+              setFdrag(d);
+            }}
+            onPointerMove={(e) => {
+              const d = fdragRef.current;
+              if (!d || d.uid !== uid || d.index !== i) return;
+              const delta = d.from - toSvg(e).y;
+              let before = d.base + delta;
+              if (Math.abs(before - d.total / 2) < unit * 0.8) before = d.total / 2;
+              else before = e.shiftKey ? Math.round(before / 10) * 10 : Math.round(before * 2) / 2;
+              before = Math.min(Math.max(before, 1), d.total - 1);
+              const n2 = { ...d, before, moved: d.moved || Math.abs(delta) > unit * 0.2 };
+              fdragRef.current = n2;
+              setFdrag(n2);
+            }}
+            onPointerUp={() => {
+              const d = fdragRef.current;
+              fdragRef.current = null;
+              setFdrag(null);
+              if (d && d.moved && Math.abs(d.before - d.base) > 0.01) void Commands.moveDrawerDivider(info.cabinet, d.uid, d.index, d.before).catch(() => undefined);
+            }}
+          >
+            <title>Kéo để đổi chiều cao 2 ngăn kề (Shift: bước 10 mm)</title>
+          </rect>,
+        );
+      }
+    });
   }
 
   // Leaf zones: click = pin, Ctrl+click = add, right-click = quick build menu.
@@ -259,6 +356,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
       })}
       {handles}
       {chains}
+      {fronts}
       {/* Cabinet W / H (editable). */}
       <g className="d2e-cab">
         <line x1={cab.x0} y1={cab.y0 - unit * 2.5} x2={cab.x1} y2={cab.y0 - unit * 2.5} markerStart="url(#d2a)" markerEnd="url(#d2a)" />
@@ -272,7 +370,17 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
             className="d2e-input"
             autoFocus
             style={{ fontSize: `${fs}px` }}
-            defaultValue={edit.kind === 'cab' ? String(edit.value) : edit.bay.mode === 'PERCENT' ? `${Math.round(edit.bay.value * 100) / 100}%` : String(Math.round(edit.bay.size * 10) / 10)}
+            defaultValue={
+              edit.kind === 'cab'
+                ? String(edit.value)
+                : edit.kind === 'front'
+                  ? edit.fb.mode === 'PERCENT'
+                    ? `${Math.round(edit.fb.value * 100) / 100}%`
+                    : String(Math.round(edit.fb.size * 10) / 10)
+                  : edit.bay.mode === 'PERCENT'
+                    ? `${Math.round(edit.bay.value * 100) / 100}%`
+                    : String(Math.round(edit.bay.size * 10) / 10)
+            }
             onFocus={(e) => e.currentTarget.select()}
             onKeyDown={(e) => {
               e.stopPropagation();

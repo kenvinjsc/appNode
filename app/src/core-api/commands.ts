@@ -56,6 +56,8 @@ export const Commands = {
   /** Multi-edit: one undo step, all or nothing. */
   setParameterMulti: (ids: ObjectId[], name: string, value: string) => command({ cmd: 'set_parameter_multi', ids, name, value }),
   setBay: (cabinet: ObjectId, zone: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_bay', cabinet, zone, index, mode, value }),
+  setDrawerHeight: (cabinet: ObjectId, uid: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_drawer_height', cabinet, uid, index, mode, value }),
+  moveDrawerDivider: (cabinet: ObjectId, uid: number, index: number, before: number) => command({ cmd: 'move_drawer_divider', cabinet, uid, index, before }),
   equalizeSplit: (cabinet: ObjectId, zone: number) => command({ cmd: 'equalize_split', cabinet, zone }),
   /** Kéo vách / kệ: `before` = clear size of the bay before the panel. */
   moveSplitPanel: (id: ObjectId, before: number) => command<{ zone: number }>({ cmd: 'move_split_panel', id, before }),

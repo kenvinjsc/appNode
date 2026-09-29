@@ -111,6 +111,42 @@ impl Engine {
         })
     }
 
+    /// Current front heights of a drawer stack (bottom → top).
+    fn drawer_sizes(&self, cab: ObjectId, uid: Uid) -> Result<Vec<f64>, CoreError> {
+        let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+        let mut v: Vec<(usize, f64)> = layout.front_bays.iter().filter(|b| b.uid == uid).map(|b| (b.index, b.size)).collect();
+        v.sort_by_key(|x| x.0);
+        v.dedup_by_key(|x| x.0);
+        if v.is_empty() {
+            return Err(bad("drawer", "drawer not found"));
+        }
+        Ok(v.into_iter().map(|x| x.1).collect())
+    }
+
+    /// Cao từng ngăn kéo: LOCK (mm) / PERCENT / AUTO of one front (0 = bottom).
+    pub(crate) fn set_drawer_height(&mut self, cab: ObjectId, uid: Uid, index: usize, mode: Option<BayMode>, value: Option<f64>) -> Result<(), CoreError> {
+        let sizes = self.drawer_sizes(cab, uid)?;
+        self.edit_cabinet_checked(cab, "Cao ngăn kéo", |c| {
+            let Some(Front::Drawers(d)) = c.zones.front_mut(uid) else { return Err(bad("drawer", "drawer not found")) };
+            if d.heights.len() != sizes.len() {
+                d.heights = vec![aic_domain::zone::Bay::auto(); sizes.len()];
+            }
+            aic_domain::zone::set_bay_in(&mut d.heights, index, &sizes, mode, value).map_err(|e| bad("bay", e))
+        })
+    }
+
+    /// Kéo đường chia ngăn kéo: front `index` becomes `before` mm (the one above absorbs).
+    pub(crate) fn move_drawer_divider(&mut self, cab: ObjectId, uid: Uid, index: usize, before: f64) -> Result<(), CoreError> {
+        let sizes = self.drawer_sizes(cab, uid)?;
+        self.edit_cabinet_checked(cab, "Kéo ngăn kéo", |c| {
+            let Some(Front::Drawers(d)) = c.zones.front_mut(uid) else { return Err(bad("drawer", "drawer not found")) };
+            if d.heights.len() != sizes.len() {
+                d.heights = vec![aic_domain::zone::Bay::auto(); sizes.len()];
+            }
+            aic_domain::zone::move_between(&mut d.heights, index, &sizes, before).map_err(|e| bad("split", e))
+        })
+    }
+
     /// Chia đều lại (Equal Divide): every bay of the split AUTO.
     pub(crate) fn equalize_split(&mut self, cab: ObjectId, zone: Uid) -> Result<(), CoreError> {
         self.edit_cabinet_checked(cab, "Chia đều", |c| {
@@ -186,6 +222,7 @@ impl Engine {
             "zones": layout.zones,
             "positions": layout.positions,
             "bays": layout.bays,
+            "front_bays": layout.front_bays,
             "size": [self.doc.param_value(cab, "width"), self.doc.param_value(cab, "height"), self.doc.param_value(cab, "depth")],
             "panels": split_ids,
             "problems": layout.problems,
@@ -577,6 +614,7 @@ impl Engine {
             PartRef::Door(uid) if name.starts_with("door_") => {
                 let v = value.to_string();
                 let n = name.to_string();
+                let door_gap = self.doc.param_value(cab, "door_gap").unwrap_or(2.0);
                 self.edit_cabinet(cab, "Chỉnh cánh", move |c| {
                     let Some(Front::Doors(d)) = c.zones.front_mut(uid) else { return Err(bad(&n, "door not found")) };
                     match n.as_str() {
@@ -600,6 +638,16 @@ impl Engine {
                         "door_rows" => d.rows = count(&n, &v)?.max(1),
                         "door_thickness" => d.thickness = Some(num(&n, &v)?),
                         "door_gap" => d.gap = Some(num(&n, &v)?),
+                        "door_gap_left" | "door_gap_right" | "door_gap_bottom" | "door_gap_top" => {
+                            let x = num(&n, &v)?;
+                            if !(0.0..=50.0).contains(&x) {
+                                return Err(bad(&n, "gap 0–50 mm"));
+                            }
+                            let mut g = d.side_gaps.unwrap_or([d.gap.unwrap_or(door_gap); 4]);
+                            let i = ["door_gap_left", "door_gap_right", "door_gap_bottom", "door_gap_top"].iter().position(|k| *k == n).unwrap();
+                            g[i] = x;
+                            d.side_gaps = Some(g);
+                        }
                         "door_stop" => {
                             d.stop.kind = match v.trim().to_ascii_uppercase().as_str() {
                                 "L_SHAPE" => StopRail::LShape,
@@ -623,7 +671,10 @@ impl Engine {
                 self.edit_cabinet(cab, "Chỉnh ngăn kéo", move |c| {
                     let Some(Front::Drawers(d)) = c.zones.front_mut(uid) else { return Err(bad(&n, "drawer not found")) };
                     match n.as_str() {
-                        "drawer_count" => d.count = count(&n, &v)?.max(1),
+                        "drawer_count" => {
+                            d.count = count(&n, &v)?.max(1);
+                            d.heights.clear();
+                        }
                         "drawer_cols" => d.cols = count(&n, &v)?.max(1),
                         "drawer_mount" => d.mount = if v.trim().eq_ignore_ascii_case("INSET") { Mount::Inset } else { Mount::Overlay },
                         "drawer_face_thickness" => d.face_thickness = Some(num(&n, &v)?),
@@ -661,7 +712,7 @@ impl Engine {
 
 /// Default door spec used by the "Tạo cánh" panel.
 pub(crate) fn default_door(kind: DoorKind, cols: u32, rows: u32, mount: Mount, hinge: HingeSide, thickness: Option<f64>, stop: Option<StopRailSpec>) -> Front {
-    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, stop: stop.unwrap_or_default() })
+    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default() })
 }
 
 pub(crate) fn default_drawers(count: u32, cols: u32, mount: Mount, thickness: Option<f64>, with_box: bool) -> Front {

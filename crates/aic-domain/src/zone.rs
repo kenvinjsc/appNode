@@ -141,6 +141,91 @@ pub fn solve_bays(len: f64, t: &[f64], bays: &[Bay]) -> (Vec<f64>, bool) {
     (size, ok)
 }
 
+/// Move the divider after bay `i` so bay `i` becomes `before` mm.
+/// Only the two adjacent bays change: the non-AUTO ones are rewritten (an
+/// AUTO neighbour absorbs the change); two AUTO neighbours → the first is locked.
+pub fn move_between(bays: &mut [Bay], i: usize, sizes: &[f64], before: f64) -> Result<(), String> {
+    if i + 1 >= bays.len() || sizes.len() != bays.len() {
+        return Err("no such divider".into());
+    }
+    let delta = before - sizes[i];
+    if sizes[i] + delta < 1.0 || sizes[i + 1] - delta < 1.0 {
+        return Err("bay would be smaller than 1 mm".into());
+    }
+    let usable: f64 = sizes.iter().sum();
+    let (a, b) = (bays[i].mode, bays[i + 1].mode);
+    let mut set = |k: usize, d: f64| {
+        let bay = &mut bays[k];
+        match bay.mode {
+            BayMode::Lock => bay.value = sizes[k] + d,
+            BayMode::Percent => bay.value = (sizes[k] + d) / usable * 100.0,
+            BayMode::Auto => *bay = Bay::lock(sizes[k] + d),
+        }
+    };
+    match (a == BayMode::Auto, b == BayMode::Auto) {
+        (true, true) => set(i, delta),
+        (true, false) => set(i + 1, -delta),
+        (false, true) => set(i, delta),
+        (false, false) => {
+            set(i, delta);
+            set(i + 1, -delta);
+        }
+    }
+    Ok(())
+}
+
+/// Change one bay's mode and/or value (value: mm for LOCK, % for PERCENT).
+pub fn set_bay_in(bays: &mut [Bay], k: usize, sizes: &[f64], mode: Option<BayMode>, value: Option<f64>) -> Result<(), String> {
+    if k >= bays.len() || sizes.len() != bays.len() {
+        return Err("no such bay".into());
+    }
+    let usable: f64 = sizes.iter().sum();
+    let mode = mode.unwrap_or(bays[k].mode);
+    let value = match (mode, value) {
+        (BayMode::Auto, _) => 0.0,
+        (_, Some(v)) if v.is_finite() && v >= 0.0 => v,
+        (_, Some(_)) => return Err("value must be ≥ 0".into()),
+        (BayMode::Lock, None) => sizes[k],
+        (BayMode::Percent, None) => if usable > 0.0 { sizes[k] / usable * 100.0 } else { 0.0 },
+    };
+    let old = bays[k];
+    bays[k] = Bay { mode, value };
+    // A typed size with no AUTO bay elsewhere: the nearest neighbour absorbs the
+    // difference and keeps its own mode (LOCK mm / PERCENT %).
+    let flexible_other = (0..bays.len()).any(|j| j != k && bays[j].mode == BayMode::Auto);
+    if mode != BayMode::Auto && !flexible_other && bays.len() > 1 {
+        let new_k = if mode == BayMode::Lock { value } else { value / 100.0 * usable };
+        let delta = new_k - sizes[k];
+        let j = if k + 1 < bays.len() { k + 1 } else { k - 1 };
+        let nj = sizes[j] - delta;
+        if nj < 1.0 || new_k < 1.0 {
+            bays[k] = old;
+            return Err("bay would be smaller than 1 mm".into());
+        }
+        let bj = &mut bays[j];
+        bj.value = match bj.mode {
+            BayMode::Percent => nj / usable * 100.0,
+            _ => nj,
+        };
+        return Ok(());
+    }
+    // Locking a bay by value: an AUTO/PERCENT bay must remain to absorb resizes.
+    if !bays.iter().any(|b| b.mode != BayMode::Lock) {
+        // Let the nearest neighbour absorb (ties: the larger one), so earlier locks stay.
+        let other = (0..bays.len())
+            .filter(|&j| j != k)
+            .min_by(|&a, &b| (a as i64 - k as i64).abs().cmp(&(b as i64 - k as i64).abs()).then(sizes[b].total_cmp(&sizes[a])));
+        match other {
+            Some(j) => bays[j] = Bay::auto(),
+            None => {
+                bays[k] = old;
+                return Err("at least one bay must be AUTO or PERCENT".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Split {
     pub axis: usize,
@@ -180,89 +265,20 @@ impl Split {
         };
     }
 
-    /// Kéo vách / kệ: move panel `i` so the bay before it becomes `before` mm.
-    /// Only the two adjacent bays change: the non-AUTO ones are rewritten (an
-    /// AUTO neighbour absorbs the change); two AUTO neighbours → the first is locked.
+    /// Kéo vách / kệ: move panel `i` so the bay before it becomes `before` mm (see [`move_between`]).
     pub fn move_panel(&mut self, i: usize, sizes: &[f64], before: f64) -> Result<(), String> {
         if !self.has_bays() || i >= self.panels.len() {
             return Err("split has no bay sizing".into());
         }
-        let delta = before - sizes[i];
-        if sizes[i] + delta < 1.0 || sizes[i + 1] - delta < 1.0 {
-            return Err("bay would be smaller than 1 mm".into());
-        }
-        let usable: f64 = sizes.iter().sum();
-        let (a, b) = (self.bays[i].mode, self.bays[i + 1].mode);
-        let mut set = |k: usize, d: f64| {
-            let bay = &mut self.bays[k];
-            match bay.mode {
-                BayMode::Lock => bay.value = sizes[k] + d,
-                BayMode::Percent => bay.value = (sizes[k] + d) / usable * 100.0,
-                BayMode::Auto => *bay = Bay::lock(sizes[k] + d),
-            }
-        };
-        match (a == BayMode::Auto, b == BayMode::Auto) {
-            (true, true) => set(i, delta),
-            (true, false) => set(i + 1, -delta),
-            (false, true) => set(i, delta),
-            (false, false) => {
-                set(i, delta);
-                set(i + 1, -delta);
-            }
-        }
-        Ok(())
+        move_between(&mut self.bays, i, sizes, before)
     }
 
-    /// Change one bay's mode and/or value (value: mm for LOCK, % for PERCENT).
+    /// Change one bay's mode and/or value (see [`set_bay_in`]).
     pub fn set_bay(&mut self, k: usize, sizes: &[f64], mode: Option<BayMode>, value: Option<f64>) -> Result<(), String> {
-        if !self.has_bays() || k >= self.bays.len() {
+        if !self.has_bays() {
             return Err("no such bay".into());
         }
-        let usable: f64 = sizes.iter().sum();
-        let mode = mode.unwrap_or(self.bays[k].mode);
-        let value = match (mode, value) {
-            (BayMode::Auto, _) => 0.0,
-            (_, Some(v)) if v.is_finite() && v >= 0.0 => v,
-            (_, Some(_)) => return Err("value must be ≥ 0".into()),
-            (BayMode::Lock, None) => sizes[k],
-            (BayMode::Percent, None) => if usable > 0.0 { sizes[k] / usable * 100.0 } else { 0.0 },
-        };
-        let old = self.bays[k];
-        self.bays[k] = Bay { mode, value };
-        // A typed size with no AUTO bay elsewhere: the nearest neighbour absorbs the
-        // difference and keeps its own mode (LOCK mm / PERCENT %).
-        let flexible_other = (0..self.bays.len()).any(|j| j != k && self.bays[j].mode == BayMode::Auto);
-        if mode != BayMode::Auto && !flexible_other && self.bays.len() > 1 {
-            let new_k = if mode == BayMode::Lock { value } else { value / 100.0 * usable };
-            let delta = new_k - sizes[k];
-            let j = if k + 1 < self.bays.len() { k + 1 } else { k - 1 };
-            let nj = sizes[j] - delta;
-            if nj < 1.0 || new_k < 1.0 {
-                self.bays[k] = old;
-                return Err("bay would be smaller than 1 mm".into());
-            }
-            let bj = &mut self.bays[j];
-            bj.value = match bj.mode {
-                BayMode::Percent => nj / usable * 100.0,
-                _ => nj,
-            };
-            return Ok(());
-        }
-        // Locking a bay by value: an AUTO/PERCENT bay must remain to absorb resizes.
-        if !self.bays.iter().any(|b| b.mode != BayMode::Lock) {
-            // Let the nearest neighbour absorb (ties: the larger one), so earlier locks stay.
-            let other = (0..self.bays.len())
-                .filter(|&j| j != k)
-                .min_by(|&a, &b| (a as i64 - k as i64).abs().cmp(&(b as i64 - k as i64).abs()).then(sizes[b].total_cmp(&sizes[a])));
-            match other {
-                Some(j) => self.bays[j] = Bay::auto(),
-                None => {
-                    self.bays[k] = old;
-                    return Err("at least one bay must be AUTO or PERCENT".into());
-                }
-            }
-        }
-        Ok(())
+        set_bay_in(&mut self.bays, k, sizes, mode, value)
     }
 
     /// Divide equally (Equal Divide): every bay AUTO.
@@ -343,9 +359,12 @@ pub struct DoorSpec {
     /// None = cabinet `door_thickness`.
     #[serde(default)]
     pub thickness: Option<f64>,
-    /// None = cabinet `door_gap`.
+    /// None = cabinet `door_gap` (also the gap between leaves).
     #[serde(default)]
     pub gap: Option<f64>,
+    /// Khe từng phía [trái, phải, dưới, trên]; None = `gap` on every side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub side_gaps: Option<[f64; 4]>,
     #[serde(default)]
     pub stop: StopRailSpec,
 }
@@ -371,6 +390,9 @@ pub struct DrawerSpec {
     pub slide_clearance: f64,
     /// Generate the drawer box (sides / back / bottom).
     pub with_box: bool,
+    /// Front heights bottom → top (LOCK mm / PERCENT / AUTO); empty = equal.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heights: Vec<Bay>,
 }
 
 fn one() -> u32 {
@@ -391,6 +413,7 @@ impl DrawerSpec {
             bottom_thickness: 8.6,
             slide_clearance: 13.0,
             with_box: true,
+            heights: Vec::new(),
         }
     }
 }

@@ -177,6 +177,13 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                     },
                     sel("door_stop", "Thanh chặn", &up(d.stop.kind), &[("NONE", "Không"), ("L_SHAPE", "Chữ L"), ("STRAIGHT", "Thẳng")], editable),
                 ];
+                // Khe cánh: giữa các cánh + từng phía.
+                let g = d.gap.unwrap_or_else(|| e.doc.param_value(cab, "door_gap").unwrap_or(2.0));
+                let sg = d.side_gaps.unwrap_or([g; 4]);
+                fields.push(numf("door_gap", "Khe giữa cánh", g, editable));
+                for (i, (k, l)) in [("door_gap_left", "Khe trái"), ("door_gap_right", "Khe phải"), ("door_gap_bottom", "Khe dưới"), ("door_gap_top", "Khe trên")].iter().enumerate() {
+                    fields.push(numf(k, l, sg[i], editable));
+                }
                 if d.stop.kind != aic_domain::zone::StopRail::None {
                     fields.push(numf("door_stop_height", "Cao vùng", d.stop.height, editable));
                     fields.push(numf("door_stop_cover", "Cửa phủ lên", d.stop.cover_up, editable));

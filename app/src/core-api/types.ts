@@ -341,6 +341,8 @@ export interface ZonesInfo {
   zones: ZoneBox[];
   positions: PanelPosition[];
   bays: BayInfo[];
+  /** Drawer fronts (0 = bottom), editable heights. */
+  front_bays: FrontBay[];
   /** Cabinet W, H, D. */
   size: [number, number, number];
   problems: number[];
@@ -352,6 +354,19 @@ export interface ZonesInfo {
 }
 
 export type BayMode = 'AUTO' | 'LOCK' | 'PERCENT';
+
+export interface FrontBay {
+  uid: number;
+  index: number;
+  start: number;
+  size: number;
+  x0: number;
+  x1: number;
+  z: number;
+  mode: BayMode | null;
+  value: number;
+  usable: number;
+}
 export type Anchor = 'START' | 'CENTER' | 'END';
 
 /** One bay (khoang) of a split zone, cabinet frame. */

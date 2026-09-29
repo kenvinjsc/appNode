@@ -312,6 +312,14 @@ impl Engine {
                 self.set_bay(cabinet, zone, index, mode, value)?;
                 ok(json!({}))
             }
+            SetDrawerHeight { cabinet, uid, index, mode, value } => {
+                self.set_drawer_height(cabinet, uid, index, mode, value)?;
+                ok(json!({}))
+            }
+            MoveDrawerDivider { cabinet, uid, index, before } => {
+                self.move_drawer_divider(cabinet, uid, index, before)?;
+                ok(json!({}))
+            }
             EqualizeSplit { cabinet, zone } => {
                 self.equalize_split(cabinet, zone)?;
                 ok(json!({}))

@@ -541,3 +541,47 @@ fn parametric_d_dynamic_anchor_follows_moved_side() {
     call(&mut e, json!({"cmd": "set_part_mod", "id": shelf, "patch": {"remove_anchor": 0}}));
     assert!(e.doc.panel(shelf).unwrap().width_mm > w0 - 1.0, "back to the zone size");
 }
+
+#[test]
+fn drawer_heights_and_door_side_gaps() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"drawers": 3, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let fronts = |e: &mut Engine| -> (u64, Vec<f64>) {
+        let z = call(e, json!({"cmd": "get_zones", "cabinet": cab}));
+        let fb = z.result["front_bays"].as_array().unwrap().clone();
+        (fb[0]["uid"].as_u64().unwrap(), fb.iter().map(|b| b["size"].as_f64().unwrap()).collect())
+    };
+    let (uid, h) = fronts(&mut e);
+    assert_eq!(h.len(), 3);
+    // Bottom drawer LOCK 150; the others share the rest.
+    let r = call(&mut e, json!({"cmd": "set_drawer_height", "cabinet": cab, "uid": uid, "index": 0, "mode": "LOCK", "value": 150}));
+    assert!(r.ok, "{:?}", r.error);
+    let (_, h2) = fronts(&mut e);
+    assert!((h2[0] - 150.0).abs() < 1e-6 && (h2[1] - h2[2]).abs() < 1e-6, "{h2:?}");
+    // Taller cabinet: locked drawer keeps 150.
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "height", "value": "900"}));
+    let (_, h3) = fronts(&mut e);
+    assert!((h3[0] - 150.0).abs() < 1e-6 && h3[1] > h2[1]);
+    // Drag the divider between drawer 2 and 3: drawer 2 = 250.
+    let r = call(&mut e, json!({"cmd": "move_drawer_divider", "cabinet": cab, "uid": uid, "index": 1, "before": 250}));
+    assert!(r.ok, "{:?}", r.error);
+    let (_, h4) = fronts(&mut e);
+    assert!((h4[1] - 250.0).abs() < 1e-6 && (h4[0] - 150.0).abs() < 1e-6, "{h4:?}");
+    // Box follows its front: 3 drawer boxes still generated.
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let n = tree.result.to_string().matches("ThànhTrái").count();
+    assert_eq!(n, 3);
+
+    // Door side gaps on a wardrobe door.
+    let wr = created_cabinet(&mut e);
+    let t = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let door: ObjectId = serde_json::from_value(
+        t.result["roots"].as_array().unwrap().iter().find(|r| r["id"] == json!(wr)).unwrap()["children"].as_array().unwrap().iter().find(|k| k["name"].as_str().unwrap().starts_with("CửaĐôi")).unwrap()["id"].clone(),
+    )
+    .unwrap();
+    let w0 = e.doc.panel(door).unwrap().width_mm;
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": door, "name": "door_gap_left", "value": "10"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(e.doc.panel(door).unwrap().width_mm < w0, "a wider left reveal narrows the doors");
+}

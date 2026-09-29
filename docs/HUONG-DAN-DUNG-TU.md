@@ -122,7 +122,7 @@ Click một tấm, rồi mở tab **Chỉnh tấm**:
 - **Vị trí**: bấm tên dòng (Tỷ lệ / Cách dưới / Cách trên) để đổi cách khóa. Tấm giữ nguyên vị trí; tham số có chấm đỏ được giữ khi vùng đổi kích thước.
 - **Co giãn** 4 cạnh (mm): kéo dài hoặc thu ngắn tấm.
 - Độ dày, vật liệu, tên, dán cạnh từng cạnh.
-- Cánh / ngăn kéo: lề, phủ/lọt, khe hở, thanh chặn.
+- Cánh / ngăn kéo: lề, phủ/lọt, khe giữa cánh, **khe từng phía** (trái/phải/dưới/trên), thanh chặn.
 
 - **Offset (lùi mặt)**: lùi mặt trước/sau/trái/phải/trên/dưới theo hướng tủ (ví dụ kệ lùi trước 30). Lưu thành tham số, tủ đổi kích thước vẫn giữ.
 - **Ràng buộc (bám mặt tấm khác)**: chọn cạnh (trái/phải/dưới/trên) → tấm đích → mặt trong/ngoài → offset → *Thêm*.
@@ -153,6 +153,8 @@ Chọn một tủ. Ở **Mặt đứng (Trước)**, bản vẽ 2D trở thành 
 | Bấm nhãn **KHÓA / % / AUTO** trên số | Đổi chế độ khoang: **KHÓA** giữ mm · **%** giữ tỉ lệ · **AUTO** chia phần còn lại. Ví dụ `600 KHÓA · AUTO · 400 KHÓA`: tủ 1600 → 1800 thì chỉ khoang giữa tăng 200. |
 | Kéo vách / kệ | Xem trước số đo 2 khoang kề khi kéo; thả chuột mới lưu. Tự bắt điểm chia đều; giữ **Shift** để bước 10 mm. Chỉ 2 khoang kề thay đổi. |
 | Click vùng trống | Ghim vùng (Ctrl+click ghim thêm). **Chuột phải** → Dựng nhanh, Chia ngang/dọc 2–4 khoang, Chia đều lại. |
+
+| Số cao ngăn kéo (bên phải chồng ngăn) | Nhập mm / `%`, bấm nhãn để đổi KHÓA / % / AUTO; kéo khe giữa 2 ngăn để chia lại. |
 
 Màu số: xanh dương = AUTO, đỏ = KHÓA, xanh lá = %. Nếu thay đổi làm một khoang nhỏ hơn 1 mm, phần mềm từ chối và giữ nguyên.
 

@@ -244,6 +244,18 @@ pub enum Request {
         #[serde(default)]
         value: Option<f64>,
     },
+    /// Cao từng ngăn kéo (0 = dưới cùng): LOCK mm / PERCENT / AUTO.
+    SetDrawerHeight {
+        cabinet: ObjectId,
+        uid: aic_domain::zone::Uid,
+        index: usize,
+        #[serde(default)]
+        mode: Option<aic_domain::zone::BayMode>,
+        #[serde(default)]
+        value: Option<f64>,
+    },
+    /// Kéo đường chia ngăn kéo: front `index` becomes `before` mm.
+    MoveDrawerDivider { cabinet: ObjectId, uid: aic_domain::zone::Uid, index: usize, before: f64 },
     /// Chia đều lại một zone đã chia.
     EqualizeSplit { cabinet: ObjectId, zone: aic_domain::zone::Uid },
     /// Kéo vách / kệ: `before` = clear size (mm) of the bay before the panel.

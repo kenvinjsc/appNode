@@ -283,9 +283,28 @@ pub struct Layout {
     pub positions: Vec<PanelPosition>,
     /// Every bay (khoang) of every split, for editable dimensions.
     pub bays: Vec<BayInfo>,
+    /// Drawer fronts (heights) for editable dimensions.
+    pub front_bays: Vec<FrontBay>,
     pub fittings: Fittings,
     /// Zones whose bays cannot be solved (too small / conflicting locks).
     pub problems: Vec<Uid>,
+}
+
+/// One drawer front of a stack, resolved (cabinet frame), for editable heights.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FrontBay {
+    /// Drawer spec uid.
+    pub uid: Uid,
+    /// 0 = bottom front.
+    pub index: usize,
+    pub start: f64,
+    pub size: f64,
+    pub x0: f64,
+    pub x1: f64,
+    pub z: f64,
+    pub mode: Option<BayMode>,
+    pub value: f64,
+    pub usable: f64,
 }
 
 /// One bay of a split, resolved (cabinet frame).
@@ -682,15 +701,16 @@ fn hinge_cups(w: f64, h: f64, side: HingeSide) -> Vec<MachiningFeature> {
 }
 
 /// Front rectangle (x0, y0, x1, y1) and front Z for a zone.
-fn front_rect(b: &ZBox, mount: Mount, gap: f64, depth: f64, thickness: f64) -> (f64, f64, f64, f64, f64) {
+/// Front rectangle of an opening; `gaps` = reveal per side [left, right, bottom, top].
+fn front_rect(b: &ZBox, mount: Mount, gaps: [f64; 4], depth: f64, thickness: f64) -> (f64, f64, f64, f64, f64) {
     let [x, y, _] = b.min;
     let [w, h, _] = b.size;
     match mount {
         Mount::Overlay => {
-            let ext = |n: Neighbor| if n.outer { n.t - gap } else { n.t / 2.0 - gap / 2.0 };
-            (x - ext(b.nb[0]), y - ext(b.nb[2]), x + w + ext(b.nb[1]), y + h + ext(b.nb[3]), depth)
+            let ext = |n: Neighbor, gap: f64| if n.outer { n.t - gap } else { n.t / 2.0 - gap / 2.0 };
+            (x - ext(b.nb[0], gaps[0]), y - ext(b.nb[2], gaps[2]), x + w + ext(b.nb[1], gaps[1]), y + h + ext(b.nb[3], gaps[3]), depth)
         }
-        Mount::Inset => (x + gap, y + gap, x + w - gap, y + h - gap, depth - thickness),
+        Mount::Inset => (x + gaps[0], y + gaps[2], x + w - gaps[1], y + h - gaps[3], depth - thickness),
     }
 }
 
@@ -707,7 +727,7 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     let gap = spec.gap.unwrap_or(cx.v.door_gap);
     let t = spec.thickness.unwrap_or(cx.v.door_thickness);
     let d = cx.v.depth;
-    let (mut x0, y0, mut x1, mut y1, z) = front_rect(b, spec.mount, gap, d, t);
+    let (mut x0, y0, mut x1, mut y1, z) = front_rect(b, spec.mount, spec.side_gaps.unwrap_or([gap; 4]), d, t);
     // Door stop rail at the top of the opening.
     if spec.stop.kind != StopRail::None {
         let s = &spec.stop;
@@ -791,11 +811,42 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
     let ft = spec.face_thickness.unwrap_or(cx.v.door_thickness);
     let gap = spec.gap;
     let side_gap = if spec.mount == Mount::Inset { spec.side_gap } else { cx.v.door_gap };
-    let (x0, y0, x1, y1, z) = front_rect(b, spec.mount, side_gap, d, ft);
+    let (x0, y0, x1, y1, z) = front_rect(b, spec.mount, [side_gap; 4], d, ft);
     let n = spec.count.max(1);
     let cols = spec.cols.max(1);
     let fw = ((x1 - x0) - (cols - 1) as f64 * gap) / cols as f64;
-    let fh = ((y1 - y0) - (n - 1) as f64 * gap) / n as f64;
+    // Front heights: LOCK / PERCENT / AUTO bays (bottom → top), else equal.
+    let gaps = vec![gap; n as usize - 1];
+    let heights: Vec<f64> = if spec.heights.len() == n as usize {
+        let (h, ok) = solve_bays(y1 - y0, &gaps, &spec.heights);
+        if !ok {
+            cx.out.problems.push(spec.uid);
+        }
+        h
+    } else {
+        vec![((y1 - y0) - (n - 1) as f64 * gap) / n as f64; n as usize]
+    };
+    let starts: Vec<f64> = heights.iter().scan(y0, |at, h| {
+        let s = *at;
+        *at += h + gap;
+        Some(s)
+    }).collect();
+    let usable = (y1 - y0) - (n - 1) as f64 * gap;
+    for i in 0..n as usize {
+        let bay = spec.heights.get(i).filter(|_| spec.heights.len() == n as usize);
+        cx.out.front_bays.push(FrontBay {
+            uid: spec.uid,
+            index: i,
+            start: starts[i],
+            size: heights[i],
+            x0,
+            x1,
+            z: z + ft,
+            mode: bay.map(|b| b.mode),
+            value: bay.map(|b| b.value).unwrap_or(0.0),
+            usable,
+        });
+    }
     let [zx, zy, _] = b.min;
     let [zw, zh, zd] = b.size;
     let cw = (zw - (cols - 1) as f64 * cx.v.thickness) / cols as f64;
@@ -806,7 +857,8 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             cx.drawer_sets += 1;
             let set = cx.drawer_sets;
             let fx = x0 + c as f64 * (fw + gap);
-            let fy = y0 + i as f64 * (fh + gap);
+            let fh = heights[i as usize];
+            let fy = starts[i as usize];
             let key = |part: &str| format!("w:{}:{c}:{i}:{part}", spec.uid);
             cx.panel(key("front"), format!("MặtNgăn [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
             if cx.cab.handles {
@@ -819,8 +871,10 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             }
             // Drawer box inside the opening of this front.
             let bxz = zx + c as f64 * (cw + cx.v.thickness);
-            let cell_y0 = zy + zh * i as f64 / n as f64;
-            let cell_h = zh / n as f64;
+            // Box cell follows its front (mapped onto the opening height).
+            let k = if y1 > y0 { zh / (y1 - y0) } else { 1.0 };
+            let cell_y0 = zy + (fy - y0) * k;
+            let cell_h = (fh + gap) * k;
             let bt = spec.box_thickness;
             let bb = spec.bottom_thickness;
             let sc = spec.slide_clearance;
@@ -1012,6 +1066,7 @@ pub fn set_legacy_front(t: &mut ZoneTree, doors: u32, drawers: u32) {
             hinge: HingeSide::Left,
             thickness: None,
             gap: None,
+            side_gaps: None,
             stop: StopRailSpec::default(),
         }))
     } else {
