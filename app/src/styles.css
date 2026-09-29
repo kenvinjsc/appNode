@@ -482,3 +482,12 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .room-edit { width: 90px; font-size: 12px; padding: 2px 6px; border: 1px solid #e8590c; border-radius: 14px; outline: none; }
 .room-tabs.floors button.on { background: #343a40; border-color: #343a40; }
 .room-tabs.floors { padding-bottom: 0; }
+
+.corner-pick { position: relative; width: 120px; height: 80px; margin: 6px auto; }
+.corner-pick .corner-panel { position: absolute; inset: 10px; border: 2px solid #adb5bd; background: #f8f9fa; border-radius: 2px; }
+.corner-pick button { position: absolute; z-index: 1; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #adb5bd; background: #fff; cursor: pointer; padding: 0; }
+.corner-pick button.on { background: #e8590c; border-color: #e8590c; }
+.corner-pick .top-left { left: 0; top: 0; }
+.corner-pick .top-right { right: 0; top: 0; }
+.corner-pick .bottom-left { left: 0; bottom: 0; }
+.corner-pick .bottom-right { right: 0; bottom: 0; }

@@ -12,6 +12,7 @@ pub mod protocol;
 mod costing;
 mod render;
 mod zones;
+pub mod shape;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
 
@@ -306,6 +307,8 @@ impl Engine {
                 self.set_part_mod(id, patch)?;
                 ok(json!({}))
             }
+            ShapeTool { ids, op } => ok(self.shape_tool(&ids, &op)?),
+            MergePanels { ids } => ok(self.merge_panels(&ids)?),
             Undo => ok(json!({ "label": self.history.undo(&mut self.doc)? })),
             Redo => ok(json!({ "label": self.history.redo(&mut self.doc)? })),
             GetSceneTree => ok(properties::scene_tree(&self.doc)),

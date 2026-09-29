@@ -69,10 +69,17 @@ pub struct PartModPatch {
     /// Added to the current extension (cộng dồn).
     #[serde(default)]
     pub extend_delta: Option<[f64; 4]>,
-    #[serde(default)]
+    /// Some(None) (JSON null) = back to the generated thickness.
+    #[serde(default, deserialize_with = "some_or_null")]
     pub thickness: Option<Option<f64>>,
     #[serde(default)]
     pub clear_tools: bool,
+    /// Remove the outer shape override (bo góc / cắt) and restore the rectangle.
+    #[serde(default)]
+    pub clear_shape: bool,
+    /// Chia tấm: Some(split) sets it, Some(None) (JSON null) removes it.
+    #[serde(default, deserialize_with = "some_or_null")]
+    pub split: Option<Option<aic_domain::PartSplit>>,
     #[serde(default)]
     pub add_features: Option<Vec<MachiningFeature>>,
     #[serde(default)]
@@ -178,6 +185,11 @@ pub enum Request {
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
+    /// Change the outline of panels: rounded/chamfered corners, straight cut, cut by
+    /// another panel (tools 04, 09, 10). Local panel frame.
+    ShapeTool { ids: Vec<ObjectId>, op: crate::shape::ShapeOp },
+    /// Merge coplanar panels of one cabinet into the first one (tool 06).
+    MergePanels { ids: Vec<ObjectId> },
     // costing (báo giá)
     GetCosting,
     SetPrice {
@@ -257,4 +269,13 @@ pub struct Response {
     pub revision: u64,
     pub can_undo: bool,
     pub can_redo: bool,
+}
+
+/// Distinguish a missing field (None) from an explicit null (Some(None)).
+fn some_or_null<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(d).map(Some)
 }

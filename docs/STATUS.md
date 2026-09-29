@@ -24,9 +24,9 @@ phím tắt cấu hình được, context menu, thông báo lỗi tiếng Việt
 
 Thiết kế tủ kiểu plugin: dự án → tầng → phòng (tab lọc cây/3D, tạo tủ đúng chỗ); Khung (thông tin tủ, luật liên kết,
 luật dán cạnh, TAB tạo dãy tủ); Tạo tấm theo vùng (ghim vùng, 6 loại tấm, khóa Tỷ lệ/Cách A/Cách B, chuột phải
-"Dựng nhanh"); Chỉnh tấm (khóa chấm đỏ, co giãn); cột Tool (01–03, 08, 11–13, 16–19); Costing Report / Danh sách cắt /
+"Dựng nhanh"); Chỉnh tấm (khóa chấm đỏ, co giãn); cột Tool (01–04, 06, 08–14, 16–20: bo/vát góc, cắt tự do, cắt theo tấm, hợp tấm, ghép bề dày, chia tấm); Costing Report / Danh sách cắt /
 Cabinet List có đơn giá sửa được.
-Chưa làm: tool 04–07, 09, 10, 14, 15; Chia tấm; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
+Chưa làm: tool 05, 07, 15; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
 
 ## Chưa làm / hạn chế đã biết
 

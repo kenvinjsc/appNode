@@ -406,18 +406,12 @@ impl GeometryKernel for CsgKernel {
         if n < 3 || height <= 0.0 {
             return Err(GeometryError::InvalidInput("extrude profile".into()));
         }
-        // Convex decomposition is out of scope: fan-split the caps (valid for convex/star-shaped profiles).
+        // Caps by ear clipping (concave profiles such as notched or cut panels).
         let mut polys = Vec::new();
         let p = &prof.points;
-        for i in 1..n - 1 {
-            polys.extend(CsgPolygon::new(
-                vec![[p[0].x, p[0].y, 0.0], [p[i + 1].x, p[i + 1].y, 0.0], [p[i].x, p[i].y, 0.0]],
-                0,
-            ));
-            polys.extend(CsgPolygon::new(
-                vec![[p[0].x, p[0].y, height], [p[i].x, p[i].y, height], [p[i + 1].x, p[i + 1].y, height]],
-                0,
-            ));
+        for [a, b, c] in prof.triangulate() {
+            polys.extend(CsgPolygon::new(vec![[p[a].x, p[a].y, 0.0], [p[c].x, p[c].y, 0.0], [p[b].x, p[b].y, 0.0]], 0));
+            polys.extend(CsgPolygon::new(vec![[p[a].x, p[a].y, height], [p[b].x, p[b].y, height], [p[c].x, p[c].y, height]], 0));
         }
         for i in 0..n {
             let a = p[i];

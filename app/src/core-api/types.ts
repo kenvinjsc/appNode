@@ -380,12 +380,22 @@ export interface Costing {
   cabinets: { id: ObjectId; room: string; name: string; frame: string; size: Vec3; panels: number; amount: number }[];
 }
 
+export type Corner = 'BOTTOM_LEFT' | 'BOTTOM_RIGHT' | 'TOP_RIGHT' | 'TOP_LEFT';
+export type ShapeOp =
+  | { kind: 'CORNERS'; corners: Corner[]; size: number; chamfer: boolean }
+  | { kind: 'CUT_LINE'; a: [number, number]; b: [number, number]; keep: 'AUTO' | 'LEFT' | 'RIGHT' }
+  | { kind: 'CUT_BY_PANEL'; cutter: ObjectId; clearance: number };
+
 export interface PartModPatch {
   name?: string;
   extend?: [number, number, number, number];
   extend_delta?: [number, number, number, number];
   thickness?: number | null;
   clear_tools?: boolean;
+  /** Bỏ hình dạng (bo góc / cắt) — về lại hình chữ nhật. */
+  clear_shape?: boolean;
+  /** Chia tấm: null = bỏ chia. */
+  split?: { axis: 'X' | 'Y'; count: number; gap: number } | null;
   add_features?: MachiningFeature[];
   tool?: string;
 }

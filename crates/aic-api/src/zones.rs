@@ -5,7 +5,8 @@
 use crate::protocol::{PartModPatch, ZoneAddPanels};
 use crate::Engine;
 use aic_domain::zone::{DoorKind, DoorSpec, DrawerSpec, Front, HingeSide, LinkKind, Lock, Mount, SplitKind, StopRail, StopRailSpec, Uid};
-use aic_domain::{Cabinet, DomainObject, ObjectId};
+use crate::shape::SHAPE_TOOLS;
+use aic_domain::{Cabinet, DomainObject, MachiningFeature, ObjectId};
 use aic_project::{Command, CoreError};
 use serde_json::{json, Value};
 
@@ -176,7 +177,18 @@ impl Engine {
             if let Some(n) = patch.name {
                 m.name = if n.trim().is_empty() { None } else { Some(n) };
             }
+            // Tool machining is stored in the stretched frame: keep it on the same material
+            // when the left/bottom edges move.
+            let shift = |m: &mut aic_domain::PartMod, dl: f64, db: f64| {
+                if dl != 0.0 || db != 0.0 {
+                    for f in &mut m.features {
+                        aic_domain::layout::shift_feature(f, dl, db);
+                    }
+                }
+            };
             if let Some(e) = patch.extend {
+                let (dl, db) = (e[0] - m.extend[0], e[2] - m.extend[2]);
+                shift(m, dl, db);
                 m.extend = e;
                 let tool = "11. Co giãn tấm".to_string();
                 m.tools.retain(|t| *t != tool);
@@ -185,6 +197,7 @@ impl Engine {
                 }
             }
             if let Some(d) = patch.extend_delta {
+                shift(m, d[0], d[2]);
                 for i in 0..4 {
                     m.extend[i] += d[i];
                 }
@@ -195,6 +208,21 @@ impl Engine {
             }
             if let Some(t) = patch.thickness {
                 m.thickness = t;
+            }
+            if let Some(sp) = patch.split {
+                let tool = "Chia tấm".to_string();
+                m.tools.retain(|t| *t != tool);
+                if let Some(sp) = sp {
+                    if sp.count < 2 || sp.count > 50 || !(0.0..=100.0).contains(&sp.gap) {
+                        return Err(bad("split", "count 2–50, gap 0–100"));
+                    }
+                    m.tools.push(tool);
+                }
+                m.split = sp.filter(|s| s.count >= 2);
+            }
+            if patch.clear_shape {
+                m.features.retain(|f| !matches!(f, MachiningFeature::Contour(c) if !c.inner));
+                m.tools.retain(|t| !SHAPE_TOOLS.contains(&t.as_str()));
             }
             if patch.clear_tools {
                 m.extend = [0.0; 4];

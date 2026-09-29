@@ -11,6 +11,9 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 | Đổi tầng / phòng của tủ (đổi tên tab) | `set_parameter {id, name: "floor" \| "room", value}` | `Command::SetCabinet` (hoàn tác được) | ObjectChanged | Làm mới tab |
 | Tạo tấm: ghim vùng, [TAB] Thêm / chuột phải → Dựng nhanh | `get_zones {cabinet}`, `zone_add_panels`, `zone_add_doors`, `zone_add_drawers`, `zone_add_link`, `zone_remove` | `Command::SetCabinet` → regenerate | ObjectCreated/Deleted/Changed | Vẽ vùng, cập nhật cây |
 | Chỉnh tấm: co giãn, độ dày, vật liệu tấm sinh | `set_part_mod {id, patch}` | PartMod theo key ổn định | ObjectChanged | |
+| Tool 04/09/10 (cắt tự do, cắt theo tấm, bo/vát góc) | `shape_tool {ids, op: CORNERS \| CUT_LINE \| CUT_BY_PANEL}` | Contour ngoài / contour trong / pocket, lưu ở tọa độ local (part mod hoặc feature) | ObjectChanged | Mesh mới (CSG), CNC chạy theo biên dạng |
+| Tool 06 Hợp tấm | `merge_panels {ids}` | Kéo dài tấm đầu, xóa các tấm còn lại (cùng mặt phẳng, cùng dày) | ObjectChanged, ObjectDeleted | |
+| Tool 20 Chia tấm / 14 Ghép bề dày | `set_part_mod {id, patch: {split \| thickness}}` | PartMod.split → các tấm con `key~n` | ObjectCreated/Changed | |
 | Báo cáo | `get_costing`, `set_price {key, value}` | Bóc m², mét chỉ, phụ kiện | SettingsChanged | ReportWindow |
 | Sửa ô Rộng/Cao/… (số hoặc `= biểu thức`) | `set_parameter {id, name, value}` | `Command::SetParameter` → `ParamGraph::set_many` (incremental) | GeometryChanged (chỉ các tấm đổi kích thước), TransformChanged, ObjectChanged | lấy lại mesh theo key mới; ma trận mới; properties |
 | Số đợt/cánh/ngăn kéo, kiểu nóc/đáy, tấm hậu | `set_parameter` (tham số cấu trúc) | sinh lại tủ, khớp (vai trò, chỉ số) để giữ id; lệnh nghịch đảo `ReplaceSubtree` | ObjectCreated/Deleted/Changed, SceneTreeChanged | như trên |

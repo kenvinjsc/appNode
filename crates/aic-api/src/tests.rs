@@ -220,3 +220,86 @@ fn floors_and_rooms_place_cabinets_in_their_own_area() {
     call(&mut e, json!({"cmd": "undo"}));
     assert_eq!(e.doc.object(d).unwrap().as_cabinet().unwrap().floor, "Tầng 2");
 }
+
+#[test]
+fn shape_tools_corner_cut_merge() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let by = |pfx: &str| -> Vec<ObjectId> {
+        kids.iter().filter(|n| n["name"].as_str().unwrap().starts_with(pfx)).map(|n| serde_json::from_value(n["id"].clone()).unwrap()).collect()
+    };
+    let doors = by("CửaĐôi");
+    assert!(doors.len() >= 2);
+    let outer = |e: &Engine, id: ObjectId| {
+        let p = e.doc.panel(id).unwrap();
+        p.features.iter().chain(p.gen_features.iter()).any(|f| matches!(f, aic_domain::MachiningFeature::Contour(c) if !c.inner))
+    };
+
+    // 10. Bo góc on a door: outline stored in the cabinet's part mods; mesh builds; undo restores.
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [doors[0]], "op": {"kind": "CORNERS", "corners": ["TOP_LEFT", "TOP_RIGHT"], "size": 40}}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(outer(&e, doors[0]));
+    let m = call(&mut e, json!({"cmd": "get_render_objects", "ids": [doors[0]]}));
+    assert!(m.ok, "{:?}", m.error);
+    let props = call(&mut e, json!({"cmd": "get_properties", "id": doors[0]}));
+    assert!(props.result.to_string().contains("10. Bo/Vác góc"), "tool listed on the part");
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(!outer(&e, doors[0]));
+    // Too large a radius is a clear error.
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [doors[0]], "op": {"kind": "CORNERS", "corners": ["TOP_LEFT"], "size": 5000}}));
+    assert_eq!(r.error.unwrap().code, "INVALID_PARAMETER");
+
+    // 09. Cắt theo tấm: the divider does not cross a door → error; the top crosses the sides → notch.
+    let left = by("HồiTrái")[0];
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [doors[0]], "op": {"kind": "CUT_BY_PANEL", "cutter": left, "clearance": 0}}));
+    assert!(!r.ok);
+
+    // 06. Hợp tấm: the two leaves of a double door do not touch; stretched so they overlap they merge.
+    let r = call(&mut e, json!({"cmd": "merge_panels", "ids": [doors[0], doors[1]]}));
+    assert!(!r.ok, "gap between leaves");
+    let before = e.doc.panel(doors[0]).unwrap().width_mm;
+    let w1 = e.doc.panel(doors[1]).unwrap().width_mm;
+    call(&mut e, json!({"cmd": "set_part_mod", "id": doors[0], "patch": {"extend_delta": [0, 10, 0, 0]}}));
+    call(&mut e, json!({"cmd": "set_part_mod", "id": doors[0], "patch": {"extend_delta": [10, 0, 0, 0]}}));
+    let r = call(&mut e, json!({"cmd": "merge_panels", "ids": [doors[0], doors[1]]}));
+    if r.ok {
+        let w = e.doc.panel(doors[0]).unwrap().width_mm;
+        assert!(w > before + w1 - 1.0, "merged width {w}");
+        assert!(e.doc.panel(doors[1]).is_none(), "second leaf deleted");
+    } else {
+        // Leaves hinge on opposite sides: stretching the left edge moved it away — merge the other way.
+        let r = call(&mut e, json!({"cmd": "merge_panels", "ids": [doors[1], doors[0]]}));
+        assert!(r.ok, "{:?}", r.error);
+    }
+    let _ = cab;
+}
+
+#[test]
+fn chia_tam_splits_a_part_into_pieces() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let names = |e: &mut Engine| -> Vec<(ObjectId, String)> {
+        let t = call(e, json!({"cmd": "get_scene_tree"}));
+        t.result["roots"][0]["children"].as_array().unwrap().iter().map(|n| (serde_json::from_value(n["id"].clone()).unwrap(), n["name"].as_str().unwrap().to_string())).collect()
+    };
+    let back = names(&mut e).into_iter().find(|(_, n)| n == "Hậu").unwrap().0;
+    let h = e.doc.panel(back).unwrap().height_mm;
+    let r = call(&mut e, json!({"cmd": "set_part_mod", "id": back, "patch": {"split": {"axis": "Y", "count": 3, "gap": 2}}}));
+    assert!(r.ok, "{:?}", r.error);
+    let pieces: Vec<ObjectId> = names(&mut e).into_iter().filter(|(_, n)| n.starts_with("Hậu.")).map(|(i, _)| i).collect();
+    assert_eq!(pieces.len(), 3);
+    let ph = e.doc.panel(pieces[0]).unwrap().height_mm;
+    assert!((ph * 3.0 + 4.0 - h).abs() < 1e-6, "{ph}");
+    assert_eq!(pieces[0], back, "first piece keeps the id");
+    // Thickness back to the generated value with an explicit null.
+    call(&mut e, json!({"cmd": "set_part_mod", "id": back, "patch": {"thickness": 17.2}}));
+    call(&mut e, json!({"cmd": "set_part_mod", "id": back, "patch": {"thickness": null}}));
+    assert!((e.doc.panel(back).unwrap().thickness_mm - 8.6).abs() < 1e-9);
+    // Remove the split.
+    call(&mut e, json!({"cmd": "set_part_mod", "id": back, "patch": {"split": null}}));
+    assert_eq!(names(&mut e).iter().filter(|(_, n)| n.starts_with("Hậu")).count(), 1);
+    assert!((e.doc.panel(back).unwrap().height_mm - h).abs() < 1e-9);
+    let _ = cab;
+}

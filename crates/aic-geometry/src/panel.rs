@@ -121,8 +121,32 @@ pub fn build_panel_mesh<K: GeometryKernel>(k: &K, input: &PanelGeometryInput) ->
             solid = k.cut(&solid, &tool)?;
         }
     }
+    // Outer shape override (bo góc, cắt tự do, cắt theo tấm): keep the box inside the profile.
+    let outer = input.features.iter().enumerate().rev().find_map(|(i, f)| match f {
+        MachiningFeature::Contour(c) if !c.inner && c.polygon.points.len() >= 3 => Some((i, c)),
+        _ => None,
+    });
+    if let Some((i, c)) = outer {
+        let e = k.extrude(&c.polygon, t + 2.0 * OVERCUT)?;
+        let e = k.transform(&e, &Transform3D::from_translation(0.0, 0.0, -OVERCUT))?;
+        let e = k.tag_faces(&e, face_ids::FEATURE_BASE + i as u32);
+        solid = k.intersect(&solid, &e)?;
+    }
     let mut mesh = k.tessellate(&solid)?;
-    box_edges(&mut mesh, input.size);
+    match outer {
+        Some((i, c)) => {
+            let id = face_ids::FEATURE_BASE + i as u32;
+            let n = c.polygon.points.len();
+            for j in 0..n {
+                let a = c.polygon.points[j];
+                let b = c.polygon.points[(j + 1) % n];
+                mesh.push_edge([a.x, a.y, 0.0], [b.x, b.y, 0.0], id);
+                mesh.push_edge([a.x, a.y, t], [b.x, b.y, t], id);
+                mesh.push_edge([a.x, a.y, 0.0], [a.x, a.y, t], id);
+            }
+        }
+        None => box_edges(&mut mesh, input.size),
+    }
     for (i, f) in input.features.iter().enumerate() {
         let id = face_ids::FEATURE_BASE + i as u32;
         let zf = |s: FaceSide| if s == FaceSide::A { t } else { 0.0 };
@@ -135,6 +159,15 @@ pub fn build_panel_mesh<K: GeometryKernel>(k: &K, input: &PanelGeometryInput) ->
                     Axis2::Y => (g.width, g.length),
                 };
                 rect_edges(&mut mesh, g.x, g.y, bw, bh, zf(g.side), id)
+            }
+            MachiningFeature::Contour(c) if c.inner => {
+                let n = c.polygon.points.len();
+                for j in 0..n {
+                    let a = c.polygon.points[j];
+                    let b = c.polygon.points[(j + 1) % n];
+                    mesh.push_edge([a.x, a.y, t], [b.x, b.y, t], id);
+                    mesh.push_edge([a.x, a.y, 0.0], [b.x, b.y, 0.0], id);
+                }
             }
             _ => {}
         }

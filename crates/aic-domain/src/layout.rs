@@ -57,6 +57,18 @@ pub struct PartMod {
     /// Manual edge-band overrides (on/off per edge) on top of the cabinet rule.
     #[serde(default)]
     pub edges: BTreeMap<EdgeSide, bool>,
+    /// Chia tấm: the part becomes `count` pieces along an axis with a gap between them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split: Option<PartSplit>,
+}
+
+/// Chia tấm (P11). Pieces get keys `{key}`, `{key}~2`, `{key}~3`, …
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PartSplit {
+    pub axis: crate::Axis2,
+    pub count: u32,
+    #[serde(default)]
+    pub gap: f64,
 }
 
 impl PartMod {
@@ -645,6 +657,75 @@ fn link(cx: &mut Ctx, l: &Link, b: &ZBox) {
     }
 }
 
+/// Reference position of a feature along an axis (for assigning it to a piece).
+fn feature_anchor(f: &MachiningFeature, axis: crate::Axis2) -> f64 {
+    let x = axis == crate::Axis2::X;
+    match f {
+        MachiningFeature::Drill(d) => if x { d.x } else { d.y },
+        MachiningFeature::Pocket(p) => if x { p.x + p.width / 2.0 } else { p.y + p.height / 2.0 },
+        MachiningFeature::Groove(g) => if x { g.x } else { g.y },
+        MachiningFeature::EdgeDrill(e) => e.offset,
+        MachiningFeature::Contour(c) => {
+            let (mn, mx) = c.polygon.bounds();
+            if x { (mn.x + mx.x) / 2.0 } else { (mn.y + mx.y) / 2.0 }
+        }
+    }
+}
+
+/// Replace split parts by their pieces (after the other mods).
+fn split_parts(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
+    let mut parts = Vec::with_capacity(out.parts.len());
+    for p in std::mem::take(&mut out.parts) {
+        let Some(sp) = mods.get(&p.key).and_then(|m| m.split) else {
+            parts.push(p);
+            continue;
+        };
+        let n = sp.count.max(1) as usize;
+        let ax = if sp.axis == crate::Axis2::X { 0 } else { 1 };
+        let len = p.size[ax];
+        let gap = sp.gap.max(0.0);
+        let piece = (len - gap * (n as f64 - 1.0)) / n as f64;
+        if n < 2 || piece < 1.0 || !matches!(p.kind, PartKind::Panel { .. }) {
+            parts.push(p);
+            continue;
+        }
+        let t = aic_math::Transform3D::new(p.translation, p.rotation_deg);
+        for i in 0..n {
+            let start = i as f64 * (piece + gap);
+            let mut q = p.clone();
+            if i > 0 {
+                q.key = format!("{}~{}", p.key, i + 1);
+            }
+            q.name = format!("{}.{}", p.name, i + 1);
+            q.size[ax] = piece;
+            let mut off = [0.0; 3];
+            off[ax] = start;
+            q.translation = t.transform_point(off);
+            if let PartKind::Panel { features, .. } = &mut q.kind {
+                // Keep machining that falls on this piece; an outer shape does not survive a split.
+                features.retain(|f| {
+                    let a = feature_anchor(f, sp.axis);
+                    a >= start - 1e-6 && a < start + piece + gap && !matches!(f, MachiningFeature::Contour(c) if !c.inner)
+                });
+                for f in features.iter_mut() {
+                    if ax == 0 { shift_feature(f, -start, 0.0) } else { shift_feature(f, 0.0, -start) }
+                }
+            }
+            // Pieces follow their own name / delete mods.
+            if let Some(m) = mods.get(&q.key).filter(|_| i > 0) {
+                if m.deleted {
+                    continue;
+                }
+                if let Some(nm) = &m.name {
+                    q.name = nm.clone();
+                }
+            }
+            parts.push(q);
+        }
+    }
+    out.parts = parts;
+}
+
 fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
     out.parts.retain(|p| !mods.get(&p.key).is_some_and(|m| m.deleted));
     for p in &mut out.parts {
@@ -672,9 +753,11 @@ fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
             features.extend(m.features.iter().cloned());
         }
     }
+    split_parts(out, mods);
 }
 
-fn shift_feature(f: &mut MachiningFeature, dx: f64, dy: f64) {
+/// Move a feature by (dx, dy) in the panel's local frame.
+pub fn shift_feature(f: &mut MachiningFeature, dx: f64, dy: f64) {
     match f {
         MachiningFeature::Drill(d) => {
             d.x += dx;

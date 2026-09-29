@@ -11,6 +11,26 @@ const CONSTRAINTS: Record<string, string> = {
   DOOR_TOO_NARROW: 'Cánh tủ sẽ hẹp hơn 50 mm.',
 };
 
+/** Reasons of the shape / merge tools (core keeps English, stable text). */
+function SHAPE_REASON(r: string): string {
+  const table: [string, string][] = [
+    ['too large', 'Kích thước bo/vát lớn hơn cạnh tấm.'],
+    ['no matching corner', 'Góc đã chọn không còn là góc của tấm (đã bo/cắt trước đó).'],
+    ['do not intersect', 'Hai tấm không giao nhau.'],
+    ['removes the whole panel', 'Đường cắt bỏ mất toàn bộ tấm.'],
+    ['does not cross', 'Đường cắt không đi qua tấm.'],
+    ['two distinct points', 'Đường cắt cần hai điểm khác nhau.'],
+    ['different cabinets', 'Các tấm phải thuộc cùng một tủ.'],
+    ['different thickness', 'Các tấm phải cùng độ dày.'],
+    ['same plane', 'Các tấm phải nằm cùng một mặt phẳng.'],
+    ['do not touch', 'Các tấm phải chạm hoặc chồng lên nhau.'],
+    ['two or more', 'Chọn từ 2 tấm trở lên (Ctrl+click).'],
+    ['cabinet parts', 'Tool này dùng cho tấm thuộc tủ.'],
+    ['at least one', 'Chọn ít nhất một tấm.'],
+  ];
+  return table.find(([k]) => r.includes(k))?.[1] ?? 'Kiểm tra lại tấm đã chọn và thông số.';
+}
+
 export interface UserMessage {
   title: string;
   detail: string;
@@ -29,6 +49,8 @@ export function describeError(e: ApiError, action = 'Không thể thực hiện 
     case 'INVALID_PARAMETER':
       if (d.name === 'zone')
         return { title: 'Không thể thêm tấm vào vùng này.', detail: 'Vùng đã được chia theo hướng khác — hãy click ghim một vùng con (ô trống) rồi bấm [TAB].' };
+      if (d.name === 'shape' || d.name === 'merge') return { title: 'Không áp được tool.', detail: SHAPE_REASON(String(d.reason ?? '')) };
+      if (d.name === 'split') return { title: 'Không chia được tấm.', detail: 'Số tấm 2–50, khe 0–100 mm.' };
       if (d.name === 'part') return { title: 'Không áp được tool.', detail: 'Tool này chỉ dùng cho tấm thuộc tủ.' };
       return { title: 'Giá trị không hợp lệ.', detail: 'Kiểm tra lại số hoặc công thức (ví dụ: = cabinet.inner_width - 2).' };
     case 'LOCKED':

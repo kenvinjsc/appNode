@@ -70,6 +70,58 @@ impl Polygon2D {
         self
     }
 
+    /// Ear-clipping triangulation of a simple polygon (any winding, may be concave).
+    /// Returns index triples in counter-clockwise order.
+    pub fn triangulate(&self) -> Vec<[usize; 3]> {
+        let n = self.points.len();
+        if n < 3 {
+            return Vec::new();
+        }
+        let p = &self.points;
+        let mut idx: Vec<usize> = (0..n).collect();
+        if self.signed_area() < 0.0 {
+            idx.reverse();
+        }
+        let cross = |a: Point2, b: Point2, c: Point2| (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+        let inside = |q: Point2, a: Point2, b: Point2, c: Point2| cross(a, b, q) >= -1e-12 && cross(b, c, q) >= -1e-12 && cross(c, a, q) >= -1e-12;
+        let mut out = Vec::with_capacity(n - 2);
+        let mut guard = 0;
+        while idx.len() > 3 && guard < n * n {
+            guard += 1;
+            let m = idx.len();
+            let mut clipped = false;
+            for i in 0..m {
+                let (ia, ib, ic) = (idx[(i + m - 1) % m], idx[i], idx[(i + 1) % m]);
+                let (a, b, c) = (p[ia], p[ib], p[ic]);
+                if cross(a, b, c) <= 1e-12 {
+                    continue; // reflex or degenerate
+                }
+                let blocked = idx.iter().any(|&j| j != ia && j != ib && j != ic && inside(p[j], a, b, c) && {
+                    let q = p[j];
+                    // Points coincident with the ear's vertices do not block it.
+                    !((q.x - a.x).abs() < 1e-9 && (q.y - a.y).abs() < 1e-9 || (q.x - c.x).abs() < 1e-9 && (q.y - c.y).abs() < 1e-9)
+                });
+                if blocked {
+                    continue;
+                }
+                out.push([ia, ib, ic]);
+                idx.remove(i);
+                clipped = true;
+                break;
+            }
+            if !clipped {
+                // Degenerate input (collinear run): drop a vertex and continue.
+                let m = idx.len();
+                let i = (0..m).find(|&i| cross(p[idx[(i + m - 1) % m]], p[idx[i]], p[idx[(i + 1) % m]]).abs() <= 1e-12).unwrap_or(0);
+                idx.remove(i);
+            }
+        }
+        if idx.len() == 3 && cross(p[idx[0]], p[idx[1]], p[idx[2]]).abs() > 1e-12 {
+            out.push([idx[0], idx[1], idx[2]]);
+        }
+        out
+    }
+
     /// Sutherland–Hodgman clip of `self` against a *convex* clip polygon.
     pub fn clip_convex(&self, clip: &Polygon2D) -> Polygon2D {
         let clip = clip.clone().ensure_ccw();

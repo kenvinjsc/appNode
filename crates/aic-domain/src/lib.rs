@@ -15,7 +15,7 @@ pub mod scene;
 pub mod zone;
 
 pub use cabinet::{CabinetKind, CabinetSpec, JoinStyle, MaterialSlot, PanelTemplate};
-pub use layout::{build as build_cabinet, CabinetValues, Fittings, Layout, Part, PartKind, PartMod, PanelPosition, ZoneBox};
+pub use layout::{build as build_cabinet, CabinetValues, Fittings, Layout, Part, PartKind, PartMod, PartSplit, PanelPosition, ZoneBox};
 pub use error::DomainError;
 pub use feature::*;
 pub use ids::{IdAllocator, MaterialId, NodeId, ObjectId};

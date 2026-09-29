@@ -5,7 +5,7 @@ import { useUi } from '../../app/uiStore';
 import { Actions } from '../../app/actions';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
-import type { EdgeSide, FaceSide, MachiningFeature } from '../../core-api/types';
+import type { Corner, EdgeSide, FaceSide, MachiningFeature, ObjectId } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { Num, Radio, Steps } from '../../shared/ui';
 import { cabinetOf } from '../cabinet/useZones';
@@ -14,22 +14,23 @@ const TOOLS: [string, string, boolean][] = [
   ['01', 'Xoá tấm', true],
   ['02', 'Ẩn tấm', true],
   ['03', 'Khấu góc tủ', true],
-  ['04', 'Cắt tự do', false],
+  ['04', 'Cắt tự do', true],
   ['05', 'Cắt có liên kết', false],
-  ['06', 'Hợp tấm', false],
+  ['06', 'Hợp tấm', true],
   ['07', 'Ghép bề mặt', false],
   ['08', 'Khấu bề mặt', true],
-  ['09', 'Cắt theo tấm', false],
-  ['10', 'Bo/Vác góc', false],
+  ['09', 'Cắt theo tấm', true],
+  ['10', 'Bo/Vác góc', true],
   ['11', 'Co giãn tấm', true],
   ['12', 'Tạo Rãnh', true],
   ['13', 'Đảo phủ/lọt', true],
-  ['14', 'Ghép bề dày', false],
+  ['14', 'Ghép bề dày', true],
   ['15', 'Mộng đan tay', false],
   ['16', 'Bào rãnh LED', true],
   ['17', 'Tạo ray kéo', true],
   ['18', 'Tạo Vbit', true],
   ['19', 'Xoá tool cả tủ', true],
+  ['20', 'Chia tấm', true],
 ];
 
 export function ToolColumn() {
@@ -78,8 +79,18 @@ function ToolForm({ id }: { id: string }) {
       return <HideTool />;
     case '03':
       return <NotchTool />;
+    case '04':
+      return <FreeCutTool />;
+    case '06':
+      return <MergeTool />;
     case '08':
       return <PocketTool />;
+    case '09':
+      return <CutByPanelTool />;
+    case '10':
+      return <CornerTool />;
+    case '14':
+      return <LaminateTool />;
     case '11':
       return <StretchTool />;
     case '12':
@@ -94,6 +105,8 @@ function ToolForm({ id }: { id: string }) {
       return <GrooveLineTool tool="18. Tạo Vbit" defaults={{ width: 6, depth: 3, offset: 100 }} />;
     case '19':
       return <ClearToolsTool />;
+    case '20':
+      return <SplitPartTool />;
     default:
       return null;
   }
@@ -330,6 +343,236 @@ function ClearToolsTool() {
     <div className="tool-form">
       <Steps steps={[{ label: 'Chọn tủ', done: cabinet !== null }]} />
       <button className="btn danger-btn" disabled={cabinet === null} onClick={() => void apply()}>Xoá tool cả tủ</button>
+    </div>
+  );
+}
+
+/** Panel size from the property sheet (w, h, t) and whether it belongs to a cabinet. */
+async function panelSize(id: ObjectId): Promise<{ w: number; h: number; t: number; generated: boolean } | null> {
+  const sheet = await Queries.properties(id).catch(() => null);
+  if (!sheet || sheet.kind !== 'PANEL') return null;
+  const v = (k: string) => Number(sheet.groups.flatMap((g) => g.fields).find((f) => f.key === k)?.value ?? 0);
+  const node = findIn(useUi.getState().tree?.roots ?? [], id);
+  return { w: v('width'), h: v('height'), t: v('thickness'), generated: !!node?.generated };
+}
+
+function findIn(nodes: { id: number; generated?: boolean; children: unknown[] }[], id: number): { generated?: boolean } | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const f = findIn(n.children as never, id);
+    if (f) return f;
+  }
+  return null;
+}
+
+const CORNERS: [Corner, string][] = [
+  ['TOP_LEFT', 'Trên trái'],
+  ['TOP_RIGHT', 'Trên phải'],
+  ['BOTTOM_LEFT', 'Dưới trái'],
+  ['BOTTOM_RIGHT', 'Dưới phải'],
+];
+
+function CornerPicker({ value, onChange, multi }: { value: Corner[]; onChange: (v: Corner[]) => void; multi: boolean }) {
+  return (
+    <div className="corner-pick" role="group" aria-label="Góc">
+      {CORNERS.map(([c, l]) => (
+        <button
+          key={c}
+          type="button"
+          className={`${c.toLowerCase().replace('_', '-')} ${value.includes(c) ? 'on' : ''}`}
+          title={l}
+          onClick={() => onChange(multi ? (value.includes(c) ? value.filter((x) => x !== c) : [...value, c]) : [c])}
+        />
+      ))}
+      <span className="corner-panel" />
+    </div>
+  );
+}
+
+function ClearShape({ ids }: { ids: ObjectId[] }) {
+  return (
+    <button className="btn" disabled={!ids.length} onClick={() => ids.forEach((id) => void Commands.setPartMod(id, { clear_shape: true }).catch(() => undefined))}>
+      Bỏ hình dạng (về chữ nhật)
+    </button>
+  );
+}
+
+function CornerTool() {
+  const { selection } = useTargets();
+  const [corners, setCorners] = useState<Corner[]>(['TOP_LEFT', 'TOP_RIGHT']);
+  const [size, setSize] = useState(50);
+  const [mode, setMode] = useState<'R' | 'C'>('R');
+  const apply = () => void Commands.shapeTool(selection, { kind: 'CORNERS', corners, size, chamfer: mode === 'C' }).catch(() => undefined);
+  return (
+    <div className="tool-form">
+      <Steps
+        steps={[
+          { label: 'Chọn 01 hoặc nhiều tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` },
+          { label: 'Chọn góc', done: corners.length > 0, detail: `${corners.length} góc` },
+        ]}
+      />
+      <CornerPicker value={corners} onChange={setCorners} multi />
+      <Radio value={mode} onChange={setMode} options={[['R', 'Bo tròn (R)'], ['C', 'Vát góc (C)']]} />
+      <div className="form-row"><label>{mode === 'R' ? 'Bán kính R' : 'Cạnh vát C'}</label><Num value={size} onCommit={setSize} /></div>
+      <button className="btn primary" disabled={!selection.length || !corners.length} onClick={apply}>{mode === 'R' ? 'Bo góc' : 'Vát góc'}</button>
+      <ClearShape ids={selection} />
+      <p className="muted small">Góc tính theo mặt A của tấm (trục X = rộng, Y = cao). Bo góc có đường gia công CNC theo biên dạng mới.</p>
+    </div>
+  );
+}
+
+function FreeCutTool() {
+  const { selection } = useTargets();
+  const [mode, setMode] = useState<'CORNER' | 'LINE'>('CORNER');
+  const [corner, setCorner] = useState<Corner[]>(['TOP_RIGHT']);
+  const [dx, setDx] = useState(100);
+  const [dy, setDy] = useState(100);
+  const [pts, setPts] = useState({ x1: 0, y1: 0, x2: 100, y2: 100 });
+  const [keep, setKeep] = useState<'AUTO' | 'LEFT' | 'RIGHT'>('AUTO');
+  const apply = async () => {
+    for (const id of selection) {
+      const s = await panelSize(id);
+      if (!s) continue;
+      let a: [number, number];
+      let b: [number, number];
+      if (mode === 'LINE') {
+        a = [pts.x1, pts.y1];
+        b = [pts.x2, pts.y2];
+      } else {
+        const c = corner[0];
+        const cx = c.endsWith('LEFT') ? 0 : s.w;
+        const cy = c.startsWith('BOTTOM') ? 0 : s.h;
+        const sx = c.endsWith('LEFT') ? 1 : -1;
+        const sy = c.startsWith('BOTTOM') ? 1 : -1;
+        a = [cx + sx * dx, cy];
+        b = [cx, cy + sy * dy];
+      }
+      await Commands.shapeTool([id], { kind: 'CUT_LINE', a, b, keep: mode === 'LINE' ? keep : 'AUTO' }).catch(() => undefined);
+    }
+  };
+  return (
+    <div className="tool-form">
+      <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
+      <Radio value={mode} onChange={setMode} options={[['CORNER', 'Cắt xiên một góc'], ['LINE', 'Cắt theo 2 điểm']]} />
+      {mode === 'CORNER' ? (
+        <>
+          <CornerPicker value={corner} onChange={setCorner} multi={false} />
+          <div className="form-row"><label>Theo chiều rộng</label><Num value={dx} onCommit={setDx} /></div>
+          <div className="form-row"><label>Theo chiều cao</label><Num value={dy} onCommit={setDy} /></div>
+        </>
+      ) : (
+        <>
+          {(['x1', 'y1', 'x2', 'y2'] as const).map((k) => (
+            <div className="form-row" key={k}>
+              <label>{{ x1: 'Điểm 1 · X', y1: 'Điểm 1 · Y', x2: 'Điểm 2 · X', y2: 'Điểm 2 · Y' }[k]}</label>
+              <Num value={pts[k]} onCommit={(v) => setPts({ ...pts, [k]: v })} />
+            </div>
+          ))}
+          <Radio value={keep} onChange={setKeep} options={[['AUTO', 'Giữ phần lớn'], ['LEFT', 'Giữ bên trái đường 1→2'], ['RIGHT', 'Giữ bên phải đường 1→2']]} />
+        </>
+      )}
+      <button className="btn primary" disabled={!selection.length} onClick={() => void apply()}>Cắt</button>
+      <ClearShape ids={selection} />
+    </div>
+  );
+}
+
+function CutByPanelTool() {
+  const { selection, tree } = useTargets();
+  const [cutter, setCutter] = useState<ObjectId | null>(null);
+  const [clearance, setClearance] = useState(0);
+  const name = (id: ObjectId | null) => {
+    const walk = (ns: { id: number; name: string; children: unknown[] }[]): string | null => {
+      for (const n of ns) {
+        if (n.id === id) return n.name;
+        const r = walk(n.children as never);
+        if (r) return r;
+      }
+      return null;
+    };
+    return id === null ? '' : walk(tree?.roots ?? []) ?? `#${id}`;
+  };
+  const targets = selection.filter((id) => id !== cutter);
+  return (
+    <div className="tool-form">
+      <Steps
+        steps={[
+          { label: 'Chọn tấm cắt (tấm đâm xuyên)', done: cutter !== null, detail: name(cutter) },
+          { label: 'Chọn các tấm bị cắt', done: targets.length > 0, detail: `Đã chọn ${targets.length}` },
+        ]}
+      />
+      <button className="btn" disabled={selection.length !== 1} onClick={() => setCutter(selection[0])}>Lấy tấm đang chọn làm tấm cắt</button>
+      <div className="form-row"><label>Khe hở mỗi phía</label><Num value={clearance} onCommit={setClearance} /></div>
+      <button className="btn primary" disabled={cutter === null || !targets.length} onClick={() => void Commands.shapeTool(targets, { kind: 'CUT_BY_PANEL', cutter: cutter!, clearance }).catch(() => undefined)}>
+        Cắt theo tấm
+      </button>
+      <ClearShape ids={targets} />
+      <p className="muted small">Xuyên hết chiều dày: ở mép → đổi biên dạng, ở giữa → khoét lỗ. Không xuyên hết → khấu mặt (pocket) đúng độ sâu.</p>
+    </div>
+  );
+}
+
+function MergeTool() {
+  const { selection } = useTargets();
+  return (
+    <div className="tool-form">
+      <Steps
+        steps={[
+          { label: 'Ctrl+click chọn ≥ 2 tấm cùng mặt phẳng, cùng độ dày', done: selection.length > 1, detail: `Đã chọn ${selection.length}` },
+          { label: 'Tấm chọn đầu tiên được giữ lại', done: selection.length > 1 },
+        ]}
+      />
+      <button className="btn primary" disabled={selection.length < 2} onClick={() => void Commands.mergePanels(selection).then((r) => useUi.getState().select([r.id])).catch(() => undefined)}>
+        Hợp tấm
+      </button>
+    </div>
+  );
+}
+
+function LaminateTool() {
+  const { selection } = useTargets();
+  const [layers, setLayers] = useState(2);
+  const apply = async () => {
+    for (const id of selection) {
+      const s = await panelSize(id);
+      if (!s) continue;
+      const t = Math.round(s.t * layers * 100) / 100;
+      const run = s.generated
+        ? Commands.setPartMod(id, { thickness: t, tool: '14. Ghép bề dày', add_features: [] })
+        : Commands.setParameter(id, 'thickness', String(t));
+      await run.catch(() => undefined);
+    }
+  };
+  return (
+    <div className="tool-form">
+      <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
+      <div className="form-row"><label>Số lớp ghép</label><Num value={layers} onCommit={(v) => setLayers(Math.max(2, Math.round(v)))} /></div>
+      <button className="btn primary" disabled={!selection.length} onClick={() => void apply()}>Ghép bề dày</button>
+      <button className="btn" disabled={!selection.length} onClick={() => selection.forEach((id) => void Commands.setPartMod(id, { thickness: null }).catch(() => undefined))}>
+        Bỏ ghép (độ dày gốc)
+      </button>
+    </div>
+  );
+}
+
+function SplitPartTool() {
+  const { selection } = useTargets();
+  const [axis, setAxis] = useState<'X' | 'Y'>('Y');
+  const [count, setCount] = useState(2);
+  const [gap, setGap] = useState(2);
+  return (
+    <div className="tool-form">
+      <Steps steps={[{ label: 'Chọn tấm thuộc tủ (hậu, cánh, hồi…)', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
+      <Radio value={axis} onChange={setAxis} options={[['Y', 'Chia theo chiều cao (ngang)'], ['X', 'Chia theo chiều rộng (dọc)']]} />
+      <div className="form-row"><label>Số tấm</label><Num value={count} onCommit={(v) => setCount(Math.min(50, Math.max(2, Math.round(v))))} /></div>
+      <div className="form-row"><label>Khe giữa các tấm</label><Num value={gap} onCommit={setGap} /></div>
+      <button className="btn primary" disabled={!selection.length} onClick={() => selection.forEach((id) => void Commands.setPartMod(id, { split: { axis, count, gap } }).catch(() => undefined))}>
+        Chia tấm
+      </button>
+      <button className="btn" disabled={!selection.length} onClick={() => selection.forEach((id) => void Commands.setPartMod(id, { split: null }).catch(() => undefined))}>
+        Bỏ chia (chọn tấm thứ nhất)
+      </button>
+      <p className="muted small">Các tấm con tự cập nhật khi tủ đổi kích thước. Gia công nằm trên tấm con nào thì giữ ở tấm đó.</p>
     </div>
   );
 }

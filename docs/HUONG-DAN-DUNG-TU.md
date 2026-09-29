@@ -139,14 +139,20 @@ Chọn tấm rồi chọn tool. Các tool đã dùng được:
 | 01 Xóa | Xóa tấm đang chọn (hoàn tác được). |
 | 02 Ẩn/Hiện | Ẩn hoặc hiện tấm. |
 | 03 Khấu góc | Khoét góc xuyên tấm. |
+| 04 Cắt tự do | Cắt xiên một góc (nhập 2 khoảng cách) hoặc cắt theo đường qua 2 điểm; chọn giữ phần lớn / trái / phải. |
+| 06 Hợp tấm | Ctrl+click ≥ 2 tấm cùng mặt phẳng, cùng độ dày, chạm nhau → gộp vào tấm chọn đầu. |
 | 08 Khấu bề mặt | Khoét một phần bề mặt. |
+| 09 Cắt theo tấm | Lấy một tấm làm "tấm cắt", chọn các tấm bị cắt, khe hở mỗi phía. Xuyên ở mép → đổi biên dạng; xuyên giữa → khoét lỗ; không xuyên hết → khấu mặt. |
+| 10 Bo/Vác góc | Chọn góc trên sơ đồ, bo tròn R hoặc vát C. Có nút "Bỏ hình dạng". |
 | 11 Co giãn | Chọn cạnh → nhập mm → Enter. Cộng dồn, ± để bù thêm, có nút bỏ co giãn. |
 | 12 Tạo rãnh | Đặt rãnh hậu của tủ. |
 | 13 Đảo phủ/lọt | Đổi cánh hoặc ngăn kéo giữa phủ bì và lọt lòng. |
+| 14 Ghép bề dày | Nhân độ dày theo số lớp (2 lớp 17.2 → 34.4); "Bỏ ghép" về độ dày gốc. |
 | 16 Rãnh LED | Tạo rãnh LED. |
 | 17 | Mở phần Ngăn kéo. |
 | 18 Vbit | Rãnh V-bit. |
 | 19 Xóa tool cả tủ | Xóa mọi gia công đã thêm của tủ. |
+| 20 Chia tấm | Chia một tấm (hậu, cánh…) thành 2–50 tấm theo chiều cao hoặc rộng, có khe; tự cập nhật khi đổi kích thước tủ. |
 
 Các tool ghi "Sắp có" chưa làm.
 
