@@ -222,6 +222,8 @@ Chọn tấm rồi chọn tool. Các tool đã dùng được:
 | 22 Biên dạng tự do | Click trên sơ đồ tấm để đặt điểm (bắt 5 mm, Shift 1 mm) hoặc nhập X/Y; chọn Cắt bỏ vùng / Khoét lỗ xuyên / Thay cả biên dạng. Đa giác tự cắt bị từ chối. |
 | 23 Quan hệ 2 tấm | Như menu chuột phải: phủ / lọt / bằng mặt / khe / bỏ. |
 
+![Biên dạng tự do: cung lõm cạnh trên + lỗ tam giác](screenshots/11-bien-dang.png)
+
 Các tool ghi "Sắp có" chưa làm.
 
 ## 6. Báo cáo
