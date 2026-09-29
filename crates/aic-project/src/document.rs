@@ -30,6 +30,35 @@ pub struct ProjectSettings {
     /// Screws counted per fitting (vít).
     #[serde(default)]
     pub screws: ScrewRule,
+    /// Cabinet templates saved from this project (logical model, not geometry).
+    #[serde(default)]
+    pub templates: Vec<CabinetTemplate>,
+    /// Rule presets saved by the user (built-in ones live in code).
+    #[serde(default)]
+    pub presets: Vec<RulePreset>,
+}
+
+/// Template tủ: the logical definition (zones, bays, fronts, mods, rules, materials)
+/// plus the cabinet's construction parameters. Inserting re-solves it for new W/H/D.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CabinetTemplate {
+    pub name: String,
+    pub kind: aic_domain::CabinetKind,
+    pub cabinet: aic_domain::Cabinet,
+    pub params: BTreeMap<String, f64>,
+}
+
+/// Rule preset: construction values + join styles + edge rule.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RulePreset {
+    pub name: String,
+    pub values: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub top_style: Option<aic_domain::JoinStyle>,
+    #[serde(default)]
+    pub bottom_style: Option<aic_domain::JoinStyle>,
+    #[serde(default)]
+    pub edge_rule: Option<aic_domain::EdgeRule>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -56,6 +85,8 @@ impl Default for ProjectSettings {
             max_relation_gap_mm: 5.0,
             prices: default_prices(),
             screws: ScrewRule::default(),
+            templates: Vec::new(),
+            presets: Vec::new(),
         }
     }
 }

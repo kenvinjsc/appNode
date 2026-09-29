@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { CabinetKind } from '../../core-api/types';
+import { Queries } from '../../core-api/queries';
+import type { CabinetKind, TemplatesInfo } from '../../core-api/types';
 import { Collapse, Fieldset, Num, Radio } from '../../shared/ui';
 import { View } from '../../viewport/viewportBus';
 import { useCurrentCabinet, useTabAction } from './useZones';
@@ -58,6 +59,15 @@ export function FrameTab() {
   const [skip, setSkip] = useState<Record<string, boolean>>({ '17.2': false, '8.6': true });
   const [threshold, setThreshold] = useState(0.5);
   const [minLen, setMinLen] = useState(20);
+  const [tpl, setTpl] = useState('');
+  const [preset, setPreset] = useState('');
+  const [lib, setLib] = useState<TemplatesInfo | null>(null);
+  const revision = useUi((s) => s.revision);
+  useEffect(() => {
+    Queries.templates()
+      .then(setLib)
+      .catch(() => setLib(null));
+  }, [revision]);
 
   const pickFrame = (k: CabinetKind) => {
     const f = FRAMES.find((x) => x.kind === k)!;
@@ -77,7 +87,11 @@ export function FrameTab() {
       min_length: minLen,
     };
     try {
-      const r = await Commands.createCabinet(
+      const after = sameRoom ? current ?? undefined : undefined;
+      const fl = activeFloor === null ? cur?.floor : floor;
+      const r = tpl
+        ? await Commands.insertTemplate({ name: tpl, width: size[0], height: size[1], depth: size[2], room, floor: fl, after })
+        : await Commands.createCabinet(
         frame,
         null,
         { width: size[0], height: size[1], depth: size[2], top_style: top, bottom_style: bottom, edge_rule, back_groove: groove },
@@ -85,6 +99,8 @@ export function FrameTab() {
         // continues the room's row (or opens a new area for a new room).
         { room, floor: activeFloor === null ? cur?.floor : floor, name: name.trim() || undefined, after: sameRoom ? current ?? undefined : undefined },
       );
+      if (preset) await Commands.applyRulePreset([r.id], preset).catch(() => undefined);
+      if (tpl && name.trim()) await Commands.setName(r.id, name.trim()).catch(() => undefined);
       select([r.id]);
       setName('');
       // Frame the new cabinet once the tree read model includes it.
@@ -98,7 +114,7 @@ export function FrameTab() {
       /* toast shown */
     }
   };
-  useTabAction(() => void create(), [room, name, frame, size, top, bottom, groove, mode, band, skip, threshold, minLen, current, sameRoom, floor, activeFloor, cur]);
+  useTabAction(() => void create(), [room, name, frame, size, top, bottom, groove, mode, band, skip, threshold, minLen, current, sameRoom, floor, activeFloor, cur, tpl, preset]);
 
   return (
     <div className="designer-form">
@@ -141,6 +157,41 @@ export function FrameTab() {
           </select>
         </div>
       </Fieldset>
+      <Collapse title="Template & Rule preset" defaultOpen={!!lib?.templates.length}>
+        <div className="form-row">
+          <label>Template</label>
+          <select
+            className="field"
+            value={tpl}
+            onChange={(e) => {
+              setTpl(e.target.value);
+              const t = lib?.templates.find((x) => x.name === e.target.value);
+              if (t) setSize(t.size);
+            }}
+          >
+            <option value="">— Không (khung trống) —</option>
+            {lib?.templates.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name} · {t.size.map((v) => Math.round(v)).join('×')}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-row">
+          <label>Rule preset</label>
+          <select className="field" value={preset} onChange={(e) => setPreset(e.target.value)}>
+            <option value="">— Mặc định —</option>
+            {lib?.presets.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="muted small">
+          Template giữ cấu trúc khoang (KHÓA / % / AUTO), cánh, ngăn kéo, luật và vật liệu; nhập W/H/D ở trên, phần mềm tính lại. Lưu template: chuột phải một tủ → Lưu làm template.
+        </p>
+      </Collapse>
       <Collapse title="Luật liên kết">
         <div className="form-row">
           <label>Nóc</label>

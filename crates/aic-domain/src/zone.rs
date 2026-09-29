@@ -720,6 +720,37 @@ mod tests {
     }
 }
 
+impl Zone {
+    /// Lật gương theo chiều rộng: splits along X reverse, hinges swap sides.
+    pub fn mirror_x(&mut self) {
+        if let Some(s) = &mut self.split {
+            if s.axis == 0 {
+                s.panels.reverse();
+                s.children.reverse();
+                s.bays.reverse();
+                for p in &mut s.panels {
+                    match p.lock {
+                        Lock::FromStart => p.lock = Lock::FromEnd,
+                        Lock::FromEnd => p.lock = Lock::FromStart,
+                        Lock::Ratio => p.value = 1.0 - p.value,
+                        Lock::Even => {}
+                    }
+                }
+            }
+            for c in &mut s.children {
+                c.mirror_x();
+            }
+        }
+        if let Some(Front::Doors(d)) = &mut self.front {
+            d.hinge = match d.hinge {
+                HingeSide::Left => HingeSide::Right,
+                HingeSide::Right => HingeSide::Left,
+                h => h,
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod bay_tests {
     use super::*;

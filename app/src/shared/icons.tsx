@@ -5,6 +5,8 @@ const P: Record<string, JSX.Element> = {
   logo: (<><path d="M12 2.5 20.5 7.3v9.4L12 21.5 3.5 16.7V7.3z" fill="currentColor" stroke="none" /><path d="M12 12 20.5 7.3M12 12 3.5 7.3M12 12v9.5" stroke="#fff" /></>),
   new: (<><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M12 11v6M9 14h6" /></>),
   open: (<><path d="M3 7h6l2 2h10v10H3z" /><path d="M3 7V5h6l2 2" /></>),
+  edit: (<><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13 7l4 4" /></>),
+  mirror: (<><path d="M12 3v18" strokeDasharray="2 2" /><path d="M9 6L3 18h6z" /><path d="M15 6l6 12h-6z" /></>),
   save: (<><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4" /><rect x="8" y="13" width="8" height="5" /></>),
   saveAs: (<><path d="M5 4h11l3 3v6" /><path d="M5 4v16h7" /><path d="M8 4v5h7V4" /><path d="M15 21l1-3 4-4 2 2-4 4z" /></>),
   undo: (<><path d="M9 7 5 11l4 4" /><path d="M5 11h9a5 5 0 0 1 0 10h-2" /></>),

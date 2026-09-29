@@ -4,8 +4,7 @@ import { describeError } from './errors';
 import { CommandError } from './commands';
 import type {
   AssemblyRelation, Bounds, CncProgram, Costing, ZonesInfo, FlatPanel, Material, NestingJobResult, NestingPlacement, NestingSettings,
-  ObjectId, PartsReport, PropertySheet, RenderBatch, SceneTree, SnapResult, Vec3,
-} from './types';
+  ObjectId, PartsReport, PropertySheet, RenderBatch, SceneTree, SnapResult, Vec3, TemplatesInfo } from './types';
 
 async function query<T>(req: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const r = await send<T>(req, signal);
@@ -18,6 +17,7 @@ async function query<T>(req: Record<string, unknown>, signal?: AbortSignal): Pro
 export const Queries = {
   sceneTree: () => query<SceneTree>({ cmd: 'get_scene_tree' }),
   properties: (id: ObjectId) => query<PropertySheet>({ cmd: 'get_properties', id }),
+  templates: () => query<TemplatesInfo>({ cmd: 'get_templates' }),
   propertiesMulti: (ids: ObjectId[]) => query<PropertySheet>({ cmd: 'get_properties_multi', ids }),
   renderObjects: (ids: ObjectId[] | null, knownKeys: string[]) =>
     query<RenderBatch>({ cmd: 'get_render_objects', ids, known_keys: knownKeys }),

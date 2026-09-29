@@ -13,6 +13,7 @@ mod costing;
 mod render;
 mod zones;
 pub mod shape;
+mod templates;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
 
@@ -322,6 +323,31 @@ impl Engine {
             Redo => ok(json!({ "label": self.history.redo(&mut self.doc)? })),
             GetSceneTree => ok(properties::scene_tree(&self.doc)),
             GetProperties { id } => ok(properties::properties(self, id)?),
+            SaveTemplate { cabinet, name } => ok(self.save_template(cabinet, &name)?),
+            InsertTemplate { name, width, height, depth, position, room, floor, after } => ok(self.insert_template(&name, [width, height, depth], position, room, floor, after)?),
+            DeleteTemplate { name } => {
+                self.delete_template(&name)?;
+                ok(json!({}))
+            }
+            GetTemplates => ok(self.templates_info()),
+            SaveRulePreset { cabinet, name } => {
+                self.save_rule_preset(cabinet, &name)?;
+                ok(json!({}))
+            }
+            DeleteRulePreset { name } => {
+                self.delete_rule_preset(&name)?;
+                ok(json!({}))
+            }
+            ApplyRulePreset { ids, name } => {
+                self.apply_rule_preset(&ids, &name)?;
+                ok(json!({}))
+            }
+            ArraySplitPanel { id, count } => ok(self.array_split_panel(id, count)?),
+            ArrayCabinet { id, count, axis, gap } => ok(self.array_cabinet(id, count, axis, gap)?),
+            MirrorCabinet { id } => {
+                self.mirror_cabinet(id)?;
+                ok(json!({}))
+            }
             GetPropertiesMulti { ids } => ok(properties::properties_multi(self, &ids)?),
             SetParameterMulti { ids, name, value } => {
                 let mark = self.history.mark();

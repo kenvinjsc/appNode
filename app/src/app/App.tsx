@@ -14,7 +14,7 @@ import { SceneTree } from '../features/scene-tree/SceneTree';
 import { Icon } from '../shared/icons';
 import { Viewport } from '../viewport/Viewport';
 import { Actions } from './actions';
-import { ContextMenu, Jobs, StatusBar, TitleBar, Toasts, WorkspaceRail, ZoneMenu } from './Chrome';
+import { ContextMenu, Jobs, PromptDialog, StatusBar, TitleBar, Toasts, WorkspaceRail, ZoneMenu } from './Chrome';
 import { Ribbon } from './Ribbon';
 import { ShortcutSheet, useShortcutLayer } from './Shortcuts';
 import { useUi } from './uiStore';
@@ -85,6 +85,7 @@ export function App() {
       <StatusBar />
       <ContextMenu />
       <ZoneMenu />
+      <PromptDialog />
       <Toasts />
       <Jobs />
     </div>

@@ -65,6 +65,8 @@ interface UiState {
   contextMenu: { x: number; y: number; id: ObjectId } | null;
   /** Quick build menu on a zone (right-click in "Tạo tấm"). */
   zoneMenu: { x: number; y: number; cabinet: ObjectId; zone: number } | null;
+  /** Small input dialog (tên template, số lượng…). */
+  prompt: { title: string; label: string; value: string; ok: (v: string) => void } | null;
   renaming: ObjectId | null;
   cursor: [number, number, number] | null;
   mfgPanel: ObjectId | null;
@@ -130,6 +132,7 @@ export const useUi = create<UiState>((set, get) => ({
   jobs: [],
   contextMenu: null,
   zoneMenu: null,
+  prompt: null,
   renaming: null,
   cursor: null,
   mfgPanel: null,

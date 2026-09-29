@@ -185,6 +185,35 @@ pub enum Request {
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
+    // template / preset / array / mirror
+    SaveTemplate { cabinet: ObjectId, name: String },
+    InsertTemplate {
+        name: String,
+        #[serde(default)]
+        width: Option<f64>,
+        #[serde(default)]
+        height: Option<f64>,
+        #[serde(default)]
+        depth: Option<f64>,
+        #[serde(default)]
+        position: Option<[f64; 3]>,
+        #[serde(default)]
+        room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
+        #[serde(default)]
+        after: Option<ObjectId>,
+    },
+    DeleteTemplate { name: String },
+    GetTemplates,
+    SaveRulePreset { cabinet: ObjectId, name: String },
+    DeleteRulePreset { name: String },
+    ApplyRulePreset { ids: Vec<ObjectId>, name: String },
+    /// Nhân tấm: `count` more shelves / dividers like this one, bays equal.
+    ArraySplitPanel { id: ObjectId, count: u32 },
+    /// Nhân dãy tủ: `count` copies along axis 0/1/2 with a gap.
+    ArrayCabinet { id: ObjectId, count: u32, #[serde(default)] axis: usize, #[serde(default)] gap: f64 },
+    MirrorCabinet { id: ObjectId },
     /// Multi-edit: the same parameter on many objects, one undo step, all or nothing.
     SetParameterMulti { ids: Vec<ObjectId>, name: String, value: String },
     /// Property sheet of several objects: common fields, `mixed` where values differ.

@@ -131,6 +131,31 @@ pub struct Anchors {
 }
 
 impl Cabinet {
+    /// Lật gương trái ↔ phải: zone tree, hinges and left/right part mods.
+    pub fn mirror_x(&mut self) {
+        self.zones.root.mirror_x();
+        let mut mods = BTreeMap::new();
+        for (k, mut m) in std::mem::take(&mut self.mods) {
+            let key = match k.as_str() {
+                "c:left" => "c:right".to_string(),
+                "c:right" => "c:left".to_string(),
+                _ => k,
+            };
+            m.extend.swap(0, 1);
+            m.offsets.swap(0, 1);
+            let l = m.edges.remove(&crate::EdgeSide::Left);
+            let r = m.edges.remove(&crate::EdgeSide::Right);
+            if let Some(v) = l {
+                m.edges.insert(crate::EdgeSide::Right, v);
+            }
+            if let Some(v) = r {
+                m.edges.insert(crate::EdgeSide::Left, v);
+            }
+            mods.insert(key, m);
+        }
+        self.mods = mods;
+    }
+
     pub fn from_spec(id: ObjectId, name: String, s: &CabinetSpec) -> Self {
         Cabinet {
             id,

@@ -427,3 +427,8 @@ export interface PartModPatch {
   add_features?: MachiningFeature[];
   tool?: string;
 }
+
+export interface TemplatesInfo {
+  templates: { name: string; kind: CabinetKind; frame: string; size: [number, number, number]; zones: number }[];
+  presets: { name: string; builtin: boolean; values: Record<string, number>; top_style: string | null; bottom_style: string | null }[];
+}

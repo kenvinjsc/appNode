@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import { findNode, useUi, type DesignerTab } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
-import type { Costing } from '../../core-api/types';
+import type { Costing, TemplatesInfo } from '../../core-api/types';
+import { Collapse } from '../../shared/ui';
+import { cabinetOf } from './useZones';
 import { Icon } from '../../shared/icons';
-import { fmt } from '../../shared/i18n';
+import { FIELD_LABEL, fmt } from '../../shared/i18n';
 import { View } from '../../viewport/viewportBus';
 import { MaterialBrowser } from '../materials/MaterialBrowser';
 import { PropertiesPanel } from '../properties/PropertiesPanel';
@@ -104,9 +106,73 @@ function ManageTab() {
 }
 
 function SettingsTab() {
-  const { snap, gridSize, showZones, isolate, set } = useUi();
+  const { snap, gridSize, showZones, isolate, set, revision, tree, active } = useUi();
+  const [lib, setLib] = useState<TemplatesInfo | null>(null);
+  const [preset, setPreset] = useState('AIC Wardrobe Standard');
+  useEffect(() => {
+    Queries.templates()
+      .then(setLib)
+      .catch(() => setLib(null));
+  }, [revision]);
+  const cab = cabinetOf(tree, active);
   return (
     <div className="designer-form">
+      <Collapse title={`Template tủ (${lib?.templates.length ?? 0})`} defaultOpen>
+        <div className="tpl-list">
+          {lib?.templates.map((t) => (
+            <div className="tpl-item" key={t.name}>
+              <span>{t.name}</span>
+              <small>{t.size.map((v) => Math.round(v)).join('×')}</small>
+              <button className="icon-btn danger" title="Xóa template" onClick={() => void Commands.deleteTemplate(t.name).catch(() => undefined)}>
+                <Icon name="x" size={12} />
+              </button>
+            </div>
+          ))}
+          {!lib?.templates.length && <p className="muted small">Chưa có. Chuột phải một tủ → Lưu làm template.</p>}
+        </div>
+        <button
+          className="btn"
+          disabled={cab === null}
+          onClick={() => cab !== null && set({ prompt: { title: 'Lưu tủ làm template', label: 'Tên template', value: '', ok: (v) => void Commands.saveTemplate(cab, v).catch(() => undefined) } })}
+        >
+          Lưu tủ đang chọn làm template
+        </button>
+      </Collapse>
+      <Collapse title="Rule preset" defaultOpen>
+        <div className="form-row">
+          <label>Preset</label>
+          <select className="field" value={preset} onChange={(e) => setPreset(e.target.value)}>
+            {lib?.presets.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name}
+                {p.builtin ? ' (có sẵn)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="muted small">
+          {Object.entries(lib?.presets.find((p) => p.name === preset)?.values ?? {})
+            .map(([k, v]) => `${FIELD_LABEL[k] ?? k} ${v}`)
+            .join(' · ')}
+        </p>
+        <div className="row-btns">
+          <button className="btn primary" disabled={cab === null} onClick={() => cab !== null && void Commands.applyRulePreset([cab], preset).catch(() => undefined)}>
+            Áp cho tủ đang chọn
+          </button>
+          <button
+            className="btn"
+            disabled={cab === null}
+            onClick={() => cab !== null && set({ prompt: { title: 'Lưu rule preset', label: 'Tên preset (lấy thông số kết cấu của tủ đang chọn)', value: '', ok: (v) => void Commands.saveRulePreset(cab, v).catch(() => undefined) } })}
+          >
+            Lưu từ tủ
+          </button>
+          {lib?.presets.find((p) => p.name === preset && !p.builtin) && (
+            <button className="btn" onClick={() => void Commands.deleteRulePreset(preset).catch(() => undefined)}>
+              Xóa
+            </button>
+          )}
+        </div>
+      </Collapse>
       <label className="check toggle-row">
         <input type="checkbox" checked={showZones} onChange={(e) => set({ showZones: e.target.checked })} /> Hiện vùng (zone) khi tạo tấm
       </label>

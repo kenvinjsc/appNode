@@ -43,6 +43,16 @@ export const Commands = {
   zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL', offset = 60) => command({ cmd: 'zone_add_link', cabinet, zones, kind, offset }),
   zoneRemove: (cabinet: ObjectId, uid: number) => command({ cmd: 'zone_remove', cabinet, uid }),
   setPartMod: (id: ObjectId, patch: PartModPatch) => command({ cmd: 'set_part_mod', id, patch }),
+  saveTemplate: (cabinet: ObjectId, name: string) => command({ cmd: 'save_template', cabinet, name }),
+  insertTemplate: (p: { name: string; width?: number; height?: number; depth?: number; room?: string; floor?: string; after?: ObjectId }) =>
+    command<{ id: ObjectId }>({ cmd: 'insert_template', ...p }),
+  deleteTemplate: (name: string) => command({ cmd: 'delete_template', name }),
+  saveRulePreset: (cabinet: ObjectId, name: string) => command({ cmd: 'save_rule_preset', cabinet, name }),
+  deleteRulePreset: (name: string) => command({ cmd: 'delete_rule_preset', name }),
+  applyRulePreset: (ids: ObjectId[], name: string) => command({ cmd: 'apply_rule_preset', ids, name }),
+  arraySplitPanel: (id: ObjectId, count: number) => command({ cmd: 'array_split_panel', id, count }),
+  arrayCabinet: (id: ObjectId, count: number, axis: 0 | 1 | 2, gap: number) => command({ cmd: 'array_cabinet', id, count, axis, gap }),
+  mirrorCabinet: (id: ObjectId) => command({ cmd: 'mirror_cabinet', id }),
   /** Multi-edit: one undo step, all or nothing. */
   setParameterMulti: (ids: ObjectId[], name: string, value: string) => command({ cmd: 'set_parameter_multi', ids, name, value }),
   setBay: (cabinet: ObjectId, zone: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_bay', cabinet, zone, index, mode, value }),

@@ -51,6 +51,9 @@ export function describeError(e: ApiError, action = 'Không thể thực hiện 
       if (d.name === 'zone')
         return { title: 'Không thể thêm tấm vào vùng này.', detail: 'Vùng đã được chia theo hướng khác — hãy click ghim một vùng con (ô trống) rồi bấm [TAB].' };
       if (d.name === 'shape' || d.name === 'merge') return { title: 'Không áp được tool.', detail: SHAPE_REASON(String(d.reason ?? '')) };
+      if (d.name === 'template') return { title: 'Không dùng được template.', detail: 'Cần tên template; template phải còn trong dự án.' };
+      if (d.name === 'preset') return { title: 'Không lưu/áp được preset.', detail: 'Cần tên preset (không trùng preset có sẵn).' };
+      if (d.name === 'array') return { title: 'Không nhân được.', detail: 'Số lượng 1–50.' };
       if (d.name === 'bay') return { title: 'Không đổi được khoang.', detail: 'Cần ít nhất một khoang AUTO hoặc % để hấp thụ thay đổi.' };
       if (d.name === 'split' && String(d.reason ?? '').includes('smaller')) return { title: 'Không kéo được.', detail: 'Khoang bên cạnh sẽ nhỏ hơn 1 mm.' };
       if (d.name === 'split') return { title: 'Không chia được tấm.', detail: 'Số tấm 2–50, khe 0–100 mm.' };

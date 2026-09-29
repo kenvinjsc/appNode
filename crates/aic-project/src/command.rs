@@ -63,6 +63,10 @@ pub enum Command {
     SetCabinet { id: ObjectId, cabinet: Box<aic_domain::Cabinet>, label: String },
     /// Set (or clear) a unit price in the project price list.
     SetPrice { key: String, value: Option<f64> },
+    /// Add / replace / remove (None) a project template by name.
+    SetTemplate { name: String, template: Option<Box<crate::document::CabinetTemplate>> },
+    /// Add / replace / remove (None) a rule preset by name.
+    SetRulePreset { name: String, preset: Option<crate::document::RulePreset> },
     Batch { label: String, commands: Vec<Command> },
 }
 
@@ -88,6 +92,8 @@ impl Command {
             Command::RemoveFeature { .. } => "Remove feature",
             Command::Batch { label, .. } | Command::SetCabinet { label, .. } => label,
             Command::SetPrice { .. } => "Đơn giá",
+            Command::SetTemplate { .. } => "Template",
+            Command::SetRulePreset { .. } => "Rule preset",
         }
     }
 
@@ -343,6 +349,24 @@ impl Command {
                 };
                 doc.mark_settings();
                 Ok(Command::SetPrice { key, value: old })
+            }
+            Command::SetTemplate { name, template } => {
+                let list = &mut doc.settings.templates;
+                let old = list.iter().position(|t| t.name == name).map(|i| list.remove(i));
+                if let Some(t) = template {
+                    list.push(*t);
+                }
+                doc.mark_settings();
+                Ok(Command::SetTemplate { name, template: old.map(Box::new) })
+            }
+            Command::SetRulePreset { name, preset } => {
+                let list = &mut doc.settings.presets;
+                let old = list.iter().position(|t| t.name == name).map(|i| list.remove(i));
+                if let Some(p) = preset {
+                    list.push(p);
+                }
+                doc.mark_settings();
+                Ok(Command::SetRulePreset { name, preset: old })
             }
             Command::Batch { label, commands } => {
                 let mut inverses = Vec::new();

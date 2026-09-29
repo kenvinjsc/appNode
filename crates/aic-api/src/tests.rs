@@ -449,3 +449,57 @@ fn parametric_e_multi_edit_shelves() {
     assert!(!r.ok);
     assert!((e.doc.panel(shelves[1]).unwrap().thickness_mm - 17.2).abs() < 1e-9);
 }
+
+#[test]
+fn parametric_f_template_preset_mirror_array() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = z.result["zones"][0]["id"].as_u64().unwrap();
+    call(&mut e, json!({"cmd": "zone_add_panels", "cabinet": cab, "zones": [root], "kind": "DIVIDER", "count": 1, "lock": "EVEN", "value": 0}));
+    call(&mut e, json!({"cmd": "set_bay", "cabinet": cab, "zone": root, "index": 0, "mode": "LOCK", "value": 600}));
+    call(&mut e, json!({"cmd": "set_bay", "cabinet": cab, "zone": root, "index": 2, "mode": "LOCK", "value": 400}));
+    call(&mut e, json!({"cmd": "set_bay", "cabinet": cab, "zone": root, "index": 1, "mode": "AUTO"}));
+    let r = call(&mut e, json!({"cmd": "save_template", "cabinet": cab, "name": "Tủ áo 3 khoang"}));
+    assert!(r.ok, "{:?}", r.error);
+    let list = call(&mut e, json!({"cmd": "get_templates"}));
+    assert_eq!(list.result["templates"][0]["name"], "Tủ áo 3 khoang");
+    assert!(list.result["presets"].as_array().unwrap().iter().any(|p| p["name"] == "AIC Wardrobe Standard"));
+
+    // Insert 2000 × 2200: locked bays keep their mm, structure intact, one undo step.
+    let before = e.doc.objects.len();
+    let r = call(&mut e, json!({"cmd": "insert_template", "name": "Tủ áo 3 khoang", "width": 2000, "height": 2200, "room": "PN2"}));
+    assert!(r.ok, "{:?}", r.error);
+    let id: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    assert_eq!(e.doc.param_value(id, "width"), Some(2000.0));
+    let zi = call(&mut e, json!({"cmd": "get_zones", "cabinet": id}));
+    let root2 = zi.result["zones"][0]["id"].as_u64().unwrap();
+    let b = bays(&mut e, id, root2);
+    assert_eq!(b.len(), 3);
+    assert_eq!((b[0].0, b[2].0), (600.0, 400.0));
+    assert!((b[1].0 - (2000.0 - 4.0 * 17.2 - 1000.0)).abs() < 1e-6, "{b:?}");
+    assert_eq!(zi.result["room"], "PN2");
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.objects.len(), before, "one undo removes the inserted cabinet");
+    // Too narrow for 600 + 400 locked bays: refused, nothing created.
+    let r = call(&mut e, json!({"cmd": "insert_template", "name": "Tủ áo 3 khoang", "width": 900}));
+    assert_eq!(r.error.unwrap().code, "CONSTRAINT_VIOLATED");
+    assert_eq!(e.doc.objects.len(), before);
+
+    // Rule preset.
+    let r = call(&mut e, json!({"cmd": "apply_rule_preset", "ids": [cab], "name": "AIC Wardrobe Standard"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.param_value(cab, "shelf_setback"), Some(30.0));
+    assert_eq!(e.doc.param_value(cab, "door_gap"), Some(2.0));
+
+    // Mirror: bays reverse (400 | AUTO | 600).
+    call(&mut e, json!({"cmd": "mirror_cabinet", "id": cab}));
+    let b = bays(&mut e, cab, root);
+    assert_eq!((b[0].0, b[2].0), (400.0, 600.0));
+
+    // Array: 2 more cabinets to the right.
+    let n = e.doc.objects.values().filter(|o| o.as_cabinet().is_some()).count();
+    let r = call(&mut e, json!({"cmd": "array_cabinet", "id": cab, "count": 2, "axis": 0, "gap": 0}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.objects.values().filter(|o| o.as_cabinet().is_some()).count(), n + 2);
+}

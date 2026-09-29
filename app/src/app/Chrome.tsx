@@ -6,6 +6,7 @@ import { Icon } from '../shared/icons';
 import { CONTACT_LABEL, fmt } from '../shared/i18n';
 import { View } from '../viewport/viewportBus';
 import { Actions } from './actions';
+import type { ObjectId } from '../core-api/types';
 import { findNode, useUi, type Workspace } from './uiStore';
 
 export function TitleBar() {
@@ -257,6 +258,50 @@ export function ZoneMenu() {
   );
 }
 
+/** Small input dialog (uiStore.prompt). */
+export function PromptDialog() {
+  const { prompt, set } = useUi();
+  const [v, setV] = useState('');
+  useEffect(() => setV(prompt?.value ?? ''), [prompt]);
+  if (!prompt) return null;
+  const ok = () => {
+    set({ prompt: null });
+    if (v.trim()) prompt.ok(v.trim());
+  };
+  return (
+    <div className="modal-back" onPointerDown={() => set({ prompt: null })}>
+      <div className="modal prompt" onPointerDown={(e) => e.stopPropagation()}>
+        <h3>{prompt.title}</h3>
+        <label>{prompt.label}</label>
+        <input
+          className="field"
+          autoFocus
+          value={v}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setV(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') ok();
+            if (e.key === 'Escape') set({ prompt: null });
+          }}
+        />
+        <div className="row-btns">
+          <button className="btn" onClick={() => set({ prompt: null })}>Hủy</button>
+          <button className="btn primary" onClick={ok}>Đồng ý</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Chia đều lại the split that owns a shelf / divider. */
+async function equalizeOf(panel: ObjectId, cabinet: ObjectId) {
+  const info = await Queries.zones(cabinet);
+  const uid = info.panels.find((p) => p.id === panel)?.uid;
+  const zone = info.positions.find((p) => p.uid === uid)?.zone;
+  if (zone !== undefined) await Commands.equalizeSplit(cabinet, zone);
+}
+
 export function ContextMenu() {
   const { contextMenu, set, tree } = useUi();
   useEffect(() => {
@@ -303,13 +348,41 @@ export function ContextMenu() {
           <hr />
           {(n.role === 'Shelf' || n.role === 'ShelfFixed') && item('shelf', n.role === 'Shelf' ? 'Đổi thành kệ cố định' : 'Đổi thành kệ di động', () => void Commands.setParameter(id, 'split_kind', n.role === 'Shelf' ? 'SHELF_FIXED' : 'SHELF_ADJUSTABLE').catch(() => undefined))}
           {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') && item('align', 'Căn giữa vùng (50%)', () => void Commands.setParameter(id, 'pos_ratio', '50').catch(() => undefined))}
-          {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') && item('grid', 'Chia đều lại', () => void Commands.setParameter(id, 'pos_lock', 'EVEN').catch(() => undefined))}
+          {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') &&
+            item('grid', 'Chia đều lại', () => {
+              const cab = findNode(tree, id)?.parent;
+              if (cab != null) void equalizeOf(id, cab).catch(() => undefined);
+            })}
+          {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') &&
+            item('duplicate', 'Nhân tấm (chia đều)…', () =>
+              set({ prompt: { title: 'Nhân tấm', label: 'Thêm bao nhiêu tấm giống tấm này?', value: '2', ok: (v) => void Commands.arraySplitPanel(id, Math.max(1, Math.round(Number(v)) || 1)).catch(() => undefined) } }),
+            )}
           {item('fit', 'Co giãn trên +20', () => void Commands.setPartMod(id, { extend_delta: [0, 0, 0, 20] }).catch(() => undefined))}
           {item('fit', 'Co giãn trên −20', () => void Commands.setPartMod(id, { extend_delta: [0, 0, 0, -20] }).catch(() => undefined))}
-          {item('edit' as never, 'Chỉnh tấm…', () => set({ designerTab: 'edit' }))}
+          {item('edit', 'Chỉnh tấm…', () => set({ designerTab: 'edit' }))}
         </>
       )}
-      {n?.kind === 'CABINET' && item('shelf', 'Dựng chi tiết (Tạo tấm)…', () => set({ designerTab: 'create' }))}
+      {n?.kind === 'CABINET' && (
+        <>
+          {item('shelf', 'Dựng chi tiết (Tạo tấm)…', () => set({ designerTab: 'create' }))}
+          {item('edit', 'Sửa kích thước…', () => set({ designerTab: 'edit' }))}
+          {item('mirror', 'Lật gương trái ↔ phải', () => void Commands.mirrorCabinet(id).catch(() => undefined))}
+          {item('duplicate', 'Nhân dãy tủ sang phải…', () =>
+            set({ prompt: { title: 'Nhân dãy tủ', label: 'Số tủ thêm (đặt liền bên phải)', value: '1', ok: (v) => void Commands.arrayCabinet(id, Math.max(1, Math.round(Number(v)) || 1), 0, 0).catch(() => undefined) } }),
+          )}
+          {item('save', 'Lưu làm template…', () =>
+            set({
+              prompt: {
+                title: 'Lưu tủ làm template',
+                label: 'Tên template (lưu cấu trúc khoang, cánh, ngăn kéo, luật, vật liệu)',
+                value: n.name,
+                ok: (v) => void Commands.saveTemplate(id, v).then(() => useUi.getState().toast({ kind: 'success', title: `Đã lưu template “${v}”` })).catch(() => undefined),
+              },
+            }),
+          )}
+          {item('report', 'Báo cáo', () => set({ drawer: 'report' }))}
+        </>
+      )}
       {item('relations', 'Xem quan hệ', () => Actions.inspectRelations(id))}
       {item('drill', 'Gia công', () => Actions.openManufacturing(id))}
       {item('fit', 'Phóng vừa', () => View.fit([id], tree), 'F')}
