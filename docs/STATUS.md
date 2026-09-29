@@ -26,6 +26,8 @@ Thiết kế tủ kiểu plugin: dự án → tầng → phòng (tab lọc cây/
 luật dán cạnh, TAB tạo dãy tủ); Tạo tấm theo vùng (ghim vùng, 6 loại tấm, khóa Tỷ lệ/Cách A/Cách B, chuột phải
 "Dựng nhanh"); Chỉnh tấm (khóa chấm đỏ, co giãn); cột Tool (01–04, 06, 08–14, 16–20: bo/vát góc, cắt tự do, cắt theo tấm, hợp tấm, ghép bề dày, chia tấm); Costing Report / Danh sách cắt /
 Cabinet List có đơn giá sửa được.
+Parametric editor (Phase 1–2): khoang LOCK/AUTO/% (`Split.bays`), neo W/H/D, bản vẽ 2D sửa được (W/H tủ, kích thước khoang,
+chế độ khoang), kéo vách/kệ có xem trước + commit, ghim vùng và menu chuột phải trên 2D, Chia đều lại.
 Chưa làm: tool 05, 07, 15; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
 
 ## Chưa làm / hạn chế đã biết

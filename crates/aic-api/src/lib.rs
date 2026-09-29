@@ -307,6 +307,15 @@ impl Engine {
                 self.set_part_mod(id, patch)?;
                 ok(json!({}))
             }
+            SetBay { cabinet, zone, index, mode, value } => {
+                self.set_bay(cabinet, zone, index, mode, value)?;
+                ok(json!({}))
+            }
+            EqualizeSplit { cabinet, zone } => {
+                self.equalize_split(cabinet, zone)?;
+                ok(json!({}))
+            }
+            MoveSplitPanel { id, before } => ok(self.move_split_panel(id, before)?),
             ShapeTool { ids, op } => ok(self.shape_tool(&ids, &op)?),
             MergePanels { ids } => ok(self.merge_panels(&ids)?),
             Undo => ok(json!({ "label": self.history.undo(&mut self.doc)? })),
@@ -436,8 +445,49 @@ impl Engine {
                 let enabled = matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes");
                 self.set_edge(id, edge, enabled)
             }
+            "width" | "height" | "depth" if self.doc.objects.get(&id).and_then(|o| o.as_cabinet()).is_some() => self.resize_cabinet(id, name, value),
             _ => self.exec(Command::SetParameter { id, name: name.into(), value: value.into() }),
         }
+    }
+
+    /// W / H / D of a cabinet: a parameter change (never a scale) plus an origin shift
+    /// by the cabinet's anchor, refused when a zone would become unsolvable.
+    fn resize_cabinet(&mut self, id: ObjectId, name: &str, value: &str) -> Result<(), CoreError> {
+        let axis = match name {
+            "width" => 0,
+            "height" => 1,
+            _ => 2,
+        };
+        let set = Command::SetParameter { id, name: name.into(), value: value.into() };
+        let Ok(new) = value.trim().trim_start_matches('=').trim().replace(',', ".").parse::<f64>() else {
+            return self.exec(set); // expression: solved by the parametric engine
+        };
+        let old = self.doc.param_value(id, name).unwrap_or(new);
+        let def = self.doc.objects.get(&id).and_then(|o| o.as_cabinet()).cloned().ok_or(CoreError::NotFound { id })?;
+        let mut values = self.doc.cabinet_values(id);
+        match axis {
+            0 => values.width = new,
+            1 => values.height = new,
+            _ => values.depth = new,
+        }
+        let before = self.doc.cabinet_layout(id).map(|l| l.problems).unwrap_or_default();
+        let after = aic_domain::build_cabinet(&def, values).problems;
+        if after.iter().any(|z| !before.contains(z)) {
+            return Err(CoreError::ConstraintViolated { constraint: "ZONE_TOO_SMALL".into(), message: format!("zones {after:?}") });
+        }
+        let anchor = [def.anchors.width, def.anchors.height, def.anchors.depth][axis];
+        let f = anchor.factor();
+        if f == 0.0 || (new - old).abs() < 1e-9 {
+            return self.exec(set);
+        }
+        let mut t = self.doc.scene.node(id).map_err(CoreError::from)?.local_transform;
+        let mut off = [0.0; 3];
+        off[axis] = -(new - old) * f;
+        t.translation = t.transform_point(off);
+        self.exec(Command::Batch {
+            label: "Đổi kích thước tủ".into(),
+            commands: vec![set, Command::SetTransform { id, transform: t }],
+        })
     }
 
     /// Edge band on/off: generated parts store a manual override in the cabinet's part mods.

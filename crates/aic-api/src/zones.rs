@@ -4,7 +4,7 @@
 
 use crate::protocol::{PartModPatch, ZoneAddPanels};
 use crate::Engine;
-use aic_domain::zone::{DoorKind, DoorSpec, DrawerSpec, Front, HingeSide, LinkKind, Lock, Mount, SplitKind, StopRail, StopRailSpec, Uid};
+use aic_domain::zone::{BayMode, DoorKind, DoorSpec, DrawerSpec, Front, HingeSide, LinkKind, Lock, Mount, SplitKind, StopRail, StopRailSpec, Uid};
 use crate::shape::SHAPE_TOOLS;
 use aic_domain::{Cabinet, DomainObject, MachiningFeature, ObjectId};
 use aic_project::{Command, CoreError};
@@ -76,6 +76,74 @@ impl Engine {
         self.exec_cmd(Command::SetCabinet { id: cab, cabinet: Box::new(def), label: label.into() })
     }
 
+    /// Like `edit_cabinet`, but refuses a change that makes a zone unsolvable
+    /// (bay < 1 mm, all-LOCK conflict) instead of producing broken geometry.
+    pub(crate) fn edit_cabinet_checked(&mut self, cab: ObjectId, label: &str, f: impl FnOnce(&mut Cabinet) -> Result<(), CoreError>) -> Result<(), CoreError> {
+        let mut def = self.cabinet_def(cab)?;
+        f(&mut def)?;
+        let values = self.doc.cabinet_values(cab);
+        let before = self.doc.cabinet_layout(cab).map(|l| l.problems).unwrap_or_default();
+        let after = aic_domain::build_cabinet(&def, values).problems;
+        if after.iter().any(|z| !before.contains(z)) {
+            return Err(CoreError::ConstraintViolated { constraint: "ZONE_TOO_SMALL".into(), message: format!("zones {after:?}") });
+        }
+        self.exec_cmd(Command::SetCabinet { id: cab, cabinet: Box::new(def), label: label.into() })
+    }
+
+    /// Current clear bay sizes of the split owned by `zone`.
+    fn bay_sizes(&self, cab: ObjectId, zone: Uid) -> Result<Vec<f64>, CoreError> {
+        let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+        let mut v: Vec<(usize, f64)> = layout.bays.iter().filter(|b| b.zone == zone).map(|b| (b.index, b.size)).collect();
+        v.sort_by_key(|x| x.0);
+        if v.is_empty() {
+            return Err(bad("zone", "zone is not split"));
+        }
+        Ok(v.into_iter().map(|x| x.1).collect())
+    }
+
+    /// SET_BAY: mode and/or value of one bay (LOCK mm, PERCENT %, AUTO).
+    pub(crate) fn set_bay(&mut self, cab: ObjectId, zone: Uid, index: usize, mode: Option<BayMode>, value: Option<f64>) -> Result<(), CoreError> {
+        let sizes = self.bay_sizes(cab, zone)?;
+        self.edit_cabinet_checked(cab, "Kích thước khoang", |c| {
+            let s = c.zones.split_mut(zone).ok_or_else(|| bad("zone", "zone is not split"))?;
+            s.adopt_bays(&sizes);
+            s.set_bay(index, &sizes, mode, value).map_err(|e| bad("bay", e))
+        })
+    }
+
+    /// Chia đều lại (Equal Divide): every bay of the split AUTO.
+    pub(crate) fn equalize_split(&mut self, cab: ObjectId, zone: Uid) -> Result<(), CoreError> {
+        self.edit_cabinet_checked(cab, "Chia đều", |c| {
+            let s = c.zones.split_mut(zone).ok_or_else(|| bad("zone", "zone is not split"))?;
+            s.equalize();
+            for p in &mut s.panels {
+                p.lock = Lock::Even;
+            }
+            Ok(())
+        })
+    }
+
+    /// Kéo vách / kệ (COMMIT): panel `id` so that the bay before it is `before` mm.
+    pub(crate) fn move_split_panel(&mut self, id: ObjectId, before: f64) -> Result<Value, CoreError> {
+        let (cab, key) = self.part_ref(id).ok_or_else(|| bad("part", "not a cabinet part"))?;
+        let PartRef::Split(uid) = parse_key(&key) else { return Err(bad("split", "only shelves / dividers can be dragged")) };
+        let zone = self
+            .doc
+            .cabinet_layout(cab)
+            .and_then(|l| l.positions.iter().find(|p| p.uid == uid).map(|p| p.zone))
+            .ok_or_else(|| bad("split", "panel not found"))?;
+        let sizes = self.bay_sizes(cab, zone)?;
+        if !before.is_finite() {
+            return Err(bad("split", "position must be a number"));
+        }
+        self.edit_cabinet_checked(cab, "Kéo tấm", |c| {
+            let (s, i) = c.zones.split_of_panel_mut(uid).ok_or_else(|| bad("split", "panel not found"))?;
+            s.adopt_bays(&sizes);
+            s.move_panel(i, &sizes, before).map_err(|e| bad("split", e))
+        })?;
+        Ok(json!({ "zone": zone }))
+    }
+
     pub(crate) fn zones_info(&self, cab: ObjectId) -> Result<Value, CoreError> {
         let def = self.cabinet_def(cab)?;
         let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
@@ -95,6 +163,20 @@ impl Engine {
                 v
             })
             .collect();
+        // Object ids of the split panels (2D drag handles map uid ↔ id).
+        let split_ids: Vec<Value> = self
+            .doc
+            .scene
+            .node(cab)
+            .map(|n| n.children.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|c| {
+                let k = self.doc.panel(c)?.gen_key.clone()?;
+                let uid: Uid = k.strip_prefix("p:")?.parse().ok()?;
+                Some(json!({ "uid": uid, "id": c }))
+            })
+            .collect();
         Ok(json!({
             "cabinet": cab,
             "name": def.name,
@@ -103,6 +185,11 @@ impl Engine {
             "matrix": world.to_matrix_col_major(),
             "zones": layout.zones,
             "positions": layout.positions,
+            "bays": layout.bays,
+            "size": [self.doc.param_value(cab, "width"), self.doc.param_value(cab, "height"), self.doc.param_value(cab, "depth")],
+            "panels": split_ids,
+            "problems": layout.problems,
+            "anchors": def.anchors,
             "attachments": attachments,
             "fittings": layout.fittings,
         }))
@@ -279,6 +366,20 @@ impl Engine {
                     c.room = value.trim().to_string();
                     Ok(())
                 }).map(|_| true),
+                "anchor_w" | "anchor_h" | "anchor_d" => self.edit_cabinet(id, "Neo kích thước", |c| {
+                    let a = match value.trim().to_ascii_uppercase().as_str() {
+                        "START" | "LEFT" | "BOTTOM" | "BACK" => aic_domain::Anchor::Start,
+                        "CENTER" => aic_domain::Anchor::Center,
+                        "END" | "RIGHT" | "TOP" | "FRONT" => aic_domain::Anchor::End,
+                        _ => return Err(bad(name, "START | CENTER | END")),
+                    };
+                    match name {
+                        "anchor_w" => c.anchors.width = a,
+                        "anchor_h" => c.anchors.height = a,
+                        _ => c.anchors.depth = a,
+                    }
+                    Ok(())
+                }).map(|_| true),
                 "floor" => self.edit_cabinet(id, "Tầng", |c| {
                     c.floor = value.trim().to_string();
                     Ok(())
@@ -349,6 +450,31 @@ impl Engine {
                 let handled = matches!(name, "pos_ratio" | "pos_start" | "pos_end" | "pos_lock" | "split_kind" | "thickness" | "tilt_fb" | "tilt_lr");
                 if !handled {
                     return Ok(false);
+                }
+                // Bay-sized split: position edits become a drag of the panel; choosing a
+                // per-panel lock mode switches the split back to per-panel positioning.
+                let has_bays = self.cabinet_def(cab)?.zones.split_of_panel(uid).is_some_and(|s| s.has_bays());
+                if has_bays && matches!(name, "pos_ratio" | "pos_start" | "pos_end") {
+                    let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+                    let p = layout.positions.iter().find(|p| p.uid == uid).ok_or_else(|| bad(name, "panel not found"))?;
+                    let t = p.zone_length - p.from_start - p.from_end;
+                    let x = num(name, value)?;
+                    let st = match name {
+                        "pos_ratio" => (x / 100.0).clamp(0.0, 1.0) * (p.zone_length - t),
+                        "pos_start" => x,
+                        _ => p.zone_length - t - x,
+                    };
+                    let before = st - (p.from_start - p.cell_before);
+                    self.move_split_panel(id, before)?;
+                    return Ok(true);
+                }
+                if has_bays && name == "pos_lock" {
+                    self.edit_cabinet(cab, "Chỉnh tấm", |c| {
+                        if let Some((s, _)) = c.zones.split_of_panel_mut(uid) {
+                            s.bays.clear();
+                        }
+                        Ok(())
+                    })?;
                 }
                 self.edit_cabinet(cab, "Chỉnh tấm", move |c| {
                     let sp = c.zones.panel_mut(uid).ok_or_else(|| bad(&n, "panel not found"))?;

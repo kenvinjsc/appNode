@@ -303,3 +303,108 @@ fn chia_tam_splits_a_part_into_pieces() {
     assert!((e.doc.panel(back).unwrap().height_mm - h).abs() < 1e-9);
     let _ = cab;
 }
+
+fn changed_ids(r: &Response) -> std::collections::BTreeSet<ObjectId> {
+    let mut s = std::collections::BTreeSet::new();
+    for e in &r.events {
+        match e {
+            CoreEvent::ObjectChanged { ids } | CoreEvent::GeometryChanged { ids } | CoreEvent::TransformChanged { ids } => s.extend(ids.iter().copied()),
+            _ => {}
+        }
+    }
+    s
+}
+
+fn bays(e: &mut Engine, cab: ObjectId, zone: u64) -> Vec<(f64, String)> {
+    let z = call(e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let mut v: Vec<(u64, f64, String)> = z.result["bays"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|b| b["zone"].as_u64() == Some(zone))
+        .map(|b| (b["index"].as_u64().unwrap(), b["size"].as_f64().unwrap(), b["mode"].as_str().unwrap_or("-").to_string()))
+        .collect();
+    v.sort_by_key(|x| x.0);
+    v.into_iter().map(|x| (x.1, x.2)).collect()
+}
+
+#[test]
+fn parametric_a_resize_keeps_locked_bays_and_anchor() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e); // TủQA 1600: root split by one divider
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = z.result["zones"][0]["id"].as_u64().unwrap();
+    // Third bay: another divider in the root split.
+    let r = call(&mut e, json!({"cmd": "zone_add_panels", "cabinet": cab, "zones": [root], "kind": "DIVIDER", "count": 1, "lock": "EVEN", "value": 0}));
+    assert!(r.ok, "{:?}", r.error);
+    for (i, mode, v) in [(0, "LOCK", 600.0), (2, "LOCK", 400.0)] {
+        let r = call(&mut e, json!({"cmd": "set_bay", "cabinet": cab, "zone": root, "index": i, "mode": mode, "value": v}));
+        assert!(r.ok, "{:?}", r.error);
+    }
+    call(&mut e, json!({"cmd": "set_bay", "cabinet": cab, "zone": root, "index": 1, "mode": "AUTO"}));
+    let b = bays(&mut e, cab, root);
+    assert_eq!((b[0].0, b[2].0), (600.0, 400.0));
+    assert_eq!(b[1].1, "AUTO");
+    let auto_before = b[1].0;
+
+    // Keep center, 1600 → 1800.
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "anchor_w", "value": "CENTER"}));
+    let x0 = e.doc.param_value(cab, "x").unwrap();
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "1800"}));
+    assert!(r.ok, "{:?}", r.error);
+    let b = bays(&mut e, cab, root);
+    assert_eq!((b[0].0, b[2].0), (600.0, 400.0), "locked bays keep their size");
+    assert!((b[1].0 - auto_before - 200.0).abs() < 1e-6, "AUTO bay takes the whole change");
+    assert!((e.doc.param_value(cab, "x").unwrap() - (x0 - 100.0)).abs() < 1e-6, "center anchor");
+    // One undo step restores size and position.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.param_value(cab, "width"), Some(1600.0));
+    assert!((e.doc.param_value(cab, "x").unwrap() - x0).abs() < 1e-6);
+    // Too narrow for the locked bays → refused, nothing changes.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "1000"}));
+    assert_eq!(r.error.unwrap().code, "CONSTRAINT_VIOLATED");
+    assert_eq!(e.doc.param_value(cab, "width"), Some(1600.0));
+}
+
+#[test]
+fn parametric_b_c_drag_divider_and_shelf() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = z.result["zones"][0]["id"].as_u64().unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let id_of = |n: &str| -> ObjectId { serde_json::from_value(kids.iter().find(|k| k["name"] == n).unwrap()["id"].clone()).unwrap() };
+    let total = kids.len();
+
+    // B. Divider: left bay 774.2 → 900.
+    let divider = id_of("HôngGiữa_01");
+    let r = call(&mut e, json!({"cmd": "move_split_panel", "id": divider, "before": 900}));
+    assert!(r.ok, "{:?}", r.error);
+    let b = bays(&mut e, cab, root);
+    assert!((b[0].0 - 900.0).abs() < 1e-6 && (b[0].0 + b[1].0 - 2.0 * 774.2).abs() < 1e-6, "{b:?}");
+    let changed = changed_ids(&r);
+    assert!(changed.contains(&divider));
+    assert!(changed.len() < total, "only affected parts change ({} of {total})", changed.len());
+
+    // C. Shelf in the left bay: bay below → 1250; only its split changes.
+    let shelf = id_of("KệDiĐộng_02");
+    let zi = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let pos = zi.result["positions"].as_array().unwrap().iter().find(|p| p["zone"].as_u64() != Some(root)).unwrap().clone();
+    let shelf_zone = pos["zone"].as_u64().unwrap();
+    let before = bays(&mut e, cab, shelf_zone);
+    let idx = 1; // KệDiĐộng_02 closes bay 1
+    let target = before[idx].0 + 60.0;
+    let r = call(&mut e, json!({"cmd": "move_split_panel", "id": shelf, "before": target}));
+    assert!(r.ok, "{:?}", r.error);
+    let after = bays(&mut e, cab, shelf_zone);
+    assert!((after[idx].0 - target).abs() < 1e-6, "{after:?}");
+    assert_eq!(bays(&mut e, cab, root), b, "the divider split is untouched");
+    let changed = changed_ids(&r);
+    // The shelf's own bay neighbours (left side, divider) get new pin holes; the other bay does not change.
+    assert!(!changed.contains(&id_of("HồiPhải")) && !changed.contains(&id_of("Nóc")), "no unrelated part changes");
+    assert!(changed.contains(&shelf));
+    // Dragging past the neighbour is refused.
+    let r = call(&mut e, json!({"cmd": "move_split_panel", "id": shelf, "before": 5000}));
+    assert!(!r.ok);
+}

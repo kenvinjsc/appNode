@@ -185,6 +185,20 @@ pub enum Request {
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
+    /// Kích thước khoang: LOCK (mm) / AUTO / PERCENT (%) of one bay of a split zone.
+    SetBay {
+        cabinet: ObjectId,
+        zone: aic_domain::zone::Uid,
+        index: usize,
+        #[serde(default)]
+        mode: Option<aic_domain::zone::BayMode>,
+        #[serde(default)]
+        value: Option<f64>,
+    },
+    /// Chia đều lại một zone đã chia.
+    EqualizeSplit { cabinet: ObjectId, zone: aic_domain::zone::Uid },
+    /// Kéo vách / kệ: `before` = clear size (mm) of the bay before the panel.
+    MoveSplitPanel { id: ObjectId, before: f64 },
     /// Change the outline of panels: rounded/chamfered corners, straight cut, cut by
     /// another panel (tools 04, 09, 10). Local panel frame.
     ShapeTool { ids: Vec<ObjectId>, op: crate::shape::ShapeOp },

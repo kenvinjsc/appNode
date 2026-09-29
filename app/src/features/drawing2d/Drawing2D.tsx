@@ -7,10 +7,12 @@ import type { ObjectId } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { fmt, objectLabel } from '../../shared/i18n';
 import { expandSubtrees, getEngine, useSceneRevision } from '../../viewport/viewportBus';
+import { useCurrentCabinet, useZones } from '../cabinet/useZones';
+import { EditLayer } from './EditLayer';
 
 type Plane = 'front' | 'side' | 'top';
 
-interface Item {
+export interface Item {
   id: ObjectId;
   kind: string;
   role: string | null;
@@ -31,6 +33,9 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   const [hideFronts, setHideFronts] = useState(true);
   const [showDims, setShowDims] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
+  // 2D editor: the current cabinet (selection or pinned zone), front view.
+  const current = useCurrentCabinet();
+  const zinfo = useZones(plane === 'front' ? current : null);
 
   // Scope: the cabinet(s) of the selection, or everything.
   const scope = useMemo(() => {
@@ -91,6 +96,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   const W = bounds.max.x - bounds.min.x;
   const H = bounds.max.y - bounds.min.y;
   const unit = Math.max(W, H) / 60 || 10;
+  const editing = !!zinfo && plane === 'front' && scope.includes(zinfo.cabinet);
 
   return (
     <div className="panel drawing">
@@ -143,8 +149,9 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
                 </g>
               );
             })}
-            {showDims && <Openings items={items} unit={unit} active={active} />}
-            {showDims && !bounds.isEmpty() && (
+            {editing && <EditLayer info={zinfo!} items={items} unit={unit} svg={svgRef.current} />}
+            {showDims && !editing && <Openings items={items} unit={unit} active={active} />}
+            {showDims && !editing && !bounds.isEmpty() && (
               <g className="d2-dims" fontSize={unit * 1.3}>
                 <line x1={bounds.min.x} y1={bounds.min.y - unit * 2.5} x2={bounds.max.x} y2={bounds.min.y - unit * 2.5} markerStart="url(#d2a)" markerEnd="url(#d2a)" />
                 <line x1={bounds.min.x} y1={bounds.min.y - unit * 3.5} x2={bounds.min.x} y2={bounds.min.y} className="ext" />

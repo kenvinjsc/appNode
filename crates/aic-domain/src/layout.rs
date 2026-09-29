@@ -149,7 +149,30 @@ pub struct Layout {
     pub parts: Vec<Part>,
     pub zones: Vec<ZoneBox>,
     pub positions: Vec<PanelPosition>,
+    /// Every bay (khoang) of every split, for editable dimensions.
+    pub bays: Vec<BayInfo>,
     pub fittings: Fittings,
+    /// Zones whose bays cannot be solved (too small / conflicting locks).
+    pub problems: Vec<Uid>,
+}
+
+/// One bay of a split, resolved (cabinet frame).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BayInfo {
+    /// Zone that owns the split.
+    pub zone: Uid,
+    pub index: usize,
+    /// The child zone this bay is.
+    pub child: Uid,
+    pub axis: usize,
+    /// Start along the axis (cabinet frame) and clear size.
+    pub start: f64,
+    pub size: f64,
+    /// None = legacy per-panel positioning (converted on first edit).
+    pub mode: Option<BayMode>,
+    pub value: f64,
+    /// Usable length of the split (zone length minus split panels).
+    pub usable: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -364,7 +387,25 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
     if let Some(s) = &z.split {
         let a = s.axis;
         let len = b.size[a];
-        let starts = solve_split(len, &s.panels);
+        let starts = if s.has_bays() {
+            let t: Vec<f64> = s.panels.iter().map(|p| p.thickness).collect();
+            let (sizes, ok) = solve_bays(len, &t, &s.bays);
+            if !ok {
+                cx.out.problems.push(z.id);
+            }
+            let mut at = 0.0;
+            sizes
+                .iter()
+                .zip(t.iter())
+                .map(|(sz, th)| {
+                    let st = at + sz.max(0.0);
+                    at = st + th;
+                    st
+                })
+                .collect()
+        } else {
+            solve_split(len, &s.panels)
+        };
         let mut part_idx = Vec::with_capacity(s.panels.len());
         let mut cursor = 0.0;
         for (i, (p, st)) in s.panels.iter().zip(starts.iter()).enumerate() {
@@ -385,6 +426,29 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
             });
             part_idx.push(split_panel(cx, p, &b, *st));
             cursor = st + p.thickness;
+        }
+        // Bays (for editable dimensions).
+        {
+            let usable = len - s.panels.iter().map(|p| p.thickness).sum::<f64>();
+            let mut cur = 0.0;
+            for (i, c) in s.children.iter().enumerate() {
+                let end = if i < s.panels.len() { starts[i] } else { len };
+                let bay = s.bays.get(i).filter(|_| s.has_bays());
+                cx.out.bays.push(BayInfo {
+                    zone: z.id,
+                    index: i,
+                    child: c.id,
+                    axis: a,
+                    start: b.min[a] + cur,
+                    size: end - cur,
+                    mode: bay.map(|x| x.mode),
+                    value: bay.map(|x| x.value).unwrap_or(0.0),
+                    usable,
+                });
+                if i < s.panels.len() {
+                    cur = starts[i] + s.panels[i].thickness;
+                }
+            }
         }
         // Child zones.
         let mut cursor = 0.0;

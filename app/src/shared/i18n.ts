@@ -79,6 +79,9 @@ export const FIELD_LABEL: Record<string, string> = {
   plinth_height: 'Cao chân',
   door_gap: 'Khe cánh',
   top_style: 'Kiểu nóc',
+  anchor_w: 'Neo rộng',
+  anchor_h: 'Neo cao',
+  anchor_d: 'Neo sâu',
   bottom_style: 'Kiểu đáy',
   back_panel: 'Tấm hậu',
   shelves: 'Số đợt',
@@ -120,7 +123,18 @@ export const GROUP_LABEL: Record<string, string> = {
   edge_rule: 'Luật dán cạnh',
 };
 
-export const OPTION_LABEL: Record<string, string> = { INSET: 'Lọt lòng', OVERLAY: 'Phủ', RAILS: 'Thanh giằng' };
+export const OPTION_LABEL: Record<string, string> = {
+  INSET: 'Lọt lòng',
+  OVERLAY: 'Phủ',
+  RAILS: 'Thanh giằng',
+  KEEP_LEFT: 'Giữ trái',
+  KEEP_RIGHT: 'Giữ phải',
+  KEEP_CENTER: 'Giữ giữa',
+  KEEP_BOTTOM: 'Giữ dưới',
+  KEEP_TOP: 'Giữ trên',
+  KEEP_BACK: 'Giữ sau',
+  KEEP_FRONT: 'Giữ trước',
+};
 
 export const GRAIN_LABEL: Record<string, string> = { ALONG_HEIGHT: 'Theo chiều cao', ALONG_WIDTH: 'Theo chiều rộng', NONE: 'Không vân' };
 

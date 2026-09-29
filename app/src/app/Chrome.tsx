@@ -203,7 +203,7 @@ export function ZoneMenu() {
     Commands.zoneAddDoors({ cabinet, zones, kind, cols, rows: 1, mount, hinge });
   const drawers = (n: number, mount: 'OVERLAY' | 'INSET' = 'OVERLAY') => Commands.zoneAddDrawers({ cabinet, zones, count: n, cols: 1, mount, with_box: true });
   return (
-    <div className="ctx zone-menu" style={{ left: Math.min(zoneMenu.x, window.innerWidth - 440), top: Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 440)) }} onPointerDown={(e) => e.stopPropagation()}>
+    <div className="ctx zone-menu" style={{ left: Math.min(zoneMenu.x, window.innerWidth - 440), top: Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 600)) }} onPointerDown={(e) => e.stopPropagation()}>
       <div className="ctx-title">Dựng nhanh · vùng #{zone}</div>
       <div className="zm-grid">
         <div>
@@ -216,6 +216,21 @@ export function ZoneMenu() {
           <Item label="Hông giữa (2 khoang)" fn={() => dividers(1)} />
           <Item label="Chia 3 khoang" fn={() => dividers(2)} />
           <Item label="Hậu phụ" fn={() => Commands.zoneAddPanels({ cabinet, zones, kind: 'BACK_SUB', count: 1, lock: 'FROM_START', value: 0 })} />
+          <h5>Chia khoang</h5>
+          {[2, 3, 4].map((n) => (
+            <Item key={`h${n}`} label={`Chia ngang ${n} khoang (vách)`} fn={() => dividers(n - 1)} />
+          ))}
+          {[2, 3, 4].map((n) => (
+            <Item key={`v${n}`} label={`Chia dọc ${n} tầng (kệ cố định)`} fn={() => shelves(n - 1, 'SHELF_FIXED')} />
+          ))}
+          <Item
+            label="Chia đều lại khoang cha"
+            fn={async () => {
+              const info = await Queries.zones(cabinet);
+              const bay = info.bays.find((b) => b.child === zone);
+              if (bay) await Commands.equalizeSplit(cabinet, bay.zone);
+            }}
+          />
         </div>
         <div>
           <h5>Cánh</h5>

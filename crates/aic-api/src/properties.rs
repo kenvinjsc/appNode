@@ -363,6 +363,17 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
                 fields: [("width", "Width"), ("height", "Height"), ("depth", "Depth")]
                     .iter()
                     .filter_map(|(n, l)| param(doc, id, n, l, editable))
+                    .chain([("anchor_w", "Width anchor", c.anchors.width), ("anchor_h", "Height anchor", c.anchors.height), ("anchor_d", "Depth anchor", c.anchors.depth)].into_iter().map(|(k, l, a)| {
+                        let mut fl = f(k, l, "select", json!(format!("{a:?}").to_uppercase()));
+                        let names: [&str; 3] = match k {
+                            "anchor_w" => ["KEEP_LEFT", "KEEP_CENTER", "KEEP_RIGHT"],
+                            "anchor_h" => ["KEEP_BOTTOM", "KEEP_CENTER", "KEEP_TOP"],
+                            _ => ["KEEP_BACK", "KEEP_CENTER", "KEEP_FRONT"],
+                        };
+                        fl.options = ["START", "CENTER", "END"].iter().zip(names).map(|(v, n)| json!({"value": v, "label": n})).collect();
+                        fl.editable = editable;
+                        fl
+                    }))
                     .collect(),
             });
             let mut construction: Vec<Field> = [

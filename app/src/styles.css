@@ -491,3 +491,27 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .corner-pick .top-right { right: 0; top: 0; }
 .corner-pick .bottom-left { left: 0; bottom: 0; }
 .corner-pick .bottom-right { right: 0; bottom: 0; }
+
+/* 2D editor layer */
+.d2e-zone { fill: transparent; stroke: none; cursor: pointer; }
+.d2e-zone.hover { fill: rgba(232, 89, 12, 0.07); stroke: #e8590c; stroke-dasharray: 6 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.d2e-zone.on { fill: rgba(232, 89, 12, 0.16); stroke: #e8590c; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.d2e-handle { fill: transparent; }
+.d2e-handle.x { cursor: ew-resize; }
+.d2e-handle.y { cursor: ns-resize; }
+.d2e-handle:hover { fill: rgba(232, 89, 12, 0.35); }
+.d2e-handle.on { fill: rgba(232, 89, 12, 0.6); }
+.d2e line { stroke: #1c7ed6; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
+.d2e-bay.lock line { stroke: #c92a2a; }
+.d2e-bay.pct line { stroke: #2f9e44; }
+.d2e-num { fill: #1c7ed6; font-weight: 600; cursor: text; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.d2e-bay.lock .d2e-num { fill: #c92a2a; }
+.d2e-bay.pct .d2e-num { fill: #2f9e44; }
+.d2e-num:hover { text-decoration: underline; }
+.d2e-mode { fill: #495057; cursor: pointer; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.d2e-bay.lock .d2e-mode { fill: #c92a2a; }
+.d2e-bay.pct .d2e-mode { fill: #2f9e44; }
+.d2e-cab .d2e-num { fill: #e8590c; }
+.d2e-cab line { stroke: #e8590c; }
+.d2e-input { width: 100%; height: 100%; box-sizing: border-box; border: 2px solid #e8590c; border-radius: 4px; text-align: center; font-weight: 600; outline: none; padding: 0; }
+.zone-menu { max-height: 92vh; overflow: auto; }

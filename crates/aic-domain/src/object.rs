@@ -51,6 +51,9 @@ pub struct Cabinet {
     /// Zones were built (false for files written before the zone model).
     #[serde(default)]
     pub zones_ready: bool,
+    /// Resize anchors (giữ trái/giữa/phải, dưới/giữa/trên, sau/giữa/trước).
+    #[serde(default)]
+    pub anchors: Anchors,
 }
 
 fn yes() -> bool {
@@ -96,6 +99,37 @@ impl Default for EdgeRule {
     }
 }
 
+/// What stays in place when a cabinet dimension changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Anchor {
+    /// Keep left / bottom / back (the cabinet origin).
+    #[default]
+    Start,
+    Center,
+    /// Keep right / top / front.
+    End,
+}
+
+impl Anchor {
+    /// Fraction of the size change the origin moves back by.
+    pub fn factor(&self) -> f64 {
+        match self {
+            Anchor::Start => 0.0,
+            Anchor::Center => 0.5,
+            Anchor::End => 1.0,
+        }
+    }
+}
+
+/// Resize anchors for W / H / D.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct Anchors {
+    pub width: Anchor,
+    pub height: Anchor,
+    pub depth: Anchor,
+}
+
 impl Cabinet {
     pub fn from_spec(id: ObjectId, name: String, s: &CabinetSpec) -> Self {
         Cabinet {
@@ -118,6 +152,7 @@ impl Cabinet {
             handles: true,
             edge_rule: s.edge_rule.clone().unwrap_or_default(),
             zones_ready: true,
+            anchors: Anchors::default(),
         }
     }
 }

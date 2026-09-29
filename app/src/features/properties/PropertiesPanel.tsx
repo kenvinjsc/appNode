@@ -201,7 +201,7 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
           <select value={String(f.value)} disabled={!editable} onChange={(e) => void commit(e.target.value)}>
             {f.options.map((o) => (
               <option key={o.value} value={o.value}>
-                {OPTION_LABEL[o.value] ?? o.label}
+                {OPTION_LABEL[o.value] ?? OPTION_LABEL[o.label] ?? o.label}
               </option>
             ))}
           </select>

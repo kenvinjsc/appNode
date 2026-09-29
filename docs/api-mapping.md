@@ -14,6 +14,10 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 | Tool 04/09/10 (cắt tự do, cắt theo tấm, bo/vát góc) | `shape_tool {ids, op: CORNERS \| CUT_LINE \| CUT_BY_PANEL}` | Contour ngoài / contour trong / pocket, lưu ở tọa độ local (part mod hoặc feature) | ObjectChanged | Mesh mới (CSG), CNC chạy theo biên dạng |
 | Tool 06 Hợp tấm | `merge_panels {ids}` | Kéo dài tấm đầu, xóa các tấm còn lại (cùng mặt phẳng, cùng dày) | ObjectChanged, ObjectDeleted | |
 | Tool 20 Chia tấm / 14 Ghép bề dày | `set_part_mod {id, patch: {split \| thickness}}` | PartMod.split → các tấm con `key~n` | ObjectCreated/Changed | |
+| 2D: bấm số kích thước khoang, nhập mm hoặc `40%` | `set_bay {cabinet, zone, index, mode?: LOCK \| AUTO \| PERCENT, value?}` | `Split.bays`; khoang AUTO / khoang kề hấp thụ; từ chối nếu khoang < 1 mm (`CONSTRAINT_VIOLATED ZONE_TOO_SMALL`) | ObjectChanged (chỉ tấm bị ảnh hưởng) | 2D + 3D cập nhật |
+| 2D: kéo vách / kệ (PREVIEW cục bộ, thả chuột = COMMIT) | `move_split_panel {id, before}` | Chỉ 2 khoang kề đổi; khoang KHÓA giữ nguyên | ObjectChanged | |
+| Menu vùng: Chia đều lại | `equalize_split {cabinet, zone}` | Mọi khoang AUTO | | |
+| 2D: bấm W / H tủ; Chỉnh tấm: Neo rộng/cao/sâu | `set_parameter {id, name: width \| height \| depth \| anchor_w \| anchor_h \| anchor_d}` | Đổi tham số + dời gốc theo neo (một bước undo), không scale | TransformChanged, ObjectChanged | |
 | Báo cáo | `get_costing`, `set_price {key, value}` | Bóc m², mét chỉ, phụ kiện | SettingsChanged | ReportWindow |
 | Sửa ô Rộng/Cao/… (số hoặc `= biểu thức`) | `set_parameter {id, name, value}` | `Command::SetParameter` → `ParamGraph::set_many` (incremental) | GeometryChanged (chỉ các tấm đổi kích thước), TransformChanged, ObjectChanged | lấy lại mesh theo key mới; ma trận mới; properties |
 | Số đợt/cánh/ngăn kéo, kiểu nóc/đáy, tấm hậu | `set_parameter` (tham số cấu trúc) | sinh lại tủ, khớp (vai trò, chỉ số) để giữ id; lệnh nghịch đảo `ReplaceSubtree` | ObjectCreated/Deleted/Changed, SceneTreeChanged | như trên |

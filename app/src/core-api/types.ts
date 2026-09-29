@@ -336,8 +336,32 @@ export interface ZonesInfo {
   matrix: number[];
   zones: ZoneBox[];
   positions: PanelPosition[];
+  bays: BayInfo[];
+  /** Cabinet W, H, D. */
+  size: [number, number, number];
+  problems: number[];
+  anchors: { width: Anchor; height: Anchor; depth: Anchor };
+  /** Split panels: layout uid ↔ scene object id. */
+  panels: { uid: number; id: ObjectId }[];
   attachments: ZoneAttachment[];
   fittings: Record<string, unknown>;
+}
+
+export type BayMode = 'AUTO' | 'LOCK' | 'PERCENT';
+export type Anchor = 'START' | 'CENTER' | 'END';
+
+/** One bay (khoang) of a split zone, cabinet frame. */
+export interface BayInfo {
+  zone: number;
+  index: number;
+  child: number;
+  axis: 0 | 1 | 2;
+  start: number;
+  size: number;
+  /** null = legacy per-panel positioning (converted on first edit). */
+  mode: BayMode | null;
+  value: number;
+  usable: number;
 }
 
 export interface CostLine {

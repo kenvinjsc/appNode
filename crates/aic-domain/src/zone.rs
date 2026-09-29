@@ -71,12 +71,204 @@ pub struct SplitPanel {
     pub tilt_deg: [f64; 2],
 }
 
+/// Sizing mode of one bay (khoang) of a split.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BayMode {
+    /// Takes an equal share of what LOCK / PERCENT bays leave.
+    #[default]
+    Auto,
+    /// Fixed clear size (mm).
+    Lock,
+    /// Percent (0..100) of the usable length (zone length minus split panels).
+    Percent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub struct Bay {
+    pub mode: BayMode,
+    #[serde(default)]
+    pub value: f64,
+}
+
+impl Bay {
+    pub fn auto() -> Self {
+        Bay { mode: BayMode::Auto, value: 0.0 }
+    }
+    pub fn lock(mm: f64) -> Self {
+        Bay { mode: BayMode::Lock, value: mm }
+    }
+    pub fn percent(p: f64) -> Self {
+        Bay { mode: BayMode::Percent, value: p }
+    }
+}
+
+/// Clear sizes of the bays of a split of length `len` with panels of thickness `t`.
+/// LOCK bays keep their mm, PERCENT bays their share of the usable length, AUTO bays
+/// share the rest equally. Without AUTO bays the rest goes to the PERCENT bays
+/// (proportionally), else to the last bay. `ok` is false when a bay would be
+/// smaller than 1 mm or an all-LOCK split cannot absorb the difference.
+pub fn solve_bays(len: f64, t: &[f64], bays: &[Bay]) -> (Vec<f64>, bool) {
+    let usable = len - t.iter().sum::<f64>();
+    let mut size: Vec<f64> = bays
+        .iter()
+        .map(|b| match b.mode {
+            BayMode::Lock => b.value.max(0.0),
+            BayMode::Percent => b.value.max(0.0) / 100.0 * usable,
+            BayMode::Auto => 0.0,
+        })
+        .collect();
+    let rest = usable - size.iter().sum::<f64>();
+    let autos: Vec<usize> = (0..bays.len()).filter(|&i| bays[i].mode == BayMode::Auto).collect();
+    let pcts: Vec<usize> = (0..bays.len()).filter(|&i| bays[i].mode == BayMode::Percent).collect();
+    let mut ok = true;
+    if !autos.is_empty() {
+        for &i in &autos {
+            size[i] = rest / autos.len() as f64;
+        }
+    } else if !pcts.is_empty() {
+        let psum: f64 = pcts.iter().map(|&i| size[i]).sum();
+        for &i in &pcts {
+            size[i] += if psum > 0.0 { rest * size[i] / psum } else { rest / pcts.len() as f64 };
+        }
+    } else if let Some(last) = size.last_mut() {
+        *last += rest;
+        ok = rest.abs() < 0.01;
+    }
+    if size.iter().any(|s| *s < 1.0) {
+        ok = false;
+    }
+    (size, ok)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Split {
     pub axis: usize,
     pub panels: Vec<SplitPanel>,
     /// `panels.len() + 1` sub-zones, in order along the axis.
     pub children: Vec<Zone>,
+    /// Bay sizing (`panels.len() + 1` entries). Empty = legacy per-panel locks.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bays: Vec<Bay>,
+}
+
+impl Split {
+    pub fn has_bays(&self) -> bool {
+        self.bays.len() == self.panels.len() + 1
+    }
+
+    /// Switch to bay sizing from the current clear sizes, keeping the intent of the
+    /// legacy locks (ratio → percent, from start/end → lock + auto, even → auto).
+    pub fn adopt_bays(&mut self, sizes: &[f64]) {
+        if self.has_bays() || sizes.len() != self.panels.len() + 1 {
+            return;
+        }
+        let usable: f64 = sizes.iter().sum();
+        let pct = |s: f64| if usable > 0.0 { s / usable * 100.0 } else { 0.0 };
+        self.bays = if self.panels.iter().all(|p| p.lock == Lock::Even) {
+            vec![Bay::auto(); sizes.len()]
+        } else if self.panels.len() == 1 {
+            match self.panels[0].lock {
+                Lock::Ratio => vec![Bay::percent(pct(sizes[0])), Bay::percent(pct(sizes[1]))],
+                Lock::FromStart => vec![Bay::lock(sizes[0]), Bay::auto()],
+                Lock::FromEnd => vec![Bay::auto(), Bay::lock(sizes[1])],
+                Lock::Even => vec![Bay::auto(); 2],
+            }
+        } else {
+            let big = (0..sizes.len()).max_by(|&a, &b| sizes[a].total_cmp(&sizes[b])).unwrap_or(0);
+            sizes.iter().enumerate().map(|(i, s)| if i == big { Bay::auto() } else { Bay::lock(*s) }).collect()
+        };
+    }
+
+    /// Kéo vách / kệ: move panel `i` so the bay before it becomes `before` mm.
+    /// Only the two adjacent bays change: the non-AUTO ones are rewritten (an
+    /// AUTO neighbour absorbs the change); two AUTO neighbours → the first is locked.
+    pub fn move_panel(&mut self, i: usize, sizes: &[f64], before: f64) -> Result<(), String> {
+        if !self.has_bays() || i >= self.panels.len() {
+            return Err("split has no bay sizing".into());
+        }
+        let delta = before - sizes[i];
+        if sizes[i] + delta < 1.0 || sizes[i + 1] - delta < 1.0 {
+            return Err("bay would be smaller than 1 mm".into());
+        }
+        let usable: f64 = sizes.iter().sum();
+        let (a, b) = (self.bays[i].mode, self.bays[i + 1].mode);
+        let mut set = |k: usize, d: f64| {
+            let bay = &mut self.bays[k];
+            match bay.mode {
+                BayMode::Lock => bay.value = sizes[k] + d,
+                BayMode::Percent => bay.value = (sizes[k] + d) / usable * 100.0,
+                BayMode::Auto => *bay = Bay::lock(sizes[k] + d),
+            }
+        };
+        match (a == BayMode::Auto, b == BayMode::Auto) {
+            (true, true) => set(i, delta),
+            (true, false) => set(i + 1, -delta),
+            (false, true) => set(i, delta),
+            (false, false) => {
+                set(i, delta);
+                set(i + 1, -delta);
+            }
+        }
+        Ok(())
+    }
+
+    /// Change one bay's mode and/or value (value: mm for LOCK, % for PERCENT).
+    pub fn set_bay(&mut self, k: usize, sizes: &[f64], mode: Option<BayMode>, value: Option<f64>) -> Result<(), String> {
+        if !self.has_bays() || k >= self.bays.len() {
+            return Err("no such bay".into());
+        }
+        let usable: f64 = sizes.iter().sum();
+        let mode = mode.unwrap_or(self.bays[k].mode);
+        let value = match (mode, value) {
+            (BayMode::Auto, _) => 0.0,
+            (_, Some(v)) if v.is_finite() && v >= 0.0 => v,
+            (_, Some(_)) => return Err("value must be ≥ 0".into()),
+            (BayMode::Lock, None) => sizes[k],
+            (BayMode::Percent, None) => if usable > 0.0 { sizes[k] / usable * 100.0 } else { 0.0 },
+        };
+        let old = self.bays[k];
+        self.bays[k] = Bay { mode, value };
+        // A typed size with no AUTO bay elsewhere: the nearest neighbour absorbs the
+        // difference and keeps its own mode (LOCK mm / PERCENT %).
+        let flexible_other = (0..self.bays.len()).any(|j| j != k && self.bays[j].mode == BayMode::Auto);
+        if mode != BayMode::Auto && !flexible_other && self.bays.len() > 1 {
+            let new_k = if mode == BayMode::Lock { value } else { value / 100.0 * usable };
+            let delta = new_k - sizes[k];
+            let j = if k + 1 < self.bays.len() { k + 1 } else { k - 1 };
+            let nj = sizes[j] - delta;
+            if nj < 1.0 || new_k < 1.0 {
+                self.bays[k] = old;
+                return Err("bay would be smaller than 1 mm".into());
+            }
+            let bj = &mut self.bays[j];
+            bj.value = match bj.mode {
+                BayMode::Percent => nj / usable * 100.0,
+                _ => nj,
+            };
+            return Ok(());
+        }
+        // Locking a bay by value: an AUTO/PERCENT bay must remain to absorb resizes.
+        if !self.bays.iter().any(|b| b.mode != BayMode::Lock) {
+            // Let the nearest neighbour absorb (ties: the larger one), so earlier locks stay.
+            let other = (0..self.bays.len())
+                .filter(|&j| j != k)
+                .min_by(|&a, &b| (a as i64 - k as i64).abs().cmp(&(b as i64 - k as i64).abs()).then(sizes[b].total_cmp(&sizes[a])));
+            match other {
+                Some(j) => self.bays[j] = Bay::auto(),
+                None => {
+                    self.bays[k] = old;
+                    return Err("at least one bay must be AUTO or PERCENT".into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Divide equally (Equal Divide): every bay AUTO.
+    pub fn equalize(&mut self) {
+        self.bays = vec![Bay::auto(); self.panels.len() + 1];
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -356,6 +548,9 @@ impl ZoneTree {
                 for (u, c) in uids.iter().zip(child_ids.iter()) {
                     s.panels.push(make(*u));
                     s.children.push(Zone::new(*c));
+                    if !s.bays.is_empty() {
+                        s.bays.push(Bay::auto());
+                    }
                 }
             }
             Some(_) => return Err("zone already split along another axis; pick a sub-zone".into()),
@@ -369,18 +564,53 @@ impl ZoneTree {
                 first.links = std::mem::take(&mut zone.links);
                 let mut children = vec![first];
                 children.extend(child_ids.iter().map(|c| Zone::new(*c)));
-                zone.split = Some(Box::new(Split { axis: kind.axis(), panels: uids.iter().map(|u| make(*u)).collect(), children }));
+                zone.split = Some(Box::new(Split { axis: kind.axis(), panels: uids.iter().map(|u| make(*u)).collect(), children, bays: Vec::new() }));
             }
         }
         Ok(uids)
     }
 
     /// Remove a split panel; its two neighbouring zones merge (gộp zone).
+    /// The split that owns panel `uid` (and the panel's index in it).
+    pub fn split_of_panel_mut(&mut self, uid: Uid) -> Option<(&mut Split, usize)> {
+        let z = owner_of_panel_mut(&mut self.root, uid)?;
+        let s = z.split.as_mut()?;
+        let i = s.panels.iter().position(|p| p.uid == uid)?;
+        Some((s, i))
+    }
+
+    pub fn split_of_panel(&self, uid: Uid) -> Option<&Split> {
+        fn find(z: &Zone, uid: Uid) -> Option<&Split> {
+            let s = z.split.as_deref()?;
+            if s.panels.iter().any(|p| p.uid == uid) {
+                return Some(s);
+            }
+            s.children.iter().find_map(|c| find(c, uid))
+        }
+        find(&self.root, uid)
+    }
+
+    pub fn split_mut(&mut self, zone_id: Uid) -> Option<&mut Split> {
+        self.zone_mut(zone_id)?.split.as_deref_mut()
+    }
+
     pub fn remove_panel(&mut self, uid: Uid) -> Result<(), String> {
         let zone = owner_of_panel_mut(&mut self.root, uid).ok_or("panel not found")?;
         let split = zone.split.as_mut().unwrap();
         let i = split.panels.iter().position(|p| p.uid == uid).unwrap();
         split.panels.remove(i);
+        if split.bays.len() == split.panels.len() + 2 {
+            // Merge bays i and i+1: AUTO wins, two LOCK add up (with the removed panel).
+            let (x, y) = (split.bays[i], split.bays.remove(i + 1));
+            split.bays[i] = match (x.mode, y.mode) {
+                (BayMode::Lock, BayMode::Lock) => Bay::lock(x.value + y.value),
+                (BayMode::Percent, BayMode::Percent) => Bay::percent(x.value + y.value),
+                _ => Bay::auto(),
+            };
+            if !split.bays.iter().any(|b| b.mode != BayMode::Lock) {
+                split.bays[i] = Bay::auto();
+            }
+        }
         let b = split.children.remove(i + 1);
         let a = &mut split.children[i];
         if a.is_empty() {
@@ -487,5 +717,66 @@ mod tests {
         assert_eq!(t.root.split.as_ref().unwrap().panels[0].uid, first);
         t.set_even_shelves(z, 0, 18.0).unwrap();
         assert!(t.root.split.is_none());
+    }
+}
+
+#[cfg(test)]
+mod bay_tests {
+    use super::*;
+
+    #[test]
+    fn lock_auto_lock_keeps_locked_bays() {
+        let t = [17.2, 17.2];
+        let bays = [Bay::lock(600.0), Bay::auto(), Bay::lock(400.0)];
+        let (s, ok) = solve_bays(1600.0 - 2.0 * 17.2, &t, &bays);
+        assert!(ok);
+        assert_eq!(s[0], 600.0);
+        assert_eq!(s[2], 400.0);
+        let (s2, _) = solve_bays(1800.0 - 2.0 * 17.2, &t, &bays);
+        assert_eq!((s2[0], s2[2]), (600.0, 400.0));
+        assert!((s2[1] - s[1] - 200.0).abs() < 1e-9, "only the AUTO bay grows");
+    }
+
+    #[test]
+    fn percent_keeps_ratio_and_conflict_is_reported() {
+        let bays = [Bay::percent(40.0), Bay::percent(20.0), Bay::percent(40.0)];
+        let (s, ok) = solve_bays(1034.4, &[17.2, 17.2], &bays);
+        assert!(ok);
+        assert!((s[0] - 400.0).abs() < 1e-9 && (s[1] - 200.0).abs() < 1e-9);
+        let (_, ok) = solve_bays(500.0, &[17.2], &[Bay::lock(400.0), Bay::lock(400.0)]);
+        assert!(!ok);
+        let (_, ok) = solve_bays(500.0, &[17.2], &[Bay::lock(600.0), Bay::auto()]);
+        assert!(!ok, "auto bay would be negative");
+    }
+
+    #[test]
+    fn move_panel_changes_adjacent_bays_only() {
+        let mut sp = Split { axis: 0, panels: vec![], children: vec![], bays: vec![] };
+        for u in 0..2 {
+            sp.panels.push(SplitPanel { uid: u, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] });
+        }
+        sp.bays = vec![Bay::lock(600.0), Bay::auto(), Bay::lock(400.0)];
+        let sizes = [600.0, 500.0, 400.0];
+        sp.move_panel(0, &sizes, 700.0).unwrap();
+        assert_eq!(sp.bays[0], Bay::lock(700.0));
+        assert_eq!(sp.bays[1], Bay::auto());
+        sp.move_panel(1, &[700.0, 400.0, 400.0], 300.0).unwrap();
+        assert_eq!(sp.bays[2], Bay::lock(500.0), "AUTO absorbs; the locked neighbour is rewritten");
+        // Two AUTO neighbours: the first becomes LOCK.
+        sp.bays = vec![Bay::auto(); 3];
+        sp.move_panel(0, &[500.0, 500.0, 500.0], 742.0).unwrap();
+        assert_eq!(sp.bays[0], Bay::lock(742.0));
+        assert!(sp.move_panel(0, &[500.0, 500.0, 500.0], 1200.0).is_err());
+    }
+
+    #[test]
+    fn typed_size_in_percent_split_goes_to_the_neighbour() {
+        let mut sp = Split { axis: 0, panels: vec![], children: vec![], bays: vec![Bay::percent(50.0), Bay::percent(50.0)] };
+        sp.panels.push(SplitPanel { uid: 0, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] });
+        let sizes = [774.2, 774.2];
+        sp.set_bay(0, &sizes, Some(BayMode::Percent), Some(600.0 / 1548.4 * 100.0)).unwrap();
+        let (s, ok) = solve_bays(1548.4 + 17.2, &[17.2], &sp.bays);
+        assert!(ok && (s[0] - 600.0).abs() < 1e-6 && (s[1] - 948.4).abs() < 1e-6, "{s:?}");
+        assert_eq!(sp.bays[1].mode, BayMode::Percent);
     }
 }

@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -43,6 +43,10 @@ export const Commands = {
   zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL', offset = 60) => command({ cmd: 'zone_add_link', cabinet, zones, kind, offset }),
   zoneRemove: (cabinet: ObjectId, uid: number) => command({ cmd: 'zone_remove', cabinet, uid }),
   setPartMod: (id: ObjectId, patch: PartModPatch) => command({ cmd: 'set_part_mod', id, patch }),
+  setBay: (cabinet: ObjectId, zone: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_bay', cabinet, zone, index, mode, value }),
+  equalizeSplit: (cabinet: ObjectId, zone: number) => command({ cmd: 'equalize_split', cabinet, zone }),
+  /** Kéo vách / kệ: `before` = clear size of the bay before the panel. */
+  moveSplitPanel: (id: ObjectId, before: number) => command<{ zone: number }>({ cmd: 'move_split_panel', id, before }),
   shapeTool: (ids: ObjectId[], op: ShapeOp) => command<{ changed: number; skipped: { id: ObjectId; reason: string }[] }>({ cmd: 'shape_tool', ids, op }),
   mergePanels: (ids: ObjectId[]) => command<{ id: ObjectId; size: [number, number] }>({ cmd: 'merge_panels', ids }),
   setPrice: (key: string, value: number | null) => command({ cmd: 'set_price', key, value }),

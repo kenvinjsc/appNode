@@ -131,6 +131,21 @@ Click một tấm, rồi mở tab **Chỉnh tấm**:
 - Co giãn trên ±20.
 - Mở Chỉnh tấm.
 
+## 4b. Sửa trực tiếp trên bản vẽ 2D
+![2D editor](screenshots/07-2d-editor.png)
+
+Chọn một tủ. Ở **Mặt đứng (Trước)**, bản vẽ 2D trở thành trình chỉnh sửa:
+
+| Thao tác | Kết quả |
+|---|---|
+| Bấm số **W / H** màu cam | Nhập kích thước tủ mới (Enter). Tủ giữ vị trí theo **Neo** (Chỉnh tấm → Neo rộng: Giữ trái / giữa / phải). |
+| Bấm số kích thước khoang | Nhập mm → khoang thành **KHÓA**; nhập `40%` → khoang thành **%**. |
+| Bấm nhãn **KHÓA / % / AUTO** trên số | Đổi chế độ khoang: **KHÓA** giữ mm · **%** giữ tỉ lệ · **AUTO** chia phần còn lại. Ví dụ `600 KHÓA · AUTO · 400 KHÓA`: tủ 1600 → 1800 thì chỉ khoang giữa tăng 200. |
+| Kéo vách / kệ | Xem trước số đo 2 khoang kề khi kéo; thả chuột mới lưu. Tự bắt điểm chia đều; giữ **Shift** để bước 10 mm. Chỉ 2 khoang kề thay đổi. |
+| Click vùng trống | Ghim vùng (Ctrl+click ghim thêm). **Chuột phải** → Dựng nhanh, Chia ngang/dọc 2–4 khoang, Chia đều lại. |
+
+Màu số: xanh dương = AUTO, đỏ = KHÓA, xanh lá = %. Nếu thay đổi làm một khoang nhỏ hơn 1 mm, phần mềm từ chối và giữ nguyên.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 
