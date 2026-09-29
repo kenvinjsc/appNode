@@ -95,6 +95,7 @@ pub enum Request {
     GenerateCnc { material: String, sheet_id: u32 },
     Snap { id: ObjectId, delta: [f64; 3], #[serde(default)] grid: Option<f64> },
     GetBounds { ids: Vec<ObjectId> },
+    GetTransform { id: ObjectId },
     GetStatus,
 }
 

@@ -1,0 +1,276 @@
+// TypeScript mirror of the Rust wire protocol (crates/aic-api/src/protocol.rs).
+// The UI never owns project data: these are read models returned by the core.
+
+export type ObjectId = number;
+export type Vec3 = [number, number, number];
+
+export interface Transform3D {
+  translation: Vec3;
+  rotation_deg: Vec3;
+}
+
+export type CabinetKind = 'BASE' | 'WALL' | 'WARDROBE' | 'OPEN_SHELF' | 'DRAWER' | 'DOOR';
+export type EdgeSide = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'TOP';
+export type FaceSide = 'A' | 'B';
+
+export type CoreEvent =
+  | { type: 'ObjectCreated'; ids: ObjectId[] }
+  | { type: 'ObjectDeleted'; ids: ObjectId[] }
+  | { type: 'ObjectChanged'; ids: ObjectId[] }
+  | { type: 'GeometryChanged'; ids: ObjectId[] }
+  | { type: 'TransformChanged'; ids: ObjectId[] }
+  | { type: 'SceneTreeChanged' }
+  | { type: 'SelectionInvalidated'; ids: ObjectId[] }
+  | { type: 'ProjectLoaded' };
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details: Record<string, unknown> | null;
+}
+
+export interface Response<T = unknown> {
+  ok: boolean;
+  result: T;
+  events: CoreEvent[];
+  error: ApiError | null;
+  revision: number;
+  can_undo: boolean;
+  can_redo: boolean;
+}
+
+export interface TreeNode {
+  id: ObjectId;
+  name: string;
+  kind: 'ROOM' | 'CABINET' | 'PANEL' | 'HARDWARE';
+  role: string | null;
+  visible: boolean;
+  locked: boolean;
+  generated: boolean;
+  children: TreeNode[];
+}
+
+export interface SceneTree {
+  name: string;
+  roots: TreeNode[];
+}
+
+export interface PropertyField {
+  key: string;
+  label: string;
+  value: number | string | boolean | null;
+  source: string | null;
+  expression: boolean;
+  unit: 'mm' | 'deg' | null;
+  kind: 'number' | 'text' | 'select' | 'bool' | 'readonly';
+  options: { value: string; label: string; color?: string }[];
+  editable: boolean;
+  error: string | null;
+}
+
+export interface PropertyGroup {
+  key: string;
+  title: string;
+  fields: PropertyField[];
+}
+
+export interface Bounds {
+  min: Vec3;
+  max: Vec3;
+}
+
+export interface PropertySheet {
+  id: ObjectId;
+  kind: TreeNode['kind'];
+  name: string;
+  locked: boolean;
+  groups: PropertyGroup[];
+  bounds: Bounds | null;
+}
+
+export interface MeshData {
+  positions: number[];
+  normals: number[];
+  indices: number[];
+  face_ids: number[];
+  edges: number[];
+  edge_ids: number[];
+}
+
+export interface RenderObject {
+  id: ObjectId;
+  kind: 'PANEL' | 'HARDWARE' | 'ROOM';
+  role: string | null;
+  name: string;
+  geometry_key: string;
+  matrix: number[];
+  color: string;
+  material_id: string | null;
+  visible: boolean;
+  locked: boolean;
+  parent: ObjectId | null;
+  cabinet: ObjectId | null;
+  size: Vec3 | null;
+}
+
+export interface RenderBatch {
+  objects: RenderObject[];
+  meshes: Record<string, MeshData>;
+}
+
+export interface Material {
+  id: string;
+  name: string;
+  kind: 'MDF' | 'PLYWOOD' | 'PARTICLEBOARD' | 'HDF' | 'SOLID_WOOD';
+  thickness_mm: number;
+  has_grain: boolean;
+  sheet_width_mm: number;
+  sheet_height_mm: number;
+  color: string;
+  texture: string | null;
+}
+
+export type ContactType = 'TOUCH' | 'GAP' | 'PENETRATE';
+
+export interface AssemblyRelation {
+  source: ObjectId;
+  target: ObjectId;
+  contact: ContactType;
+  orientation: 'PARALLEL' | 'PERPENDICULAR' | 'OBLIQUE';
+  source_region: 'FACE' | 'EDGE' | 'END';
+  target_region: 'FACE' | 'EDGE' | 'END';
+  gap_mm: number;
+  penetration_mm: number;
+  contact_area_mm2: number;
+  angle_deg: number;
+  normal: Vec3;
+  contact_region: Vec3[];
+}
+
+export interface Point2 {
+  x: number;
+  y: number;
+}
+export interface Polygon2D {
+  points: Point2[];
+}
+
+export type DrillPurpose = 'GENERIC' | 'SHELF_PIN' | 'DOWEL' | 'CAM_LOCK' | 'CONNECTOR' | 'HINGE_CUP' | 'HINGE_SCREW' | 'HANDLE';
+
+export type MachiningFeature =
+  | { type: 'DRILL'; x: number; y: number; diameter: number; depth: number; side: FaceSide; purpose: DrillPurpose }
+  | { type: 'EDGE_DRILL'; edge: EdgeSide; offset: number; z: number; diameter: number; depth: number; purpose: DrillPurpose }
+  | { type: 'POCKET'; x: number; y: number; width: number; height: number; depth: number; side: FaceSide; corner_radius: number }
+  | { type: 'GROOVE'; x: number; y: number; length: number; width: number; depth: number; direction: 'X' | 'Y'; side: FaceSide }
+  | { type: 'CONTOUR'; polygon: Polygon2D; inner: boolean; depth: number };
+
+export type FeatureOrigin = { kind: 'USER'; index: number } | { kind: 'RULE' } | { kind: 'JOINT'; with: ObjectId };
+
+export interface FlatPanel {
+  id: ObjectId;
+  name: string;
+  role: string;
+  material_id: string;
+  width: number;
+  height: number;
+  thickness: number;
+  grain: 'ALONG_HEIGHT' | 'ALONG_WIDTH' | 'NONE';
+  outer: Polygon2D;
+  inner: Polygon2D[];
+  features: { feature: MachiningFeature; origin: FeatureOrigin }[];
+  edge_bands: { edge: EdgeSide; material_code: string; thickness_mm: number }[];
+  summary: { drills: number; edge_drills: number; pockets: number; grooves: number; contours: number; edge_bands: string[] };
+}
+
+export interface PartRow {
+  id: ObjectId;
+  name: string;
+  cabinet: string | null;
+  role: string;
+  material_id: string;
+  length: number;
+  width: number;
+  thickness: number;
+  grain: string;
+  edge_bands: string[];
+  drills: number;
+  grooves: number;
+  pockets: number;
+}
+
+export interface PartsReport {
+  parts: PartRow[];
+  materials: { material_id: string; name: string; count: number; area_m2: number }[];
+}
+
+export interface NestingSettings {
+  spacing_mm: number;
+  margin_mm: number;
+  allow_rotation: boolean;
+}
+
+export interface NestingPlacement {
+  part_id: ObjectId;
+  instance: number;
+  sheet_id: number;
+  x_mm: number;
+  y_mm: number;
+  rotation_deg: number;
+  width_mm: number;
+  height_mm: number;
+}
+
+export interface NestingJobResult {
+  material_id: string;
+  sheet: { material_id: string; width_mm: number; height_mm: number; thickness_mm: number; has_grain: boolean };
+  result: {
+    material_id: string;
+    sheets: { id: number; width_mm: number; height_mm: number; used_area_mm2: number; utilization: number }[];
+    placements: NestingPlacement[];
+    unplaced: ObjectId[];
+    waste_ratio: number;
+  };
+  names: Record<string, string>;
+}
+
+export interface CncMove {
+  x: number;
+  y: number;
+  z: number;
+  rapid: boolean;
+}
+
+export interface CncTool {
+  id: number;
+  name: string;
+  kind: 'DRILL' | 'END_MILL';
+  diameter: number;
+  rpm: number;
+  feed: number;
+  plunge: number;
+  step_down: number;
+}
+
+export interface CncProgram {
+  sheet_id: number;
+  sheet_width: number;
+  sheet_height: number;
+  thickness: number;
+  tools: CncTool[];
+  operations: { index: number; tool_id: number; kind: string; part_id: ObjectId; moves: CncMove[] }[];
+  gcode: string;
+  warnings: string[];
+  stats: { tool_changes: number; cut_length_mm: number; rapid_length_mm: number; estimated_time_s: number };
+}
+
+export interface SnapHint {
+  kind: 'FACE' | 'ALIGN' | 'CENTER' | 'GRID';
+  axis: 0 | 1 | 2;
+  value: number;
+  target: ObjectId | null;
+}
+
+export interface SnapResult {
+  delta: Vec3;
+  hints: SnapHint[];
+}

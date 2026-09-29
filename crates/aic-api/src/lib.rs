@@ -263,6 +263,19 @@ impl Engine {
                 }
                 ok(if b.is_empty() { Value::Null } else { json!({ "min": b.min, "max": b.max }) })
             }
+            GetTransform { id } => {
+                let node = self.doc.scene.node(id).map_err(CoreError::from)?;
+                let local = node.local_transform;
+                let parent_world = node.parent.map(|p| self.world(p)).unwrap_or_default();
+                let world = self.world(id);
+                ok(json!({
+                    "local": local,
+                    "world": world,
+                    "parent_world": parent_world,
+                    "world_matrix": world.to_matrix_col_major(),
+                    "parent_matrix": parent_world.to_matrix_col_major(),
+                }))
+            }
             GetStatus => ok(json!({
                 "name": self.doc.meta.name,
                 "revision": self.doc.revision,

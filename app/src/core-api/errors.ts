@@ -1,0 +1,54 @@
+// Map core error codes to user-facing Vietnamese messages. Raw technical
+// messages from Rust are never shown to the user.
+import type { ApiError } from './types';
+
+const CONSTRAINTS: Record<string, string> = {
+  WIDTH_LESS_THAN_SIDES: 'Chiều rộng không thể nhỏ hơn tổng chiều dày hai hồi.',
+  HEIGHT_TOO_SMALL: 'Chiều cao không đủ để chứa nóc, đáy và chân tủ.',
+  DEPTH_TOO_SMALL: 'Chiều sâu quá nhỏ so với tấm hậu và khoảng lùi đợt.',
+  THICKNESS_OUT_OF_RANGE: 'Chiều dày ván phải nằm trong khoảng 3–60 mm.',
+  TOO_MANY_SHELVES: 'Không đủ chiều cao cho số đợt này.',
+  DOOR_TOO_NARROW: 'Cánh tủ sẽ hẹp hơn 50 mm.',
+};
+
+export interface UserMessage {
+  title: string;
+  detail: string;
+}
+
+export function describeError(e: ApiError, action = 'Không thể thực hiện thao tác.'): UserMessage {
+  const d = (e.details ?? {}) as Record<string, unknown>;
+  switch (e.code) {
+    case 'CONSTRAINT_VIOLATED':
+      return {
+        title: 'Không thể cập nhật kích thước.',
+        detail: CONSTRAINTS[String(d.constraint)] ?? 'Giá trị vi phạm ràng buộc của tủ.',
+      };
+    case 'DEPENDENCY_CYCLE':
+      return { title: 'Công thức không hợp lệ.', detail: 'Công thức tạo ra vòng phụ thuộc (tham số tham chiếu chính nó).' };
+    case 'INVALID_PARAMETER':
+      return { title: 'Giá trị không hợp lệ.', detail: 'Kiểm tra lại số hoặc công thức (ví dụ: = cabinet.inner_width - 2).' };
+    case 'LOCKED':
+      return { title: 'Đối tượng đang bị khóa.', detail: 'Mở khóa đối tượng (hoặc tủ chứa nó) để chỉnh sửa.' };
+    case 'NOT_FOUND':
+      return { title: action, detail: 'Đối tượng không còn tồn tại.' };
+    case 'INVALID_TRANSFORM':
+      return { title: 'Không thể di chuyển.', detail: 'Vị trí hoặc góc xoay không hợp lệ.' };
+    case 'INVALID_REPARENT':
+      return { title: 'Không thể di chuyển trong cây.', detail: 'Chi tiết sinh tự động thuộc về tủ của nó, hoặc đích không chứa được đối tượng.' };
+    case 'GEOMETRY_BOOLEAN_FAILED':
+      return { title: 'Lỗi hình học.', detail: 'Không thể tạo hình khối cho chi tiết này.' };
+    case 'INVALID_FEATURE':
+      return { title: 'Gia công không hợp lệ.', detail: 'Vị trí hoặc kích thước gia công nằm ngoài tấm.' };
+    case 'UNKNOWN_MATERIAL':
+      return { title: 'Vật liệu không tồn tại.', detail: 'Chọn vật liệu từ thư viện.' };
+    case 'UNSUPPORTED_VERSION':
+      return { title: 'Không mở được dự án.', detail: 'Tệp được tạo bởi phiên bản AIC CAD mới hơn.' };
+    case 'INVALID_PROJECT':
+      return { title: 'Không mở được dự án.', detail: 'Tệp dự án bị hỏng hoặc không đúng định dạng.' };
+    case 'NOTHING_TO':
+      return { title: 'Không còn thao tác để hoàn tác/làm lại.', detail: '' };
+    default:
+      return { title: action, detail: 'Đã xảy ra lỗi trong lõi CAD.' };
+  }
+}
