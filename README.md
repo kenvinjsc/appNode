@@ -90,3 +90,4 @@ docs/                ADR, bảng ánh xạ API, phím tắt, checklist kiểm th
 Core: Phase 1–6 xong; Phase 7 (tối ưu, test dự án lớn) mới một phần. UI: Phase 1–6 xong. Chi tiết và việc còn lại
 xem [docs/STATUS.md](docs/STATUS.md).
 Hướng dẫn thao tác dựng tủ từng bước: [docs/HUONG-DAN-DUNG-TU.md](docs/HUONG-DAN-DUNG-TU.md).
+Tổng hợp tính năng Parametric Cabinet Editor: [docs/TONG-HOP-PARAMETRIC-EDITOR.md](docs/TONG-HOP-PARAMETRIC-EDITOR.md) · prompt cho dự án `aic_object_relation`: [docs/PROMPT-aic-object-relation.md](docs/PROMPT-aic-object-relation.md).
