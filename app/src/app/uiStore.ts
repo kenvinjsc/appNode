@@ -13,6 +13,8 @@ export type Tool =
 export type SelectionMode = 'object' | 'face' | 'edge';
 export type RibbonTab = 'file' | 'home' | 'design' | 'edit' | 'material' | 'manufacturing' | 'view';
 export type Drawer = null | 'materials' | 'report' | 'shortcuts';
+export type DesignerTab = 'frame' | 'create' | 'edit' | 'manage' | 'library' | 'settings';
+export type CreateType = 'horizontal' | 'vertical' | 'back' | 'door' | 'drawer' | 'link';
 
 export interface Toast {
   id: number;
@@ -61,10 +63,31 @@ interface UiState {
   toasts: Toast[];
   jobs: Job[];
   contextMenu: { x: number; y: number; id: ObjectId } | null;
+  /** Quick build menu on a zone (right-click in "Tạo tấm"). */
+  zoneMenu: { x: number; y: number; cabinet: ObjectId; zone: number } | null;
   renaming: ObjectId | null;
   cursor: [number, number, number] | null;
   mfgPanel: ObjectId | null;
   propertiesTab: 'params' | 'material' | 'machining';
+  designerTab: DesignerTab;
+  createType: CreateType;
+  /** Zones pinned for "Tạo tấm" (ghim vùng). */
+  pinned: { cabinet: ObjectId | null; zones: number[] };
+  leftTab: 'tree' | 'tools';
+  toolId: string | null;
+  isolate: boolean;
+  /** Room tab of the project (null = Tất cả). New cabinets go into it. */
+  activeRoom: string | null;
+  /** Floor tab (tầng) of the project (null = Tất cả tầng). Rooms are listed per floor. */
+  activeFloor: string | null;
+  extraFloors: string[];
+  /** Rooms added by the user that have no cabinet yet. */
+  extraRooms: string[];
+  showZones: boolean;
+  /** Action executed by the TAB key for the open panel. */
+  tabAction: (() => void) | null;
+  /** Contextual red hint in the viewport corner. */
+  hint: string | null;
 
   set: (p: Partial<UiState>) => void;
   select: (ids: ObjectId[], mode?: 'replace' | 'toggle' | 'add') => void;
@@ -106,10 +129,24 @@ export const useUi = create<UiState>((set, get) => ({
   toasts: [],
   jobs: [],
   contextMenu: null,
+  zoneMenu: null,
   renaming: null,
   cursor: null,
   mfgPanel: null,
   propertiesTab: 'params',
+  designerTab: 'frame',
+  createType: 'horizontal',
+  pinned: { cabinet: null, zones: [] },
+  leftTab: 'tree',
+  toolId: null,
+  isolate: false,
+  activeRoom: null,
+  activeFloor: null,
+  extraFloors: [],
+  extraRooms: [],
+  showZones: true,
+  tabAction: null,
+  hint: null,
 
   set: (p) => set(p),
   select: (ids, mode = 'replace') => {

@@ -2,7 +2,7 @@
 // comes from the core's world matrices, nothing here computes CAD geometry.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { ObjectId, RenderBatch, RenderObject } from '../../core-api/types';
+import type { ObjectId, RenderBatch, RenderObject, ZonesInfo } from '../../core-api/types';
 import { GeometryCache } from './geometryCache';
 import { edgeMaterial, faceHighlightMaterial, hardwareMaterial, isGrained, roomMaterial, surfaceMaterial, type VisualState } from '../materials/materials';
 
@@ -57,6 +57,9 @@ export class ViewportEngine {
   readonly clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1000);
   private clipping = false;
   private states = new Map<ObjectId, VisualState>();
+  private isolation: Set<ObjectId> | null = null;
+  readonly zoneGroup = new THREE.Group();
+  private zoneMeshes: THREE.Mesh[] = [];
   onFrame: (() => void) | null = null;
 
   constructor(private container: HTMLElement) {
@@ -119,6 +122,7 @@ export class ViewportEngine {
 
     this.scene.add(this.content);
     this.scene.add(this.overlay);
+    this.scene.add(this.zoneGroup);
 
     const ro = new ResizeObserver(() => this.resize());
     ro.observe(container);
@@ -257,11 +261,12 @@ export class ViewportEngine {
     if (!e.mesh) return;
     e.mesh.matrix.copy(e.matrix);
     e.mesh.matrixWorldNeedsUpdate = true;
-    e.mesh.visible = e.ro.visible;
+    const vis = e.ro.visible && (!this.isolation || this.isolation.has(e.ro.id));
+    e.mesh.visible = vis;
     if (e.edges) {
       e.edges.matrix.copy(e.matrix);
       e.edges.matrixWorldNeedsUpdate = true;
-      e.edges.visible = e.ro.visible;
+      e.edges.visible = vis;
     }
   }
 
@@ -286,7 +291,7 @@ export class ViewportEngine {
     group.ids.forEach((id, i) => {
       const e = this.entries.get(id)!;
       e.instance = { key, index: i };
-      group.mesh.setMatrixAt(i, e.ro.visible ? e.matrix : zero);
+      group.mesh.setMatrixAt(i, e.ro.visible && (!this.isolation || this.isolation.has(id)) ? e.matrix : zero);
       const st = this.states.get(id) ?? 'normal';
       color.set(st === 'selected' || st === 'active' ? '#f08c4a' : st === 'hover' ? '#c9a58c' : '#9aa1a8');
       group.mesh.setColorAt(i, color);
@@ -348,6 +353,61 @@ export class ViewportEngine {
     this.renderer.localClippingEnabled = on;
     if (height !== undefined) this.clipPlane.constant = height;
     this.refreshStates();
+  }
+
+  /** Show only these objects (cô lập tủ); null shows everything. */
+  setIsolation(ids: ObjectId[] | null) {
+    this.isolation = ids ? new Set(ids) : null;
+    const touched = new Set<string>();
+    for (const e of this.entries.values()) {
+      this.placeMesh(e);
+      if (e.instance) touched.add(e.instance.key);
+    }
+    for (const k of touched) this.syncInstances(k);
+    this.requestRender();
+  }
+
+  /** Draw the cabinet's leaf zones (vùng lọt lòng) for pinning. */
+  setZones(info: ZonesInfo | null, pinned: number[], hover: number | null) {
+    for (const m of this.zoneMeshes) {
+      this.zoneGroup.remove(m);
+      m.geometry.dispose();
+    }
+    this.zoneMeshes = [];
+    if (info) {
+      const cab = new THREE.Matrix4().fromArray(info.matrix);
+      for (const z of info.zones) {
+        const isPinned = pinned.includes(z.id);
+        if (!z.leaf && !isPinned) continue;
+        const geo = new THREE.BoxGeometry(z.size[0], z.size[1], z.size[2]);
+        const color = isPinned ? '#e8590c' : hover === z.id ? '#f59f63' : '#4dabf7';
+        // Drawn through the fronts (depthTest off) so closed cabinets can still be pinned.
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isPinned ? 0.3 : hover === z.id ? 0.22 : 0.06, depthWrite: false, depthTest: false });
+        const m = new THREE.Mesh(geo, mat);
+        m.matrixAutoUpdate = false;
+        m.matrix.copy(cab).multiply(new THREE.Matrix4().makeTranslation(z.min[0] + z.size[0] / 2, z.min[1] + z.size[1] / 2, z.min[2] + z.size[2] / 2));
+        m.userData.zoneId = z.id;
+        m.userData.volume = z.size[0] * z.size[1] * z.size[2];
+        m.renderOrder = 5;
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false, opacity: isPinned || hover === z.id ? 0.95 : 0.4 }));
+        edges.renderOrder = 6;
+        edges.raycast = () => undefined;
+        m.add(edges);
+        this.zoneGroup.add(m);
+        this.zoneMeshes.push(m);
+      }
+    }
+    this.requestRender();
+  }
+
+  /** Smallest zone under the cursor. */
+  pickZone(clientX: number, clientY: number): number | null {
+    if (!this.zoneMeshes.length) return null;
+    this.raycaster.setFromCamera(this.ndc(clientX, clientY), this.camera);
+    const hits = this.raycaster.intersectObjects(this.zoneMeshes, false);
+    if (!hits.length) return null;
+    hits.sort((a, b) => a.object.userData.volume - b.object.userData.volume);
+    return hits[0].object.userData.zoneId as number;
   }
 
   setGridVisible(v: boolean) {

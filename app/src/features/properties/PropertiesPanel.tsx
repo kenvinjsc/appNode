@@ -6,15 +6,15 @@ import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
 import type { FlatPanel, PropertyField, PropertySheet } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
-import { FIELD_LABEL, GROUP_LABEL, KIND_LABEL, OPTION_LABEL, PURPOSE_LABEL, fmt } from '../../shared/i18n';
+import { FIELD_LABEL, GROUP_LABEL, KIND_LABEL, OPTION_LABEL, PURPOSE_LABEL, fmt, roleLabel } from '../../shared/i18n';
 
 const TAB_GROUPS: Record<string, string[]> = {
-  params: ['general', 'size', 'construction', 'content', 'position', 'rotation', 'derived'],
-  material: ['material', 'edges'],
+  params: ['general', 'size', 'zone_position', 'door', 'drawer', 'link', 'stretch', 'construction', 'content', 'position', 'rotation', 'derived', 'relations'],
+  material: ['material', 'edges', 'edge_rule'],
   machining: ['manufacturing'],
 };
 
-export function PropertiesPanel() {
+export function PropertiesPanel({ embedded = false }: { embedded?: boolean }) {
   const { active, selection, revision, propertiesTab, set } = useUi();
   const [sheet, setSheet] = useState<PropertySheet | null>(null);
   const [flat, setFlat] = useState<FlatPanel | null>(null);
@@ -45,6 +45,7 @@ export function PropertiesPanel() {
   }, [active, sheet, propertiesTab, revision]);
 
   if (!sheet) {
+    if (embedded) return <div className="empty">{selection.length > 1 ? `${selection.length} đối tượng được chọn` : 'Click một tấm (click lần 2 vào tủ) để chỉnh.'}</div>;
     return (
       <div className="panel properties">
         <div className="panel-header">
@@ -61,12 +62,14 @@ export function PropertiesPanel() {
   const groups = sheet.groups.filter((g) => TAB_GROUPS[propertiesTab].includes(g.key));
 
   return (
-    <div className="panel properties">
-      <div className="panel-header">
-        <Icon name="settings" size={16} />
-        <span>Thuộc tính</span>
-        {selection.length > 1 && <span className="badge">{selection.length}</span>}
-      </div>
+    <div className={embedded ? 'embedded-props' : 'panel properties'}>
+      {!embedded && (
+        <div className="panel-header">
+          <Icon name="settings" size={16} />
+          <span>Thuộc tính</span>
+          {selection.length > 1 && <span className="badge">{selection.length}</span>}
+        </div>
+      )}
       <div className="prop-head">
         <div className="swatch" style={{ background: matOpt?.color ?? '#dee2e6' }} />
         <div>
@@ -146,9 +149,31 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
   const label = FIELD_LABEL[f.key] ?? f.label;
   const editable = f.editable && !locked;
   const commit = (v: string) => Commands.setParameter(id, f.key, v).catch(() => undefined);
+  if (f.kind === 'list') {
+    const items = (Array.isArray(f.value) ? f.value : []) as (string | { id: number; name: string })[];
+    return (
+      <div className="prop-list">
+        <div className="prop-list-head">
+          <span>
+            {label} ({items.length})
+          </span>
+          {f.key === 'tools' && items.length > 0 && editable && (
+            <button className="icon-btn danger" title="Gỡ tất cả tool" onClick={() => void Commands.setPartMod(id, { clear_tools: true }).catch(() => undefined)}>
+              <Icon name="x" size={14} />
+            </button>
+          )}
+        </div>
+        {items.map((it, i) => (
+          <div key={i} className="prop-list-item" onClick={() => typeof it === 'object' && useUi.getState().select([it.id])}>
+            {typeof it === 'object' ? it.name : it}
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (f.kind === 'readonly' || (!editable && f.kind !== 'number')) {
     let v = String(f.value ?? '–');
-    if (f.key === 'role' || f.key === 'kind') v = v;
+    if (f.key === 'role' || f.key === 'kind') v = roleLabel(v);
     return (
       <div className="prop-row">
         <label>{label}</label>
@@ -186,6 +211,10 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
   }
   if (f.kind === 'text') return <TextRow label={label} value={String(f.value ?? '')} onCommit={commit} disabled={!editable} />;
   return <NumberRow label={label} f={f} onCommit={commit} disabled={!editable} />;
+}
+
+export function lockDot(f: PropertyField) {
+  return f.locked ? <i className="lock-dot" title="Tham số đang khóa" /> : null;
 }
 
 function TextRow({ label, value, onCommit, disabled }: { label: string; value: string; onCommit: (v: string) => void; disabled: boolean }) {
@@ -226,7 +255,8 @@ export function NumberRow({ label, f, onCommit, disabled }: { label: string; f: 
   };
   return (
     <div className={`prop-row ${f.error ? 'error' : ''}`} title={isExpr ? `Công thức: ${f.source}` : undefined}>
-      <label>
+      <label className={f.locked ? 'locked' : ''}>
+        {f.locked && <i className="lock-dot" />}
         {label}
         {isExpr && <span className="fx">ƒx</span>}
       </label>

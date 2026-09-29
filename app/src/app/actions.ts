@@ -13,15 +13,14 @@ export const Actions = {
     await safe(Commands.createProject('Dự án mới'));
   },
   async sampleProject() {
-    await safe(Commands.createProject('Dự án mẫu · Phòng ngủ & bếp'));
-    await safe(Commands.createRoom(4800, 3600, 2700));
-    const a = await Commands.createCabinet('WARDROBE', [100, 0, 20], { width: 1200 }).catch(() => null);
-    await safe(Commands.createCabinet('WARDROBE', [1300, 0, 20], { width: 800, doors: 1 }));
-    await safe(Commands.createCabinet('DRAWER', [2150, 0, 20], { width: 600 }));
-    await safe(Commands.createCabinet('BASE', [2800, 0, 20], { width: 900 }));
-    await safe(Commands.createCabinet('WALL', [2800, 1450, 20], { width: 900 }));
-    await safe(Commands.createCabinet('OPEN_SHELF', [3750, 0, 20], { width: 800 }));
-    if (a) ui().select([a.id]);
+    await safe(Commands.createProject('Dự án mẫu · PN1 & Bếp'));
+    await safe(Commands.createRoom(5200, 3600, 2700));
+    const qa = await Commands.createCabinet('WARDROBE', [100, 0, 20], {}, { room: 'PN1', floor: 'Tầng 2' }).catch(() => null);
+    const b1 = await Commands.createCabinet('BASE', [1850, 0, 20], {}, { room: 'Bếp', floor: 'Tầng 1' }).catch(() => null);
+    const b2 = b1 && (await Commands.createCabinet('BASE', [0, 0, 0], { drawers: 2, doors: 0, shelves: 0 }, { room: 'Bếp', floor: 'Tầng 1', after: b1.id }).catch(() => null));
+    if (b2) await safe(Commands.createCabinet('BASE', [0, 0, 0], { width: 400, doors: 1 }, { room: 'Bếp', floor: 'Tầng 1', after: b2.id }));
+    await safe(Commands.createCabinet('WALL', [1850, 1450, 20], { width: 1600, doors: 4 }, { room: 'Bếp', floor: 'Tầng 1' }));
+    if (qa) ui().select([qa.id]);
     setTimeout(() => View.set('iso'), 50);
   },
   async save() {

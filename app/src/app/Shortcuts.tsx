@@ -9,6 +9,29 @@ import { useUi } from './uiStore';
 export function useShortcutLayer() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // [TAB] runs the command of the open designer panel (Tạo tủ, Thêm, ...).
+      if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) {
+        const s = useUi.getState();
+        if (s.tabAction && s.workspace === 'design') {
+          e.preventDefault();
+          const el = document.activeElement as HTMLElement | null;
+          el?.blur?.();
+          const fn = s.tabAction;
+          setTimeout(() => useUi.getState().tabAction === fn ? fn() : useUi.getState().tabAction?.(), 30);
+          return;
+        }
+      }
+      // ~ toggles zones, Alt+~ isolates the cabinet.
+      if (e.key === '`' || e.key === '~') {
+        const s = useUi.getState();
+        const t0 = e.target as HTMLElement;
+        if (!(t0 && (t0.tagName === 'INPUT' || t0.tagName === 'TEXTAREA'))) {
+          e.preventDefault();
+          if (e.altKey) s.set({ isolate: !s.isolate });
+          else s.set({ showZones: !s.showZones });
+          return;
+        }
+      }
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const a = matchAction(e, loadShortcuts());

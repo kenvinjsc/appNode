@@ -20,6 +20,11 @@ pub struct CabinetOverrides {
     pub back_panel: Option<bool>,
     pub carcass_material: Option<String>,
     pub front_material: Option<String>,
+    /// INSET | OVERLAY | RAILS (luật liên kết).
+    pub top_style: Option<String>,
+    pub bottom_style: Option<String>,
+    pub edge_rule: Option<aic_domain::EdgeRule>,
+    pub back_groove: Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -95,6 +100,8 @@ pub enum Request {
         name: Option<String>,
         #[serde(default)]
         room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
         /// Place the new cabinet to the right of this one (dãy tủ liền nhau).
         #[serde(default)]
         after: Option<ObjectId>,

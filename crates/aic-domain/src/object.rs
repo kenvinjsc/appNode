@@ -33,6 +33,9 @@ pub struct Cabinet {
     /// Tên phòng (Bếp, PN1, …).
     #[serde(default)]
     pub room: String,
+    /// Tầng (Tầng 1, …). A project is floors → rooms → cabinets.
+    #[serde(default)]
+    pub floor: String,
     /// Interior layout (zones, splits, fronts, accessories).
     #[serde(default)]
     pub zones: ZoneTree,
@@ -109,10 +112,11 @@ impl Cabinet {
             front_material: s.front_material.clone(),
             back_material: s.back_material.clone(),
             room: s.room.clone(),
+            floor: s.floor.clone(),
             zones: crate::layout::default_zones(s.kind, s.shelves, s.doors, s.drawers, s.thickness),
             mods: BTreeMap::new(),
             handles: true,
-            edge_rule: EdgeRule::default(),
+            edge_rule: s.edge_rule.clone().unwrap_or_default(),
             zones_ready: true,
         }
     }

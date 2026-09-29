@@ -53,6 +53,15 @@ pub struct CabinetSpec {
     /// Tên phòng.
     #[serde(default)]
     pub room: String,
+    /// Tầng (Tầng 1, Tầng 2, …); empty = one-storey project.
+    #[serde(default)]
+    pub floor: String,
+    /// Luật dán cạnh (None = default rule).
+    #[serde(default)]
+    pub edge_rule: Option<crate::EdgeRule>,
+    /// Rãnh hậu (0 = back inset without groove).
+    #[serde(default)]
+    pub back_groove: f64,
 }
 
 impl CabinetSpec {
@@ -75,6 +84,9 @@ impl CabinetSpec {
             front_material: MaterialId::new("MDF17-OAK"),
             back_material: MaterialId::new("MDF8-WHITE"),
             room: String::new(),
+            floor: String::new(),
+            edge_rule: None,
+            back_groove: 0.0,
         };
         match kind {
             CabinetKind::Base => CabinetSpec { width: 800.0, height: 850.0, depth: 600.0, top_style: JoinStyle::Rails, ..base },
@@ -225,8 +237,8 @@ pub fn base_params(spec: &CabinetSpec) -> Vec<(String, String)> {
         (s("door_thickness"), s("thickness")),
         (s("door_gap"), num(2.0)),
         (s("shelf_setback"), num(20.0)),
-        (s("back_groove"), num(0.0)),
-        (s("back_offset"), num(0.0)),
+        (s("back_groove"), num(spec.back_groove)),
+        (s("back_offset"), num(if spec.back_groove > 0.0 { 10.0 } else { 0.0 })),
         (s("rail_width"), num(100.0)),
     ]
 }

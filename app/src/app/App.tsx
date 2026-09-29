@@ -7,13 +7,14 @@ import { Drawing2D } from '../features/drawing2d/Drawing2D';
 import { ManufacturingWorkspace } from '../features/manufacturing/ManufacturingWorkspace';
 import { MaterialBrowser } from '../features/materials/MaterialBrowser';
 import { NestingWorkspace } from '../features/nesting/NestingWorkspace';
-import { PropertiesPanel } from '../features/properties/PropertiesPanel';
-import { PartsReport } from '../features/report/PartsReport';
+import { ReportWindow } from '../features/report/ReportWindow';
+import { CabinetDesigner } from '../features/cabinet/CabinetDesigner';
+import { ToolColumn } from '../features/tools/ToolColumn';
 import { SceneTree } from '../features/scene-tree/SceneTree';
 import { Icon } from '../shared/icons';
 import { Viewport } from '../viewport/Viewport';
 import { Actions } from './actions';
-import { ContextMenu, Jobs, StatusBar, TitleBar, Toasts, WorkspaceRail } from './Chrome';
+import { ContextMenu, Jobs, StatusBar, TitleBar, Toasts, WorkspaceRail, ZoneMenu } from './Chrome';
 import { Ribbon } from './Ribbon';
 import { ShortcutSheet, useShortcutLayer } from './Shortcuts';
 import { useUi } from './uiStore';
@@ -21,7 +22,7 @@ import { useUi } from './uiStore';
 let booted = false;
 
 export function App() {
-  const { workspace, panels, drawer, set } = useUi();
+  const { workspace, panels, drawer, set, leftTab } = useUi();
   useShortcutLayer();
 
   useEffect(() => {
@@ -49,7 +50,15 @@ export function App() {
         <WorkspaceRail />
         {/* The design viewport stays mounted so GPU caches survive workspace switches. */}
         <div className="ws ws-design" style={{ display: workspace === 'design' ? 'flex' : 'none' }}>
-          {panels.tree && <SceneTree />}
+          {panels.tree && (
+            <div className="left-col">
+              <div className="left-tabs">
+                <button className={leftTab === 'tree' ? 'active' : ''} onClick={() => set({ leftTab: 'tree' })}>Cây đối tượng</button>
+                <button className={leftTab === 'tools' ? 'active' : ''} onClick={() => set({ leftTab: 'tools' })}>Tool</button>
+              </div>
+              {leftTab === 'tree' ? <SceneTree /> : <ToolColumn />}
+            </div>
+          )}
           <div className="center">
             <div className="panel view3d">
               <div className="panel-header">
@@ -60,7 +69,7 @@ export function App() {
             </div>
             {panels.drawing && <Drawing2D onClose={() => set({ panels: { ...panels, drawing: false } })} />}
           </div>
-          {panels.properties && <PropertiesPanel />}
+          {panels.properties && <CabinetDesigner />}
         </div>
         {workspace === 'manufacturing' && <ManufacturingWorkspace />}
         {workspace === 'nesting' && <NestingWorkspace />}
@@ -68,13 +77,14 @@ export function App() {
         {drawer && (
           <div className="drawer">
             {drawer === 'materials' && <MaterialBrowser />}
-            {drawer === 'report' && <PartsReport />}
+            {drawer === 'report' && <ReportWindow />}
             {drawer === 'shortcuts' && <ShortcutSheet />}
           </div>
         )}
       </div>
       <StatusBar />
       <ContextMenu />
+      <ZoneMenu />
       <Toasts />
       <Jobs />
     </div>

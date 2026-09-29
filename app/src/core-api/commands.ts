@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, EdgeSide, MachiningFeature, ObjectId, Transform3D, Vec3 } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3 } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -32,8 +32,18 @@ export const Commands = {
   createProject: (name: string) => command({ cmd: 'create_project', name }),
   loadProject: (project: unknown) => command({ cmd: 'load_project', project }),
   createRoom: (width: number, depth: number, height: number) => command<{ id: ObjectId }>({ cmd: 'create_room', width, depth, height }),
-  createCabinet: (kind: CabinetKind, position: Vec3, overrides: Record<string, unknown> = {}, parent?: ObjectId) =>
-    command<{ id: ObjectId }>({ cmd: 'create_cabinet', kind, position, overrides, parent }),
+  createCabinet: (kind: CabinetKind, position: Vec3 | null, overrides: Record<string, unknown> = {}, extra: { parent?: ObjectId; name?: string; room?: string; floor?: string; after?: ObjectId } = {}) =>
+    command<{ id: ObjectId }>({ cmd: 'create_cabinet', kind, position: position ?? undefined, overrides, ...extra }),
+  zoneAddPanels: (p: { cabinet: ObjectId; zones: number[]; kind: SplitKind; count: number; thickness?: number; lock: Lock; value: number; tilt_deg?: [number, number] }) =>
+    command<{ uids: number[] }>({ cmd: 'zone_add_panels', ...p }),
+  zoneAddDoors: (p: { cabinet: ObjectId; zones: number[]; kind: DoorKind; cols: number; rows: number; mount: Mount; hinge: HingeSide; thickness?: number; stop?: StopRailSpec }) =>
+    command({ cmd: 'zone_add_doors', ...p }),
+  zoneAddDrawers: (p: { cabinet: ObjectId; zones: number[]; count: number; cols: number; mount: Mount; thickness?: number; with_box: boolean }) =>
+    command({ cmd: 'zone_add_drawers', ...p }),
+  zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL', offset = 60) => command({ cmd: 'zone_add_link', cabinet, zones, kind, offset }),
+  zoneRemove: (cabinet: ObjectId, uid: number) => command({ cmd: 'zone_remove', cabinet, uid }),
+  setPartMod: (id: ObjectId, patch: PartModPatch) => command({ cmd: 'set_part_mod', id, patch }),
+  setPrice: (key: string, value: number | null) => command({ cmd: 'set_price', key, value }),
   createPanel: (p: { name?: string; width: number; height: number; thickness: number; material?: string; transform?: Transform3D; parent?: ObjectId }) =>
     command<{ id: ObjectId }>({ cmd: 'create_panel', ...p }),
   deleteObjects: (ids: ObjectId[]) => command({ cmd: 'delete_objects', ids }),

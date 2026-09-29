@@ -175,8 +175,11 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
 /** Label clear openings between parallel parts (visual measurement aid). */
 function Openings({ items, unit }: { items: Item[]; unit: number; active: ObjectId | null }) {
   // Vertical members (taller than wide) and horizontal members.
-  const verts = items.filter((i) => i.kind === 'PANEL' && i.y1 - i.y0 > (i.x1 - i.x0) * 3);
-  const hors = items.filter((i) => i.kind === 'PANEL' && i.x1 - i.x0 > (i.y1 - i.y0) * 3);
+  // Only carcass / division members bound openings (drawer boxes, fronts and rails do not).
+  const STRUCT = new Set(['LeftSide', 'RightSide', 'Divider', 'Top', 'Bottom', 'Shelf', 'ShelfFixed', 'Generic', 'Rail']);
+  const members = items.filter((i) => i.kind === 'PANEL' && (i.role === null || STRUCT.has(i.role)));
+  const verts = members.filter((i) => i.y1 - i.y0 > (i.x1 - i.x0) * 3);
+  const hors = members.filter((i) => i.x1 - i.x0 > (i.y1 - i.y0) * 3);
   const labels: JSX.Element[] = [];
   const xs = Array.from(new Set(verts.flatMap((v) => [v.x0, v.x1]).map((v) => Math.round(v * 10) / 10))).sort((a, b) => a - b);
   // Column openings: gaps between successive vertical members.

@@ -152,10 +152,13 @@ impl Engine {
                 self.exec(Command::CreateRoom { id: None, name: format!("Room {n:02}"), width, depth, height })?;
                 ok(json!({ "id": self.last_root() }))
             }
-            CreateCabinet { kind, position, parent, overrides, name, room, after } => {
+            CreateCabinet { kind, position, parent, overrides, name, room, floor, after } => {
                 let mut spec = CabinetSpec::preset(kind);
                 if let Some(r) = room {
                     spec.room = r.trim().to_string();
+                }
+                if let Some(f) = floor {
+                    spec.floor = f.trim().to_string();
                 }
                 // Automatic name by frame kind: BếpDưới01, TủQA01, …
                 let name = name.filter(|n| !n.trim().is_empty()).or_else(|| {
@@ -170,6 +173,9 @@ impl Engine {
                         let w = self.doc.param_value(a, "width").unwrap_or(0.0);
                         Some(self.doc.scene.world(a).transform_point([w, 0.0, 0.0]))
                     }
+                    // No anchor: in a room, continue that room's row (right of its last
+                    // cabinet); a new room starts its own area right of everything else.
+                    _ if position.is_none() => self.room_slot(&spec.floor, &spec.room),
                     _ => position,
                 };
                 let o = overrides;
@@ -183,6 +189,15 @@ impl Engine {
                 if let Some(v) = o.back_panel { spec.back_panel = v; }
                 if let Some(v) = o.carcass_material { spec.carcass_material = MaterialId::new(v); }
                 if let Some(v) = o.front_material { spec.front_material = MaterialId::new(v); }
+                let style = |v: &str| match v.to_ascii_uppercase().as_str() {
+                    "OVERLAY" => aic_domain::JoinStyle::Overlay,
+                    "RAILS" => aic_domain::JoinStyle::Rails,
+                    _ => aic_domain::JoinStyle::Inset,
+                };
+                if let Some(v) = &o.top_style { spec.top_style = style(v); }
+                if let Some(v) = &o.bottom_style { spec.bottom_style = style(v); }
+                if let Some(r) = o.edge_rule { spec.edge_rule = Some(r); }
+                if let Some(g) = o.back_groove { spec.back_groove = g.max(0.0); }
                 let id = self.doc.ids.clone().alloc();
                 self.exec(Command::CreateCabinet { id: Some(id), spec, position: position.unwrap_or([0.0; 3]), parent, name })?;
                 ok(json!({ "id": id }))
@@ -339,6 +354,32 @@ impl Engine {
                 "redo": self.history.redo_label(),
             })),
         }
+    }
+
+    /// Placement for a new cabinet of (`floor`, `room`): right of that room's rightmost
+    /// cabinet, or (empty room) 1500 mm right of every cabinet on the floor, or (empty
+    /// floor) its own area right of everything else.
+    fn room_slot(&self, floor: &str, room: &str) -> Option<[f64; 3]> {
+        let right = |id: ObjectId| -> [f64; 3] {
+            let w = self.doc.param_value(id, "width").unwrap_or(0.0);
+            self.doc.scene.world(id).transform_point([w, 0.0, 0.0])
+        };
+        let cabs: Vec<(ObjectId, &str, &str)> = self
+            .doc
+            .objects
+            .iter()
+            .filter_map(|(id, o)| o.as_cabinet().map(|c| (*id, c.floor.as_str(), c.room.as_str())))
+            .collect();
+        let pick = |filter: &dyn Fn(&str, &str) -> bool| {
+            cabs.iter().filter(|(_, f, r)| filter(f, r)).map(|(id, _, _)| right(*id)).max_by(|a, b| a[0].total_cmp(&b[0]))
+        };
+        if let Some(p) = pick(&|f, r| f == floor && r == room) {
+            return Some(p);
+        }
+        if let Some(p) = pick(&|f, _| f == floor) {
+            return Some([p[0] + 1500.0, 0.0, 0.0]);
+        }
+        pick(&|_, _| true).map(|p| [p[0] + 3000.0, 0.0, 0.0])
     }
 
     fn last_root(&self) -> Option<ObjectId> {

@@ -15,6 +15,8 @@ import type { VisualState } from './materials/materials';
 import { installSceneSync, syncAll, refreshTree } from './sceneSync';
 import { expandSubtrees, setEngine, useSceneRevision, View } from './viewportBus';
 import { findNode } from '../app/uiStore';
+import { cabinetOf, useCurrentCabinet, useZones } from '../features/cabinet/useZones';
+import { roomIds, roomRoots } from '../features/scene-tree/rooms';
 
 /** Preset sizes, used only to draw the placement ghost (the core owns real presets). */
 const GHOST: Record<CabinetKind, Vec3> = {
@@ -43,6 +45,49 @@ export function Viewport() {
   const [place, setPlace] = useState<PlaceState | null>(null);
   const ui = useUi();
   const rev = useSceneRevision((s) => s.rev);
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [hoverZone, setHoverZone] = useState<number | null>(null);
+  const zoneCabinet = useCurrentCabinet();
+  const zoneMode = ui.designerTab === 'create' && ui.showZones && ui.workspace === 'design';
+  const zones = useZones(zoneMode ? zoneCabinet : null);
+
+  useEffect(() => {
+    if (!engine) return;
+    const pins = ui.pinned.cabinet === zoneCabinet ? ui.pinned.zones : [];
+    engine.setZones(zoneMode ? zones : null, pins, hoverZone);
+  }, [engine, zones, zoneMode, ui.pinned, zoneCabinet, hoverZone]);
+
+  // Cô lập tủ: show only the cabinet of the selection.
+  useEffect(() => {
+    if (!engine) return;
+    const cab = cabinetOf(ui.tree, ui.active);
+    const iso = ui.isolate && cab !== null ? expandSubtrees(ui.tree, [cab]) : ui.activeRoom !== null || ui.activeFloor !== null ? roomIds(ui.tree, ui.activeFloor, ui.activeRoom) : null;
+    engine.setIsolation(iso);
+  }, [engine, ui.isolate, ui.active, ui.tree, ui.activeRoom, ui.activeFloor, rev]);
+
+  // Switching floor / room tab frames what it contains.
+  useEffect(() => {
+    if (!engine || (ui.activeRoom === null && ui.activeFloor === null)) return;
+    const t = setTimeout(() => {
+      const ids = roomRoots(useUi.getState().tree, ui.activeFloor, ui.activeRoom).map((n) => n.id);
+      if (ids.length) View.fit(ids, useUi.getState().tree);
+    }, 60);
+    return () => clearTimeout(t);
+  }, [engine, ui.activeRoom, ui.activeFloor]);
+
+  // Contextual hint (red, bottom-left).
+  const hint =
+    ui.workspace !== 'design'
+      ? null
+      : ui.designerTab === 'frame'
+        ? 'Bấm phím [TAB] để tạo tủ mới'
+        : ui.designerTab === 'create'
+          ? zoneCabinet === null
+            ? 'Bấm vào tủ để chọn (tầng 1) — chọn xong mới bấm được vùng'
+            : 'Click vùng để ghim · Ctrl+click ghim thêm · [TAB] để thêm tấm'
+          : ui.designerTab === 'edit'
+            ? 'Click lần 1 chọn tủ, lần 2 chọn tấm để chỉnh'
+            : null;
 
   // ---------------------------------------------------------------- setup
   useEffect(() => {
@@ -184,10 +229,23 @@ export function Viewport() {
     const now = performance.now();
     if (now - lastHover.current < 40) return;
     lastHover.current = now;
+    if (zoneMode) {
+      const zh = engine.pickZone(e.clientX, e.clientY);
+      if (zh !== hoverZone) setHoverZone(zh);
+    }
     const hit = engine.pick(e.clientX, e.clientY);
     const hov = hit ? hit.id : null;
     const s = useUi.getState();
     if (s.hovered !== hov) s.set({ hovered: hov });
+    const ro = hit ? engine.entries.get(hit.id)?.ro : null;
+    if (ro && ro.kind !== 'ROOM') {
+      const cabName = ro.cabinet !== null ? findNode(s.tree, ro.cabinet)?.node.name : null;
+      const dims = ro.size ? `${fmt(ro.size[0], 1)} × ${fmt(ro.size[1], 1)} mm` : '';
+      const r = host.current!.getBoundingClientRect();
+      setTip({ x: e.clientX - r.left, y: e.clientY - r.top, text: `${cabName ? `[${cabName}] ` : ''}${ro.name}\n${dims}` });
+    } else if (tip) {
+      setTip(null);
+    }
     const gp = hit?.point ?? engine.groundPoint(e.clientX, e.clientY);
     if (gp) s.set({ cursor: [Math.round(gp.x), Math.round(gp.y), Math.round(gp.z)] });
   };
@@ -215,6 +273,17 @@ export function Viewport() {
       setPlace({ kind: s.tool.kind, pos: [snapGrid(p.x), 0, snapGrid(p.z)], screen: { x: e.clientX - r.left, y: e.clientY - r.top } });
       return;
     }
+    // Tạo tấm: after the cabinet is selected (tier 1), clicks pin zones.
+    if (zoneMode && zoneCabinet !== null && zones) {
+      const zid = engine.pickZone(e.clientX, e.clientY);
+      const cabSelected = s.selection.some((id) => cabinetOf(s.tree, id) === zoneCabinet);
+      if (zid !== null && cabSelected) {
+        const cur = s.pinned.cabinet === zoneCabinet ? s.pinned.zones : [];
+        const next = e.ctrlKey || e.metaKey ? (cur.includes(zid) ? cur.filter((z) => z !== zid) : [...cur, zid]) : cur.length === 1 && cur[0] === zid ? [] : [zid];
+        s.set({ pinned: { cabinet: zoneCabinet, zones: next } });
+        return;
+      }
+    }
     const hit = engine.pick(e.clientX, e.clientY, { edges: s.selectionMode === 'edge' });
     if (!hit) {
       if (!e.ctrlKey && !e.shiftKey) s.clearSelection();
@@ -237,6 +306,15 @@ export function Viewport() {
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!engine || (down.current && Math.hypot(e.clientX - down.current.x, e.clientY - down.current.y) > 4)) return;
+    // Right-click in a zone: quick build menu (dựng nhanh bằng chuột).
+    if (zoneMode && zoneCabinet !== null) {
+      const zid = engine.pickZone(e.clientX, e.clientY);
+      if (zid !== null) {
+        const s0 = useUi.getState();
+        s0.set({ zoneMenu: { x: e.clientX, y: e.clientY, cabinet: zoneCabinet, zone: zid }, contextMenu: null, pinned: { cabinet: zoneCabinet, zones: [zid] } });
+        return;
+      }
+    }
     const hit = engine.pick(e.clientX, e.clientY);
     const s = useUi.getState();
     if (!hit) return s.set({ contextMenu: null });
@@ -263,7 +341,11 @@ export function Viewport() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerLeave={() => useUi.getState().set({ hovered: null })}
+        onPointerLeave={() => {
+          useUi.getState().set({ hovered: null });
+          setTip(null);
+          setHoverZone(null);
+        }}
         onDoubleClick={onDoubleClick}
       />
       {engine && (
@@ -288,6 +370,26 @@ export function Viewport() {
       )}
       {place && <PlacePopover state={place} onClose={() => setPlace(null)} />}
       {engine && <AxisGizmo engine={engine} />}
+      {tip && !dragging && (
+        <div className="hover-tip" style={{ left: tip.x + 14, top: tip.y + 16 }}>
+          {tip.text.split('\n').map((l, i) => (
+            <div key={i} className={i === 0 ? 'tip-name' : 'tip-dims'}>
+              {l}
+            </div>
+          ))}
+        </div>
+      )}
+      {hint && <div className="context-hint">{hint}</div>}
+      {zoneMode && zones && ui.pinned.cabinet === zoneCabinet && ui.pinned.zones.length > 0 && (
+        <div className="zone-badge">
+          Mặt gắn: Trước · đã ghim {ui.pinned.zones.length} vùng ·{' '}
+          {ui.pinned.zones
+            .map((id) => zones.zones.find((z) => z.id === id))
+            .filter(Boolean)
+            .map((z) => `${fmt(z!.size[0], 1)} × ${fmt(z!.size[1], 1)}`)
+            .join(', ')}
+        </div>
+      )}
       <ViewToolbar />
       {ui.tool.type === 'place-cabinet' && !place && (
         <div className="viewport-hint">Nhấp để đặt {CABINET_KINDS.find((k) => ui.tool.type === 'place-cabinet' && k.kind === ui.tool.kind)?.label.toLowerCase()} · Esc để hủy</div>
@@ -307,7 +409,7 @@ function PlacePopover({ state, onClose }: { state: PlaceState; onClose: () => vo
   const submit = async () => {
     const num = (s: string) => Number(s.replace(',', '.'));
     try {
-      const r = await Commands.createCabinet(state.kind, state.pos, { width: num(vals.width), height: num(vals.height), depth: num(vals.depth) });
+      const r = await Commands.createCabinet(state.kind, state.pos, { width: num(vals.width), height: num(vals.height), depth: num(vals.depth) }, { room: useUi.getState().activeRoom ?? undefined, floor: useUi.getState().activeFloor ?? undefined });
       useUi.getState().select([r.id]);
       useUi.getState().setTool({ type: 'select' });
     } catch {

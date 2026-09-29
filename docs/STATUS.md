@@ -1,5 +1,7 @@
 # Trạng thái & việc tiếp theo
 
+Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUONG-DAN-DUNG-TU.md).
+
 ## Đã xong
 
 ### Core
@@ -19,6 +21,12 @@ tạo tủ (đặt bằng click + nhập W/H/D), sửa tham số (có công th�
 undo/redo, kích thước, handle kéo W/H/D, hiển thị quan hệ, workspace Gia công (bản vẽ trải phẳng mặt A/B),
 Xếp tấm, CNC (đường chạy dao, mô phỏng, xuất G-code), thư viện vật liệu, báo cáo bóc chi tiết (CSV),
 phím tắt cấu hình được, context menu, thông báo lỗi tiếng Việt, tác vụ nặng có trạng thái và nút hủy.
+
+Thiết kế tủ kiểu plugin: dự án → tầng → phòng (tab lọc cây/3D, tạo tủ đúng chỗ); Khung (thông tin tủ, luật liên kết,
+luật dán cạnh, TAB tạo dãy tủ); Tạo tấm theo vùng (ghim vùng, 6 loại tấm, khóa Tỷ lệ/Cách A/Cách B, chuột phải
+"Dựng nhanh"); Chỉnh tấm (khóa chấm đỏ, co giãn); cột Tool (01–03, 08, 11–13, 16–19); Costing Report / Danh sách cắt /
+Cabinet List có đơn giá sửa được.
+Chưa làm: tool 04–07, 09, 10, 14, 15; Chia tấm; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
 
 ## Chưa làm / hạn chế đã biết
 

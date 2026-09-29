@@ -7,7 +7,7 @@ import { Icon } from '../../shared/icons';
 
 const KIND: Record<string, string> = { MDF: 'MDF', PLYWOOD: 'Plywood', PARTICLEBOARD: 'Ván dăm', HDF: 'HDF', SOLID_WOOD: 'Gỗ tự nhiên' };
 
-export function MaterialBrowser() {
+export function MaterialBrowser({ embedded = false }: { embedded?: boolean }) {
   const { materials, selection, set } = useUi();
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<string | null>(null);
@@ -32,12 +32,12 @@ export function MaterialBrowser() {
     }
   };
   return (
-    <div className="drawer-panel">
+    <div className={embedded ? 'embedded-lib' : 'drawer-panel'}>
       <div className="panel-header">
         <Icon name="material" size={16} />
         <span>Thư viện vật liệu</span>
         <div className="spacer" />
-        <button className="icon-btn" onClick={() => set({ drawer: null })}><Icon name="x" size={16} /></button>
+        {!embedded && <button className="icon-btn" onClick={() => set({ drawer: null })}><Icon name="x" size={16} /></button>}
       </div>
       <div className="tree-search">
         <Icon name="search" size={14} />

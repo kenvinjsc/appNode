@@ -3,7 +3,7 @@ import { send } from './transport';
 import { describeError } from './errors';
 import { CommandError } from './commands';
 import type {
-  AssemblyRelation, Bounds, CncProgram, FlatPanel, Material, NestingJobResult, NestingPlacement, NestingSettings,
+  AssemblyRelation, Bounds, CncProgram, Costing, ZonesInfo, FlatPanel, Material, NestingJobResult, NestingPlacement, NestingSettings,
   ObjectId, PartsReport, PropertySheet, RenderBatch, SceneTree, SnapResult, Vec3,
 } from './types';
 
@@ -31,6 +31,8 @@ export const Queries = {
   snap: (id: ObjectId, delta: Vec3, grid?: number) => query<SnapResult>({ cmd: 'snap', id, delta, grid }),
   bounds: (ids: ObjectId[]) => query<Bounds | null>({ cmd: 'get_bounds', ids }),
   saveProject: () => query<unknown>({ cmd: 'save_project' }),
+  zones: (cabinet: ObjectId) => query<ZonesInfo>({ cmd: 'get_zones', cabinet }),
+  costing: () => query<Costing>({ cmd: 'get_costing' }),
   status: () => query<{ name: string; revision: number; objects: number; panels: number; undo: string | null; redo: string | null }>({ cmd: 'get_status' }),
 };
 

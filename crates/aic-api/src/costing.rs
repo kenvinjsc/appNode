@@ -313,6 +313,7 @@ impl Engine {
             cabinets.push(json!({
                 "id": id,
                 "room": c.room,
+                "floor": c.floor,
                 "name": c.name,
                 "frame": c.kind.frame_name(),
                 "size": [v("width"), v("height"), v("depth")],

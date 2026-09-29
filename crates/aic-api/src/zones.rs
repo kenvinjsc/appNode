@@ -98,6 +98,7 @@ impl Engine {
             "cabinet": cab,
             "name": def.name,
             "room": def.room,
+            "floor": def.floor,
             "matrix": world.to_matrix_col_major(),
             "zones": layout.zones,
             "positions": layout.positions,
@@ -248,6 +249,10 @@ impl Engine {
             return match name {
                 "room" => self.edit_cabinet(id, "Tên phòng", |c| {
                     c.room = value.trim().to_string();
+                    Ok(())
+                }).map(|_| true),
+                "floor" => self.edit_cabinet(id, "Tầng", |c| {
+                    c.floor = value.trim().to_string();
                     Ok(())
                 }).map(|_| true),
                 "edge_mode" | "edge_band" | "edge_threshold" | "edge_min_length" | "edge_skip" => self

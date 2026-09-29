@@ -47,6 +47,10 @@ export interface TreeNode {
   visible: boolean;
   locked: boolean;
   generated: boolean;
+  /** Cabinet room (phòng); '' = chưa gán. */
+  room?: string;
+  /** Cabinet floor (tầng); '' = chưa gán. */
+  floor?: string;
   children: TreeNode[];
 }
 
@@ -58,14 +62,15 @@ export interface SceneTree {
 export interface PropertyField {
   key: string;
   label: string;
-  value: number | string | boolean | null;
+  value: number | string | boolean | null | unknown[];
   source: string | null;
   expression: boolean;
   unit: 'mm' | 'deg' | null;
-  kind: 'number' | 'text' | 'select' | 'bool' | 'readonly';
+  kind: 'number' | 'text' | 'select' | 'bool' | 'readonly' | 'list';
   options: { value: string; label: string; color?: string }[];
   editable: boolean;
   error: string | null;
+  locked?: boolean;
 }
 
 export interface PropertyGroup {
@@ -273,4 +278,114 @@ export interface SnapHint {
 export interface SnapResult {
   delta: Vec3;
   hints: SnapHint[];
+}
+
+// ---- Zone model (Tạo tấm / Chỉnh tấm) ----
+export type SplitKind = 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' | 'DIVIDER' | 'BACK_SUB';
+export type Lock = 'EVEN' | 'RATIO' | 'FROM_START' | 'FROM_END';
+export type Mount = 'OVERLAY' | 'INSET';
+export type DoorKind = 'SINGLE' | 'DOUBLE' | 'SLIDING';
+export type HingeSide = 'LEFT' | 'RIGHT' | 'TOP' | 'BOTTOM';
+export type StopRail = 'NONE' | 'L_SHAPE' | 'STRAIGHT';
+
+export interface StopRailSpec {
+  kind: StopRail;
+  height: number;
+  cover_up: number;
+  leg_depth: number;
+  setback: number;
+}
+
+export interface ZoneBox {
+  id: number;
+  min: Vec3;
+  size: Vec3;
+  leaf: boolean;
+  depth: number;
+  has_front: boolean;
+}
+
+export interface PanelPosition {
+  uid: number;
+  zone: number;
+  axis: 0 | 1 | 2;
+  lock: Lock;
+  ratio: number;
+  from_start: number;
+  from_end: number;
+  cell_before: number;
+  cell_after: number;
+  zone_length: number;
+}
+
+export type FrontSpec =
+  | { type: 'DOORS'; uid: number; kind: DoorKind; cols: number; rows: number; mount: Mount; hinge: HingeSide; stop: StopRailSpec }
+  | { type: 'DRAWERS'; uid: number; cols: number; count: number; mount: Mount; with_box: boolean };
+
+export interface ZoneAttachment {
+  zone: number;
+  uid: number;
+  front?: FrontSpec;
+  link?: { uid: number; kind: 'OVAL_RAIL'; offset: number };
+}
+
+export interface ZonesInfo {
+  cabinet: ObjectId;
+  name: string;
+  room: string;
+  matrix: number[];
+  zones: ZoneBox[];
+  positions: PanelPosition[];
+  attachments: ZoneAttachment[];
+  fittings: Record<string, unknown>;
+}
+
+export interface CostLine {
+  key: string;
+  name: string;
+  qty: number;
+  unit: string;
+  price: number;
+  amount: number;
+  factor?: number;
+}
+
+export interface CutRow {
+  id: ObjectId;
+  cabinet: string;
+  room: string;
+  name: string;
+  full_name: string;
+  role: string;
+  material_id: string;
+  material: string;
+  length: number;
+  width: number;
+  thickness: number;
+  cut_length: number;
+  cut_width: number;
+  qty: number;
+  edges: [EdgeSide, string][];
+  edge_m: number;
+  machining: string[];
+  note: string;
+}
+
+export interface Costing {
+  panels: CostLine[];
+  edges: CostLine[];
+  fittings: CostLine[];
+  totals: { panels: number; edges: number; fittings: number; total: number };
+  cut_list: CutRow[];
+  cabinets: { id: ObjectId; room: string; name: string; frame: string; size: Vec3; panels: number; amount: number }[];
+}
+
+export interface PartModPatch {
+  name?: string;
+  extend?: [number, number, number, number];
+  extend_delta?: [number, number, number, number];
+  thickness?: number | null;
+  clear_tools?: boolean;
+  add_features?: MachiningFeature[];
+  tool?: string;
 }

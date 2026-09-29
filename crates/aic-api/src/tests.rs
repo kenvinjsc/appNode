@@ -194,3 +194,29 @@ fn costing_report_wardrobe() {
     assert_eq!(c["cabinets"][0]["name"], "TủQA01");
     let _ = cab;
 }
+
+#[test]
+fn floors_and_rooms_place_cabinets_in_their_own_area() {
+    let mut e = Engine::new();
+    let mk = |e: &mut Engine, floor: &str, room: &str| -> ObjectId {
+        let r = call(e, json!({"cmd": "create_cabinet", "kind": "BASE", "floor": floor, "room": room}));
+        serde_json::from_value(r.result["id"].clone()).unwrap()
+    };
+    let x = |e: &Engine, id: ObjectId| e.doc.param_value(id, "x").unwrap();
+    let a = mk(&mut e, "Tầng 1", "Bếp");
+    let b = mk(&mut e, "Tầng 1", "Bếp");
+    assert_eq!(x(&e, b), x(&e, a) + 800.0, "same room continues the row");
+    let c = mk(&mut e, "Tầng 1", "Khách");
+    assert_eq!(x(&e, c), x(&e, b) + 800.0 + 1500.0, "new room on the floor: own area");
+    let d = mk(&mut e, "Tầng 2", "PN1");
+    assert_eq!(x(&e, d), x(&e, c) + 800.0 + 3000.0, "new floor: own area");
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let node = tree.result["roots"].as_array().unwrap().iter().find(|n| n["id"] == json!(d)).unwrap().clone();
+    assert_eq!(node["floor"], "Tầng 2");
+    assert_eq!(node["room"], "PN1");
+    // Moving a cabinet to another floor is an undoable parameter change.
+    call(&mut e, json!({"cmd": "set_parameter", "id": d, "name": "floor", "value": "Tầng 3"}));
+    assert_eq!(e.doc.object(d).unwrap().as_cabinet().unwrap().floor, "Tầng 3");
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.object(d).unwrap().as_cabinet().unwrap().floor, "Tầng 2");
+}

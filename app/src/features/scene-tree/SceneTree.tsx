@@ -6,6 +6,7 @@ import { Commands } from '../../core-api/commands';
 import type { ObjectId, TreeNode } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { objectLabel } from '../../shared/i18n';
+import { extraKey, projectFloors, projectRooms, roomLabel, roomRoots } from './rooms';
 
 function iconFor(n: TreeNode): string {
   if (n.kind === 'ROOM') return 'room';
@@ -36,7 +37,8 @@ function matches(n: TreeNode, q: string): boolean {
 }
 
 export function SceneTree() {
-  const { tree, selection, select, set, renaming, hovered } = useUi();
+  const { tree, selection, select, set, renaming, hovered, activeRoom, activeFloor } = useUi();
+  const roots = useMemo(() => roomRoots(tree, activeFloor, activeRoom), [tree, activeFloor, activeRoom]);
   const [open, setOpen] = useState<Set<ObjectId>>(new Set());
   const [query, setQuery] = useState('');
   const [dropTarget, setDropTarget] = useState<ObjectId | 'root' | null>(null);
@@ -68,15 +70,15 @@ export function SceneTree() {
   const q = query.trim().toLowerCase();
   const rows = useMemo(() => {
     if (!tree) return [];
-    if (!q) return flatten(tree.roots, open);
+    if (!q) return flatten(roots, open);
     const every = new Set<ObjectId>();
     const walk = (n: TreeNode) => {
       every.add(n.id);
       n.children.forEach(walk);
     };
     tree.roots.forEach(walk);
-    return flatten(tree.roots.filter((r) => matches(r, q)), every).filter((r) => matches(r.n, q));
-  }, [tree, open, q]);
+    return flatten(roots.filter((r) => matches(r, q)), every).filter((r) => matches(r.n, q));
+  }, [tree, roots, open, q]);
 
   const onClick = (e: React.MouseEvent, n: TreeNode) => {
     if (e.shiftKey && anchor.current !== null) {
@@ -115,6 +117,7 @@ export function SceneTree() {
         <Icon name="layers" size={16} />
         <span>Cây đối tượng</span>
       </div>
+      <ProjectTabs />
       <div className="tree-search">
         <Icon name="search" size={14} />
         <input placeholder="Tìm chi tiết…" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -208,9 +211,147 @@ export function SceneTree() {
             </div>
           );
         })}
+        {tree && (activeRoom !== null || activeFloor !== null) && roots.length === 0 && (
+          <div className="empty">
+            {activeRoom !== null ? `Phòng “${roomLabel(activeRoom)}”` : `“${activeFloor}”`} chưa có tủ. Mở tab Khung → [TAB] Tạo tủ để thêm tủ vào đây.
+          </div>
+        )}
         {tree && tree.roots.length === 0 && <div className="empty">Chưa có đối tượng. Dùng “Tủ” trên thanh công cụ để tạo tủ.</div>}
       </div>
     </div>
+  );
+}
+
+/** Editable tab row used for floors (tầng) and rooms (phòng). */
+function TabRow(props: {
+  label: string;
+  addLabel: string;
+  allLabel: string;
+  allCount: number;
+  items: { name: string; count: number }[];
+  active: string | null;
+  name: (v: string) => string;
+  onPick: (v: string | null) => void;
+  onAdd: (v: string) => void;
+  onRename: (from: string, to: string) => Promise<void>;
+  placeholder: string;
+  className?: string;
+}) {
+  const [edit, setEdit] = useState<{ from: string | null; value: string } | null>(null);
+  const commit = async () => {
+    if (!edit) return;
+    const v = edit.value.trim();
+    setEdit(null);
+    if (!v) return;
+    if (edit.from === null) props.onAdd(v);
+    else if (v !== edit.from) await props.onRename(edit.from, v);
+  };
+  const box = (
+    <input
+      autoFocus
+      className="room-edit"
+      value={edit?.value ?? ''}
+      placeholder={props.placeholder}
+      onChange={(e) => setEdit(edit && { ...edit, value: e.target.value })}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') void commit();
+        if (e.key === 'Escape') setEdit(null);
+      }}
+    />
+  );
+  return (
+    <div className={`room-tabs ${props.className ?? ''}`} role="tablist" aria-label={props.label}>
+      <button role="tab" className={props.active === null ? 'on' : ''} onClick={() => props.onPick(null)}>
+        {props.allLabel} <span>{props.allCount}</span>
+      </button>
+      {props.items.map((r) =>
+        edit && edit.from === r.name ? (
+          <span key={r.name}>{box}</span>
+        ) : (
+          <button
+            key={r.name}
+            role="tab"
+            className={props.active === r.name ? 'on' : ''}
+            title="Bấm: xem & tạo tủ tại đây · Bấm đúp: đổi tên"
+            onClick={() => props.onPick(r.name)}
+            onDoubleClick={() => r.name !== '' && setEdit({ from: r.name, value: r.name })}
+          >
+            {props.name(r.name)} <span>{r.count}</span>
+          </button>
+        ),
+      )}
+      {edit && edit.from === null ? (
+        box
+      ) : (
+        <button className="add" title={props.addLabel} onClick={() => setEdit({ from: null, value: '' })}>
+          <Icon name="plus" size={12} /> {props.addLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One project, many floors; each floor has its own rooms. Tabs filter the tree and the
+ *  3D view, and decide where "[TAB] Tạo tủ" puts the new cabinet. */
+function ProjectTabs() {
+  const { tree, activeRoom, activeFloor, extraRooms, extraFloors, set } = useUi();
+  const floors = projectFloors(tree, extraFloors);
+  const rooms = projectRooms(tree, activeFloor, extraRooms);
+  const total = tree?.roots.filter((r) => r.kind === 'CABINET').length ?? 0;
+  const showFloors = floors.length > 1 || (floors.length === 1 && floors[0].name !== '') || extraFloors.length > 0;
+  const moveAll = async (list: TreeNode[], key: 'floor' | 'room', v: string) => {
+    for (const c of list) await Commands.setParameter(c.id, key, v).catch(() => undefined);
+  };
+  return (
+    <>
+      {showFloors ? (
+        <TabRow
+          className="floors"
+          label="Tầng"
+          addLabel="Tầng"
+          allLabel="Mọi tầng"
+          allCount={total}
+          items={floors}
+          active={activeFloor}
+          name={(v) => (v === '' ? 'Chưa gán tầng' : v)}
+          placeholder="Tầng 1"
+          onPick={(v) => set({ activeFloor: v, activeRoom: null, pinned: { cabinet: null, zones: [] } })}
+          onAdd={(v) => set({ extraFloors: [...extraFloors.filter((f) => f !== v), v], activeFloor: v, activeRoom: null })}
+          onRename={async (from, to) => {
+            await moveAll(roomRoots(tree, from, null), 'floor', to);
+            set({
+              extraFloors: extraFloors.map((f) => (f === from ? to : f)),
+              extraRooms: extraRooms.map((k) => (k.startsWith(from + '/') ? to + k.slice(from.length) : k)),
+              activeFloor: to,
+            });
+          }}
+        />
+      ) : (
+        <div className="room-tabs floors">
+          <button className="add" title="Chia dự án theo tầng" onClick={() => set({ extraFloors: ['Tầng 1'], activeFloor: 'Tầng 1', activeRoom: null })}>
+            <Icon name="plus" size={12} /> Chia tầng
+          </button>
+        </div>
+      )}
+      <TabRow
+        label="Phòng"
+        addLabel="Phòng"
+        allLabel={activeFloor === null ? 'Tất cả' : 'Cả tầng'}
+        allCount={roomRoots(tree, activeFloor, null).filter((r) => r.kind === 'CABINET').length}
+        items={rooms}
+        active={activeRoom}
+        name={roomLabel}
+        placeholder="Tên phòng"
+        onPick={(v) => set({ activeRoom: v, pinned: { cabinet: null, zones: [] } })}
+        onAdd={(v) => set({ extraRooms: [...extraRooms.filter((k) => k !== extraKey(activeFloor, v)), extraKey(activeFloor, v)], activeRoom: v })}
+        onRename={async (from, to) => {
+          await moveAll(roomRoots(tree, activeFloor, from), 'room', to);
+          set({ extraRooms: extraRooms.map((k) => (k === extraKey(activeFloor, from) ? extraKey(activeFloor, to) : k)), activeRoom: to });
+        }}
+      />
+    </>
   );
 }
 

@@ -27,6 +27,9 @@ export function describeError(e: ApiError, action = 'Không thể thực hiện 
     case 'DEPENDENCY_CYCLE':
       return { title: 'Công thức không hợp lệ.', detail: 'Công thức tạo ra vòng phụ thuộc (tham số tham chiếu chính nó).' };
     case 'INVALID_PARAMETER':
+      if (d.name === 'zone')
+        return { title: 'Không thể thêm tấm vào vùng này.', detail: 'Vùng đã được chia theo hướng khác — hãy click ghim một vùng con (ô trống) rồi bấm [TAB].' };
+      if (d.name === 'part') return { title: 'Không áp được tool.', detail: 'Tool này chỉ dùng cho tấm thuộc tủ.' };
       return { title: 'Giá trị không hợp lệ.', detail: 'Kiểm tra lại số hoặc công thức (ví dụ: = cabinet.inner_width - 2).' };
     case 'LOCKED':
       return { title: 'Đối tượng đang bị khóa.', detail: 'Mở khóa đối tượng (hoặc tủ chứa nó) để chỉnh sửa.' };

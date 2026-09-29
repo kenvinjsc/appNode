@@ -16,6 +16,11 @@ pub struct TreeNode {
     pub visible: bool,
     pub locked: bool,
     pub generated: bool,
+    /// Room (phòng) of a cabinet; empty = no room.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub floor: Option<String>,
     pub children: Vec<TreeNode>,
 }
 
@@ -36,6 +41,8 @@ fn tree_node(doc: &Document, id: ObjectId) -> Option<TreeNode> {
         visible: n.visible,
         locked: n.locked,
         generated: doc.generated.contains(&id),
+        room: o.as_cabinet().map(|c| c.room.clone()),
+        floor: o.as_cabinet().map(|c| c.floor.clone()),
         children: n.children.iter().filter_map(|c| tree_node(doc, *c)).collect(),
     })
 }
@@ -346,6 +353,9 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
             let mut room = f("room", "Room", "text", json!(c.room));
             room.editable = editable;
             general.push(room);
+            let mut floor = f("floor", "Floor", "text", json!(c.floor));
+            floor.editable = editable;
+            general.push(floor);
             groups.push(Group { key: "general", title: "General", fields: general });
             groups.push(Group {
                 key: "size",

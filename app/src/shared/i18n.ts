@@ -4,17 +4,23 @@ export const ROLE_LABEL: Record<string, string> = {
   Generic: 'Tấm',
   LeftSide: 'Hồi trái',
   RightSide: 'Hồi phải',
-  Top: 'Nóc',
+  Top: 'Nóc / giằng',
   Bottom: 'Đáy',
   Back: 'Hậu',
-  Shelf: 'Đợt',
-  Divider: 'Vách ngăn',
+  Shelf: 'Kệ di động',
+  ShelfFixed: 'Kệ cố định',
+  BackSub: 'Hậu phụ',
+  DrawerSide: 'Thành ngăn kéo',
+  DrawerBack: 'Hậu / đầu hộc',
+  DrawerBottom: 'Đáy ngăn kéo',
+  Rail: 'Thanh chặn / thanh treo',
+  Slide: 'Ray bi',
+  Divider: 'Hông giữa',
   Door: 'Cánh',
   DrawerFront: 'Mặt ngăn kéo',
   Plinth: 'Chân tủ',
   Handle: 'Tay nắm',
   Hinge: 'Bản lề',
-  Rail: 'Thanh treo',
   Leg: 'Chân',
   Base: 'Tủ bếp dưới',
   Wall: 'Tủ bếp trên',
@@ -81,6 +87,17 @@ export const FIELD_LABEL: Record<string, string> = {
   inner_width: 'Lọt lòng rộng',
   inner_height: 'Lọt lòng cao',
   inner_depth: 'Lọt lòng sâu',
+  full_name: 'Tên tấm',
+  room: 'Tên phòng',
+  floor: 'Tầng',
+  handles: 'Tay nắm',
+  back_groove: 'Rãnh hậu',
+  back_offset: 'Hậu cách sau',
+  rail_width: 'Rộng giằng',
+  door_thickness: 'Dày cánh',
+  shelf_setback: 'Kệ lùi trước',
+  links: 'Liên kết',
+  tools: 'Tool đã áp',
 };
 
 export const GROUP_LABEL: Record<string, string> = {
@@ -94,9 +111,16 @@ export const GROUP_LABEL: Record<string, string> = {
   construction: 'Kết cấu',
   content: 'Thành phần',
   derived: 'Giá trị tính toán',
+  zone_position: 'Vị trí',
+  door: 'Cánh',
+  drawer: 'Cấu hình chi tiết',
+  link: 'Liên kết',
+  stretch: 'Co giãn tấm',
+  relations: 'Liên kết & tool',
+  edge_rule: 'Luật dán cạnh',
 };
 
-export const OPTION_LABEL: Record<string, string> = { INSET: 'Lọt lòng', OVERLAY: 'Trùm' };
+export const OPTION_LABEL: Record<string, string> = { INSET: 'Lọt lòng', OVERLAY: 'Phủ', RAILS: 'Thanh giằng' };
 
 export const GRAIN_LABEL: Record<string, string> = { ALONG_HEIGHT: 'Theo chiều cao', ALONG_WIDTH: 'Theo chiều rộng', NONE: 'Không vân' };
 

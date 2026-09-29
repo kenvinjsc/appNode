@@ -1,5 +1,6 @@
 // Title bar, workspace rail, status bar, toasts, jobs, context menu.
 import { useEffect, useState } from 'react';
+import { Commands } from '../core-api/commands';
 import { Queries } from '../core-api/queries';
 import { Icon } from '../shared/icons';
 import { CONTACT_LABEL, fmt } from '../shared/i18n';
@@ -174,6 +175,73 @@ export function Jobs() {
   );
 }
 
+/** Quick build menu for a zone: common parts in one click, with sensible options. */
+export function ZoneMenu() {
+  const { zoneMenu, set } = useUi();
+  useEffect(() => {
+    if (!zoneMenu) return;
+    const close = () => set({ zoneMenu: null });
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [zoneMenu, set]);
+  if (!zoneMenu) return null;
+  const { cabinet, zone } = zoneMenu;
+  const zones = [zone];
+  const run = (p: Promise<unknown>) => {
+    set({ zoneMenu: null });
+    void p.catch(() => undefined);
+  };
+  const Item = ({ label, fn }: { label: string; fn: () => Promise<unknown> }) => (
+    <button onPointerDown={(e) => e.stopPropagation()} onClick={() => run(fn())}>
+      <span>{label}</span>
+    </button>
+  );
+  const shelves = (n: number, kind: 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' = 'SHELF_ADJUSTABLE') =>
+    Commands.zoneAddPanels({ cabinet, zones, kind, count: n, lock: n > 1 ? 'EVEN' : 'RATIO', value: 50 });
+  const dividers = (n: number) => Commands.zoneAddPanels({ cabinet, zones, kind: 'DIVIDER', count: n, lock: n > 1 ? 'EVEN' : 'RATIO', value: 50 });
+  const door = (kind: 'SINGLE' | 'DOUBLE' | 'SLIDING', hinge: 'LEFT' | 'RIGHT' | 'TOP' = 'LEFT', mount: 'OVERLAY' | 'INSET' = 'OVERLAY', cols = kind === 'SINGLE' ? 1 : 2) =>
+    Commands.zoneAddDoors({ cabinet, zones, kind, cols, rows: 1, mount, hinge });
+  const drawers = (n: number, mount: 'OVERLAY' | 'INSET' = 'OVERLAY') => Commands.zoneAddDrawers({ cabinet, zones, count: n, cols: 1, mount, with_box: true });
+  return (
+    <div className="ctx zone-menu" style={{ left: Math.min(zoneMenu.x, window.innerWidth - 440), top: Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 440)) }} onPointerDown={(e) => e.stopPropagation()}>
+      <div className="ctx-title">Dựng nhanh · vùng #{zone}</div>
+      <div className="zm-grid">
+        <div>
+          <h5>Tấm ngang</h5>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Item key={n} label={`Kệ di động × ${n}`} fn={() => shelves(n)} />
+          ))}
+          <Item label="Kệ cố định giữa" fn={() => shelves(1, 'SHELF_FIXED')} />
+          <h5>Tấm đứng / hậu</h5>
+          <Item label="Hông giữa (2 khoang)" fn={() => dividers(1)} />
+          <Item label="Chia 3 khoang" fn={() => dividers(2)} />
+          <Item label="Hậu phụ" fn={() => Commands.zoneAddPanels({ cabinet, zones, kind: 'BACK_SUB', count: 1, lock: 'FROM_START', value: 0 })} />
+        </div>
+        <div>
+          <h5>Cánh</h5>
+          <Item label="Cánh đơn · lề trái" fn={() => door('SINGLE', 'LEFT')} />
+          <Item label="Cánh đơn · lề phải" fn={() => door('SINGLE', 'RIGHT')} />
+          <Item label="Cánh đôi (phủ bì)" fn={() => door('DOUBLE')} />
+          <Item label="Cánh đôi (lọt lòng)" fn={() => door('DOUBLE', 'LEFT', 'INSET')} />
+          <Item label="Cánh lật (lề trên)" fn={() => door('SINGLE', 'TOP')} />
+          <Item label="Cửa lùa 2 cánh" fn={() => door('SLIDING')} />
+          <h5>Ngăn kéo</h5>
+          {[1, 2, 3, 4].map((n) => (
+            <Item key={n} label={`Ngăn kéo × ${n}`} fn={() => drawers(n)} />
+          ))}
+          <Item label="Ngăn kéo × 2 (lọt lòng)" fn={() => drawers(2, 'INSET')} />
+          <h5>Liên kết</h5>
+          <Item label="Thanh treo oval" fn={() => Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL')} />
+        </div>
+      </div>
+      <hr />
+      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { set({ zoneMenu: null, designerTab: 'create' }); }}>
+        <span>Tùy chọn chi tiết… (tab Tạo tấm)</span>
+      </button>
+    </div>
+  );
+}
+
 export function ContextMenu() {
   const { contextMenu, set, tree } = useUi();
   useEffect(() => {
@@ -215,6 +283,18 @@ export function ContextMenu() {
       {item('chevronRight', 'Chọn đối tượng cha', () => Actions.selectParent(id), undefined, findNode(tree, id)?.parent == null)}
       {item('chevronDown', 'Chọn các con', () => Actions.selectChildren(id), undefined, !n?.children.length)}
       <hr />
+      {n?.kind === 'PANEL' && n.generated && (
+        <>
+          <hr />
+          {(n.role === 'Shelf' || n.role === 'ShelfFixed') && item('shelf', n.role === 'Shelf' ? 'Đổi thành kệ cố định' : 'Đổi thành kệ di động', () => void Commands.setParameter(id, 'split_kind', n.role === 'Shelf' ? 'SHELF_FIXED' : 'SHELF_ADJUSTABLE').catch(() => undefined))}
+          {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') && item('align', 'Căn giữa vùng (50%)', () => void Commands.setParameter(id, 'pos_ratio', '50').catch(() => undefined))}
+          {['Shelf', 'ShelfFixed', 'Divider', 'BackSub'].includes(n.role ?? '') && item('grid', 'Chia đều lại', () => void Commands.setParameter(id, 'pos_lock', 'EVEN').catch(() => undefined))}
+          {item('fit', 'Co giãn trên +20', () => void Commands.setPartMod(id, { extend_delta: [0, 0, 0, 20] }).catch(() => undefined))}
+          {item('fit', 'Co giãn trên −20', () => void Commands.setPartMod(id, { extend_delta: [0, 0, 0, -20] }).catch(() => undefined))}
+          {item('edit' as never, 'Chỉnh tấm…', () => set({ designerTab: 'edit' }))}
+        </>
+      )}
+      {n?.kind === 'CABINET' && item('shelf', 'Dựng chi tiết (Tạo tấm)…', () => set({ designerTab: 'create' }))}
       {item('relations', 'Xem quan hệ', () => Actions.inspectRelations(id))}
       {item('drill', 'Gia công', () => Actions.openManufacturing(id))}
       {item('fit', 'Phóng vừa', () => View.fit([id], tree), 'F')}
