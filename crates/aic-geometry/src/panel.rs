@@ -155,7 +155,7 @@ pub fn build_hardware_mesh<K: GeometryKernel>(k: &K, kind: HardwareKind, size: [
             let c = k.make_cylinder(r, y.max(1.0))?;
             k.transform(&c, &Transform3D::new([r, 0.0, r], [-90.0, 0.0, 0.0]))?
         }
-        HardwareKind::Handle | HardwareKind::Hinge => k.make_box(x, y, z)?,
+        HardwareKind::Handle | HardwareKind::Hinge | HardwareKind::Slide => k.make_box(x, y, z)?,
     };
     k.tessellate(&solid)
 }

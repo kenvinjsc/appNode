@@ -45,6 +45,10 @@ fn mat(code: &str, name: &str, kind: MaterialKind, t: f64, grain: bool, color: &
 pub fn default_materials() -> Vec<Material> {
     use MaterialKind::*;
     vec![
+        mat("MDF17-WHITE", "MDF trắng 17", Mdf, 17.2, false, "#f2f0eb"),
+        mat("MDF17-OAK", "MDF vân sồi 17", Mdf, 17.2, true, "#c8a27a"),
+        mat("MDF17-WALNUT", "MDF óc chó 17", Mdf, 17.2, true, "#7a5237"),
+        mat("MDF8-WHITE", "MDF hậu 8", Mdf, 8.6, false, "#ebe8e1"),
         mat("MDF18-WHITE", "MDF trắng 18", Mdf, 18.0, false, "#f2f0eb"),
         mat("MDF18-OAK", "MDF vân sồi 18", Mdf, 18.0, true, "#c8a27a"),
         mat("MDF25-GREY", "MDF xám 25", Mdf, 25.0, false, "#9ea3a8"),

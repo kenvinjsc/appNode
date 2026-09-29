@@ -55,6 +55,10 @@ impl Default for JointSettings {
 /// Role-based features that do not depend on neighbours.
 /// `hinge_left`: for doors, whether hinges are on the left edge.
 pub fn rule_features(panel: &Panel, hinge_left: Option<bool>) -> Vec<MachiningFeature> {
+    // Parts built by the cabinet generator carry their own rule machining.
+    if panel.gen_key.is_some() {
+        return panel.gen_features.clone();
+    }
     let mut out = Vec::new();
     if panel.role == PanelRole::Door {
         let left = hinge_left.unwrap_or(true);
@@ -91,7 +95,10 @@ fn edge_of(face: (usize, i8)) -> Option<EdgeSide> {
 }
 
 fn joinable(role: PanelRole) -> bool {
-    !matches!(role, PanelRole::Door | PanelRole::DrawerFront | PanelRole::Back)
+    !matches!(
+        role,
+        PanelRole::Door | PanelRole::DrawerFront | PanelRole::Back | PanelRole::BackSub | PanelRole::DrawerBottom
+    )
 }
 
 /// Positions along a joint of length `len` (local coordinate `0..len`).

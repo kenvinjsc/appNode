@@ -59,6 +59,8 @@ pub enum Command {
     SetEdgeBand { id: ObjectId, edge: EdgeSide, band: Option<EdgeBand> },
     AddFeature { id: ObjectId, feature: MachiningFeature, index: Option<usize> },
     RemoveFeature { id: ObjectId, index: usize },
+    /// Replace a cabinet definition (zones, fronts, options, part mods); inverse = old definition.
+    SetCabinet { id: ObjectId, cabinet: Box<aic_domain::Cabinet>, label: String },
     Batch { label: String, commands: Vec<Command> },
 }
 
@@ -82,7 +84,7 @@ impl Command {
             Command::SetEdgeBand { .. } => "Edge band",
             Command::AddFeature { .. } => "Add feature",
             Command::RemoveFeature { .. } => "Remove feature",
-            Command::Batch { label, .. } => label,
+            Command::Batch { label, .. } | Command::SetCabinet { label, .. } => label,
         }
     }
 
@@ -322,6 +324,11 @@ impl Command {
                     Ok(p.features.remove(index))
                 })?;
                 Ok(Command::AddFeature { id, feature: f, index: Some(index) })
+            }
+            Command::SetCabinet { id, cabinet, label } => {
+                doc.ensure_unlocked(id)?;
+                let old = doc.set_cabinet(id, *cabinet)?;
+                Ok(Command::SetCabinet { id, cabinet: Box::new(old), label })
             }
             Command::Batch { label, commands } => {
                 let mut inverses = Vec::new();

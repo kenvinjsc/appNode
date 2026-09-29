@@ -15,6 +15,12 @@ pub enum PanelRole {
     Door,
     DrawerFront,
     Plinth,
+    ShelfFixed,
+    BackSub,
+    DrawerSide,
+    DrawerBack,
+    DrawerBottom,
+    Rail,
 }
 
 impl PanelRole {
@@ -31,6 +37,12 @@ impl PanelRole {
             PanelRole::Door => "Door",
             PanelRole::DrawerFront => "Drawer Front",
             PanelRole::Plinth => "Plinth",
+            PanelRole::ShelfFixed => "Fixed Shelf",
+            PanelRole::BackSub => "Sub Back",
+            PanelRole::DrawerSide => "Drawer Side",
+            PanelRole::DrawerBack => "Drawer Back",
+            PanelRole::DrawerBottom => "Drawer Bottom",
+            PanelRole::Rail => "Rail",
         }
     }
 
@@ -70,6 +82,15 @@ pub struct Panel {
     pub grain_direction: GrainDirection,
     pub edge_bands: Vec<EdgeBand>,
     pub features: Vec<MachiningFeature>,
+    /// Stable key of a generated part inside its cabinet (`c:left`, `p:12`, …).
+    #[serde(default)]
+    pub gen_key: Option<String>,
+    /// Machining produced by the cabinet generator (hinge cups, back grooves, tools).
+    #[serde(default)]
+    pub gen_features: Vec<MachiningFeature>,
+    /// Hinge edge of a door.
+    #[serde(default)]
+    pub hinge: Option<EdgeSide>,
 }
 
 impl Panel {
@@ -86,6 +107,9 @@ impl Panel {
             grain_direction: GrainDirection::AlongHeight,
             edge_bands: Vec::new(),
             features: Vec::new(),
+            gen_key: None,
+            gen_features: Vec::new(),
+            hinge: None,
         }
     }
 

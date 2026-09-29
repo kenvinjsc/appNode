@@ -59,6 +59,8 @@ pub struct Field {
     pub options: Vec<Value>,
     pub editable: bool,
     pub error: Option<String>,
+    /// The locked one of a set of alternative values (red dot in the UI).
+    pub locked: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -80,7 +82,161 @@ fn f(key: &str, label: &str, kind: &'static str, value: Value) -> Field {
         options: vec![],
         editable: kind != "readonly",
         error: None,
+        locked: false,
     }
+}
+
+fn opts(items: &[(&str, &str)]) -> Vec<Value> {
+    items.iter().map(|(v, l)| json!({ "value": v, "label": l })).collect()
+}
+
+fn sel(key: &str, label: &str, value: &str, items: &[(&str, &str)], editable: bool) -> Field {
+    let mut fl = f(key, label, "select", json!(value));
+    fl.options = opts(items);
+    fl.editable = editable;
+    fl
+}
+
+fn numf(key: &str, label: &str, value: f64, editable: bool) -> Field {
+    let mut fl = f(key, label, "number", json!((value * 10.0).round() / 10.0));
+    fl.unit = Some("mm");
+    fl.editable = editable;
+    fl
+}
+
+fn up(v: impl std::fmt::Debug) -> String {
+    let s = format!("{v:?}");
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if ch.is_uppercase() && i > 0 {
+            out.push('_');
+        }
+        out.push(ch.to_ascii_uppercase());
+    }
+    out
+}
+
+/// Chỉnh tấm groups for generated parts (position lock, door/drawer config, co giãn, tools, links).
+fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut Vec<Group>) -> Result<(), CoreError> {
+    use crate::zones::{parse_key, PartRef};
+    use aic_domain::zone::{Front, Lock};
+    let Some((cab, key)) = e.part_ref(id) else { return Ok(()) };
+    let def = e.cabinet_def(cab)?;
+    let layout = e.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+    match parse_key(&key) {
+        PartRef::Split(uid) => {
+            if let (Some(sp), Some(pos)) = (def.zones.panel(uid), layout.positions.iter().find(|p| p.uid == uid)) {
+                let (a, b) = match pos.axis {
+                    0 => ("Cách trái", "Cách phải"),
+                    1 => ("Cách dưới", "Cách trên"),
+                    _ => ("Cách sau", "Cách trước"),
+                };
+                let mut r = f("pos_ratio", "Tỷ lệ (%)", "number", json!((pos.ratio * 1000.0).round() / 10.0));
+                r.editable = editable;
+                r.locked = matches!(pos.lock, Lock::Ratio | Lock::Even);
+                let mut s1 = numf("pos_start", a, pos.from_start, editable);
+                s1.locked = pos.lock == Lock::FromStart;
+                let mut s2 = numf("pos_end", b, pos.from_end, editable);
+                s2.locked = pos.lock == Lock::FromEnd;
+                let mut cells = f("cells", "Lọt lòng mỗi ô", "readonly", json!(format!("{:.1} / {:.1}", pos.cell_before, pos.cell_after)));
+                cells.unit = Some("mm");
+                let kinds: &[(&str, &str)] = match sp.kind.axis() {
+                    1 => &[("SHELF_ADJUSTABLE", "KệDiĐộng"), ("SHELF_FIXED", "KệCốĐịnh")],
+                    0 => &[("DIVIDER", "HôngGiữa")],
+                    _ => &[("BACK_SUB", "HậuPhụ")],
+                };
+                groups.push(Group {
+                    key: "zone_position",
+                    title: "Position",
+                    fields: vec![sel("split_kind", "Loại", &up(sp.kind), kinds, editable), r, s1, s2, cells],
+                });
+            }
+        }
+        PartRef::Door(uid) => {
+            if let Some(Front::Doors(d)) = def.zones.zone_of_attachment(uid).and_then(|z| def.zones.zone(z)).and_then(|z| z.front.as_ref()) {
+                let mut fields = vec![
+                    sel("door_kind", "Kiểu cửa", &up(d.kind), &[("SINGLE", "Đơn"), ("DOUBLE", "Đôi"), ("SLIDING", "Lùa")], editable),
+                    sel("door_mount", "Kiểu kết cấu", &up(d.mount), &[("OVERLAY", "Phủ bì"), ("INSET", "Lọt lòng")], editable),
+                    sel("door_hinge", "Lắp lề", &up(d.hinge), &[("LEFT", "Trái"), ("RIGHT", "Phải"), ("TOP", "Trên"), ("BOTTOM", "Dưới")], editable),
+                    {
+                        let mut x = f("door_cols", "Số cánh ngang", "number", json!(d.cols));
+                        x.editable = editable;
+                        x
+                    },
+                    {
+                        let mut x = f("door_rows", "Số cánh dọc", "number", json!(d.rows));
+                        x.editable = editable;
+                        x
+                    },
+                    sel("door_stop", "Thanh chặn", &up(d.stop.kind), &[("NONE", "Không"), ("L_SHAPE", "Chữ L"), ("STRAIGHT", "Thẳng")], editable),
+                ];
+                if d.stop.kind != aic_domain::zone::StopRail::None {
+                    fields.push(numf("door_stop_height", "Cao vùng", d.stop.height, editable));
+                    fields.push(numf("door_stop_cover", "Cửa phủ lên", d.stop.cover_up, editable));
+                    fields.push(numf("door_stop_leg", "Sâu chân", d.stop.leg_depth, editable));
+                    fields.push(numf("door_stop_setback", "Lùi thanh", d.stop.setback, editable));
+                }
+                groups.push(Group { key: "door", title: "Door", fields });
+            }
+        }
+        PartRef::Drawer(uid) => {
+            if let Some(Front::Drawers(d)) = def.zones.zone_of_attachment(uid).and_then(|z| def.zones.zone(z)).and_then(|z| z.front.as_ref()) {
+                let mut cnt = f("drawer_count", "Số ngăn", "number", json!(d.count));
+                cnt.editable = editable;
+                let mut cols = f("drawer_cols", "Số cột", "number", json!(d.cols));
+                cols.editable = editable;
+                let mut bx = f("drawer_box", "Tạo hộc kéo", "bool", json!(d.with_box));
+                bx.editable = editable;
+                groups.push(Group {
+                    key: "drawer",
+                    title: "Drawer",
+                    fields: vec![
+                        cnt,
+                        cols,
+                        sel("drawer_type", "Loại ngăn kéo", "RAYBI_17", &[("RAYBI_17", "01. RayBi-Ván17mm")], false),
+                        sel("drawer_mount", "Kiểu mặt", &up(d.mount), &[("OVERLAY", "Phủ bì"), ("INSET", "Lọt lòng")], editable),
+                        numf("drawer_face_thickness", "Dày mặt", d.face_thickness.unwrap_or(e.doc.param_value(cab, "door_thickness").unwrap_or(17.2)), editable),
+                        numf("drawer_side_gap", "Hở hông", d.side_gap, editable),
+                        numf("drawer_gap", "Khe giữa 2 ngăn", d.gap, editable),
+                        bx,
+                    ],
+                });
+            }
+        }
+        PartRef::Link(_) => {
+            if let Some(l) = def.zones.zones().iter().flat_map(|z| z.links.iter()).find(|l| key == format!("l:{}", l.uid)) {
+                groups.push(Group { key: "link", title: "Link", fields: vec![numf("link_offset", "Cách nóc vùng", l.offset, editable)] });
+            }
+        }
+        PartRef::Carcass => {}
+    }
+    let m = def.mods.get(&key).cloned().unwrap_or_default();
+    if matches!(e.doc.objects.get(&id), Some(DomainObject::Panel(_))) {
+        groups.push(Group {
+            key: "stretch",
+            title: "Stretch",
+            fields: vec![
+                numf("ext_left", "Giãn trái", m.extend[0], editable),
+                numf("ext_right", "Giãn phải", m.extend[1], editable),
+                numf("ext_bottom", "Giãn dưới", m.extend[2], editable),
+                numf("ext_top", "Giãn trên", m.extend[3], editable),
+            ],
+        });
+        // Liên kết (x/y): neighbours touching this part.
+        let rel = e.relations();
+        let names: Vec<Value> = rel
+            .relations_of(id)
+            .iter()
+            .filter(|r| r.contact == aic_assembly::ContactType::Touch)
+            .filter_map(|r| e.doc.objects.get(&r.target).map(|o| json!({ "id": r.target, "name": o.name(), "region": r.source_region })))
+            .collect();
+        let mut links = f("links", "Liên kết", "list", Value::Array(names));
+        links.editable = false;
+        let mut tools = f("tools", "Tool đã áp", "list", json!(m.tools));
+        tools.editable = editable;
+        groups.push(Group { key: "relations", title: "Links", fields: vec![links, tools] });
+    }
+    Ok(())
 }
 
 fn param(doc: &Document, id: ObjectId, name: &str, label: &str, editable: bool) -> Option<Field> {
@@ -97,6 +253,7 @@ fn param(doc: &Document, id: ObjectId, name: &str, label: &str, editable: bool) 
         options: vec![],
         editable,
         error: p.value.as_ref().err().cloned(),
+        locked: false,
     })
 }
 
@@ -127,24 +284,36 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
     let locked = e.doc.scene.is_effectively_locked(id);
     let editable = !locked;
     let obj = e.doc.object(id)?.clone();
+    let mut gen_groups = Vec::new();
+    generated_groups(e, id, editable, &mut gen_groups)?;
     let doc = &e.doc;
     let mut groups: Vec<Group> = Vec::new();
     let mut general = vec![f("name", "Name", "text", json!(obj.name()))];
     let kind = obj.kind();
     match &obj {
         DomainObject::Panel(p) => {
-            general.push(f("role", "Role", "readonly", json!(p.role.label())));
+            let generated = p.gen_key.is_some() && doc.generated.contains(&id);
+            general.push(f("role", "Role", "readonly", json!(format!("{:?}", p.role))));
+            if let Some(cab) = doc.cabinet_of(id).and_then(|c| doc.objects.get(&c)).and_then(|o| o.as_cabinet()) {
+                let prefix = if cab.room.is_empty() { format!("[{}]", cab.name) } else { format!("[{} - {}]", cab.room, cab.name) };
+                general.push(f("full_name", "Full name", "readonly", json!(format!("{prefix} {}", p.name))));
+            }
             groups.push(Group { key: "general", title: "General", fields: general });
+            // Generated parts: length/width are computed (grey), thickness is editable.
             groups.push(Group {
                 key: "size",
                 title: "Size",
                 fields: [("width", "Width"), ("height", "Height"), ("thickness", "Thickness")]
                     .iter()
-                    .filter_map(|(n, l)| param(doc, id, n, l, editable))
+                    .filter_map(|(n, l)| param(doc, id, n, l, editable && (!generated || *n == "thickness")))
                     .collect(),
             });
-            groups.push(position(doc, id, editable));
-            groups.push(rotation(doc, id, editable));
+            if generated {
+                groups.append(&mut gen_groups);
+            } else {
+                groups.push(position(doc, id, editable));
+                groups.push(rotation(doc, id, editable));
+            }
             let mut mat = vec![material_field(doc, "material", "Board", &p.material_id.0)];
             mat.push(f("grain", "Grain", "readonly", json!(format!("{:?}", p.grain_direction))));
             groups.push(Group { key: "material", title: "Material", fields: mat });
@@ -172,7 +341,10 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
             });
         }
         DomainObject::Cabinet(c) => {
-            general.push(f("kind", "Type", "readonly", json!(c.kind.label())));
+            general.push(f("kind", "Type", "readonly", json!(format!("{:?}", c.kind))));
+            let mut room = f("room", "Room", "text", json!(c.room));
+            room.editable = editable;
+            general.push(room);
             groups.push(Group { key: "general", title: "General", fields: general });
             groups.push(Group {
                 key: "size",
@@ -187,6 +359,11 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
                 ("back_thickness", "Back thickness"),
                 ("plinth_height", "Plinth height"),
                 ("door_gap", "Door gap"),
+                ("door_thickness", "Door thickness"),
+                ("shelf_setback", "Shelf setback"),
+                ("back_groove", "Back groove"),
+                ("back_offset", "Back offset"),
+                ("rail_width", "Rail width"),
             ]
             .iter()
             .filter_map(|(n, l)| param(doc, id, n, l, editable))
@@ -194,12 +371,18 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
             for (k, l) in [("top_style", "Top style"), ("bottom_style", "Bottom style")] {
                 let mut fl = f(k, l, "select", json!(doc.structure_value(id, k)));
                 fl.options = vec![json!({"value": "INSET", "label": "Inset"}), json!({"value": "OVERLAY", "label": "Overlay"})];
+                if k == "top_style" {
+                    fl.options.push(json!({"value": "RAILS", "label": "Rails"}));
+                }
                 fl.editable = editable;
                 construction.push(fl);
             }
             let mut back = f("back_panel", "Back panel", "bool", json!(c.back_panel));
             back.editable = editable;
             construction.push(back);
+            let mut handles = f("handles", "Handles", "bool", json!(c.handles));
+            handles.editable = editable;
+            construction.push(handles);
             groups.push(Group { key: "construction", title: "Construction", fields: construction });
             let mut content = Vec::new();
             for (k, l) in [("shelves", "Shelves"), ("doors", "Doors"), ("drawers", "Drawers")] {
@@ -209,6 +392,17 @@ pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
                 content.push(fl);
             }
             groups.push(Group { key: "content", title: "Content", fields: content });
+            let r = &c.edge_rule;
+            let mut edge = vec![
+                sel("edge_mode", "Kiểu dán", &up(r.mode), &[("EXPOSED_ONLY", "Dán hở bỏ khuất"), ("ALL", "Dán toàn bộ"), ("NONE", "Không dán")], editable),
+                sel("edge_band", "Loại chỉ dán", &r.band_code, &[("DON-0.5", "Đơn 0.5mm"), ("DON-1", "Đơn 1mm"), ("DON-2", "Đơn 2mm"), ("KEP-1", "Kép 1mm")], editable),
+                numf("edge_threshold", "Ngưỡng dán cạnh", r.threshold, editable),
+                numf("edge_min_length", "Bỏ cạnh ngắn ≤", r.min_length, editable),
+            ];
+            let mut skip = f("edge_skip", "Độ dày không dán", "text", json!(r.skip_thicknesses.iter().map(|t| format!("{t}")).collect::<Vec<_>>().join(", ")));
+            skip.editable = editable;
+            edge.push(skip);
+            groups.push(Group { key: "edge_rule", title: "Edge rule", fields: edge });
             groups.push(position(doc, id, editable));
             groups.push(rotation(doc, id, editable));
             groups.push(Group {

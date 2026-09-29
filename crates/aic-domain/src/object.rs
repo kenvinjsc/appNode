@@ -1,4 +1,7 @@
-use crate::{CabinetKind, JoinStyle, MaterialId, ObjectId, Panel};
+use crate::layout::PartMod;
+use crate::zone::ZoneTree;
+use crate::{CabinetKind, CabinetSpec, JoinStyle, MaterialId, ObjectId, Panel};
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -27,6 +30,92 @@ pub struct Cabinet {
     pub carcass_material: MaterialId,
     pub front_material: MaterialId,
     pub back_material: MaterialId,
+    /// Tên phòng (Bếp, PN1, …).
+    #[serde(default)]
+    pub room: String,
+    /// Interior layout (zones, splits, fronts, accessories).
+    #[serde(default)]
+    pub zones: ZoneTree,
+    /// Per-part user modifications keyed by part key.
+    #[serde(default)]
+    pub mods: BTreeMap<String, PartMod>,
+    /// Generate handles on doors / drawer fronts.
+    #[serde(default = "yes")]
+    pub handles: bool,
+    /// Edge banding rule (luật dán cạnh).
+    #[serde(default)]
+    pub edge_rule: EdgeRule,
+    /// Zones were built (false for files written before the zone model).
+    #[serde(default)]
+    pub zones_ready: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EdgeMode {
+    /// Dán hở bỏ khuất: band only exposed edges.
+    #[default]
+    ExposedOnly,
+    /// Dán toàn bộ.
+    All,
+    /// Không dán.
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EdgeRule {
+    pub mode: EdgeMode,
+    /// Loại chỉ dán code, e.g. `DON-1` (Đơn 1mm).
+    pub band_code: String,
+    pub band_thickness: f64,
+    /// Board thicknesses that are never banded.
+    pub skip_thicknesses: Vec<f64>,
+    /// Ngưỡng: an edge within this distance of another part counts as hidden.
+    pub threshold: f64,
+    /// Bỏ cạnh ngắn ≤.
+    pub min_length: f64,
+}
+
+impl Default for EdgeRule {
+    fn default() -> Self {
+        Self {
+            mode: EdgeMode::ExposedOnly,
+            band_code: "DON-1".into(),
+            band_thickness: 1.0,
+            skip_thicknesses: vec![8.6],
+            threshold: 0.5,
+            min_length: 20.0,
+        }
+    }
+}
+
+impl Cabinet {
+    pub fn from_spec(id: ObjectId, name: String, s: &CabinetSpec) -> Self {
+        Cabinet {
+            id,
+            name,
+            kind: s.kind,
+            shelves: s.shelves,
+            doors: s.doors,
+            drawers: s.drawers,
+            back_panel: s.back_panel,
+            top_style: s.top_style,
+            bottom_style: s.bottom_style,
+            carcass_material: s.carcass_material.clone(),
+            front_material: s.front_material.clone(),
+            back_material: s.back_material.clone(),
+            room: s.room.clone(),
+            zones: crate::layout::default_zones(s.kind, s.shelves, s.doors, s.drawers, s.thickness),
+            mods: BTreeMap::new(),
+            handles: true,
+            edge_rule: EdgeRule::default(),
+            zones_ready: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -36,6 +125,7 @@ pub enum HardwareKind {
     Hinge,
     Rail,
     Leg,
+    Slide,
 }
 
 impl HardwareKind {
@@ -45,6 +135,7 @@ impl HardwareKind {
             HardwareKind::Hinge => "Hinge",
             HardwareKind::Rail => "Rail",
             HardwareKind::Leg => "Leg",
+            HardwareKind::Slide => "Slide",
         }
     }
 }
@@ -59,6 +150,8 @@ pub struct Hardware {
     /// Bounding size in local frame (render + clash only; hardware is not machined).
     pub size_mm: [f64; 3],
     pub catalog_code: String,
+    #[serde(default)]
+    pub gen_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,5 +1,6 @@
 //! Wire protocol between UI and core (JSON over Tauri IPC or HTTP in dev).
 
+use aic_domain::zone::{DoorKind, HingeSide, LinkKind, Lock, Mount, SplitKind, StopRailSpec, Uid};
 use aic_domain::{CabinetKind, EdgeSide, MachiningFeature, ObjectId};
 use aic_math::Transform3D;
 use aic_nesting::NestingSettings;
@@ -22,6 +23,58 @@ pub struct CabinetOverrides {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ZoneAddPanels {
+    pub cabinet: ObjectId,
+    /// Pinned zones (ghim vùng); panels are added to each.
+    pub zones: Vec<Uid>,
+    pub kind: SplitKind,
+    #[serde(default = "one")]
+    pub count: u32,
+    #[serde(default)]
+    pub thickness: Option<f64>,
+    #[serde(default)]
+    pub lock: Lock,
+    /// Ratio in % for `RATIO`, mm otherwise.
+    #[serde(default)]
+    pub value: f64,
+    #[serde(default)]
+    pub tilt_deg: Option<[f64; 2]>,
+}
+
+fn one() -> u32 {
+    1
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn sixty() -> f64 {
+    60.0
+}
+
+/// Partial update of a generated part's modifications.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct PartModPatch {
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Absolute extension of left, right, bottom, top edges (co giãn).
+    #[serde(default)]
+    pub extend: Option<[f64; 4]>,
+    /// Added to the current extension (cộng dồn).
+    #[serde(default)]
+    pub extend_delta: Option<[f64; 4]>,
+    #[serde(default)]
+    pub thickness: Option<Option<f64>>,
+    #[serde(default)]
+    pub clear_tools: bool,
+    #[serde(default)]
+    pub add_features: Option<Vec<MachiningFeature>>,
+    #[serde(default)]
+    pub tool: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Request {
     // project
@@ -40,6 +93,11 @@ pub enum Request {
         overrides: CabinetOverrides,
         #[serde(default)]
         name: Option<String>,
+        #[serde(default)]
+        room: Option<String>,
+        /// Place the new cabinet to the right of this one (dãy tủ liền nhau).
+        #[serde(default)]
+        after: Option<ObjectId>,
     },
     CreatePanel {
         #[serde(default)]
@@ -69,6 +127,50 @@ pub enum Request {
     RemoveFeature { id: ObjectId, index: usize },
     Undo,
     Redo,
+    // zones (Tạo tấm / Chỉnh tấm)
+    GetZones { cabinet: ObjectId },
+    ZoneAddPanels(ZoneAddPanels),
+    ZoneAddDoors {
+        cabinet: ObjectId,
+        zones: Vec<Uid>,
+        #[serde(default)]
+        kind: DoorKind,
+        #[serde(default = "one")]
+        cols: u32,
+        #[serde(default = "one")]
+        rows: u32,
+        #[serde(default)]
+        mount: Mount,
+        #[serde(default)]
+        hinge: HingeSide,
+        #[serde(default)]
+        thickness: Option<f64>,
+        #[serde(default)]
+        stop: Option<StopRailSpec>,
+    },
+    ZoneAddDrawers {
+        cabinet: ObjectId,
+        zones: Vec<Uid>,
+        #[serde(default = "one")]
+        count: u32,
+        #[serde(default = "one")]
+        cols: u32,
+        #[serde(default)]
+        mount: Mount,
+        #[serde(default)]
+        thickness: Option<f64>,
+        #[serde(default = "yes")]
+        with_box: bool,
+    },
+    ZoneAddLink {
+        cabinet: ObjectId,
+        zones: Vec<Uid>,
+        kind: LinkKind,
+        #[serde(default = "sixty")]
+        offset: f64,
+    },
+    ZoneRemove { cabinet: ObjectId, uid: Uid },
+    SetPartMod { id: ObjectId, patch: PartModPatch },
     // queries
     GetSceneTree,
     GetProperties { id: ObjectId },

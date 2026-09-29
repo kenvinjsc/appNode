@@ -27,6 +27,8 @@ pub enum JoinStyle {
     Inset,
     /// Top/bottom cover the sides' end grain.
     Overlay,
+    /// Two stretcher rails (giằng) instead of a full top — kitchen base units.
+    Rails,
 }
 
 /// Creation input for a cabinet.
@@ -48,6 +50,9 @@ pub struct CabinetSpec {
     pub carcass_material: MaterialId,
     pub front_material: MaterialId,
     pub back_material: MaterialId,
+    /// Tên phòng.
+    #[serde(default)]
+    pub room: String,
 }
 
 impl CabinetSpec {
@@ -57,8 +62,8 @@ impl CabinetSpec {
             width: 800.0,
             height: 720.0,
             depth: 560.0,
-            thickness: 18.0,
-            back_thickness: 5.0,
+            thickness: 17.2,
+            back_thickness: 8.6,
             plinth_height: 0.0,
             shelves: 1,
             doors: 2,
@@ -66,19 +71,21 @@ impl CabinetSpec {
             back_panel: true,
             top_style: JoinStyle::Inset,
             bottom_style: JoinStyle::Inset,
-            carcass_material: MaterialId::new("MDF18-WHITE"),
-            front_material: MaterialId::new("MDF18-OAK"),
-            back_material: MaterialId::new("HDF5-WHITE"),
+            carcass_material: MaterialId::new("MDF17-WHITE"),
+            front_material: MaterialId::new("MDF17-OAK"),
+            back_material: MaterialId::new("MDF8-WHITE"),
+            room: String::new(),
         };
         match kind {
-            CabinetKind::Base => CabinetSpec { plinth_height: 100.0, top_style: JoinStyle::Overlay, ..base },
+            CabinetKind::Base => CabinetSpec { width: 800.0, height: 850.0, depth: 600.0, top_style: JoinStyle::Rails, ..base },
             CabinetKind::Wall => CabinetSpec { depth: 320.0, ..base },
             CabinetKind::Wardrobe => CabinetSpec {
-                width: 1000.0,
-                height: 2100.0,
-                depth: 580.0,
+                width: 1600.0,
+                height: 2400.0,
+                depth: 600.0,
                 plinth_height: 80.0,
                 shelves: 4,
+                doors: 4,
                 top_style: JoinStyle::Overlay,
                 ..base
             },
@@ -98,6 +105,18 @@ impl CabinetKind {
             CabinetKind::OpenShelf => "Open Shelf",
             CabinetKind::Drawer => "Drawer Cabinet",
             CabinetKind::Door => "Door Cabinet",
+        }
+    }
+
+    /// Kiểu khung name prefix used for automatic cabinet names (BếpDưới01, TủQA01…).
+    pub fn frame_name(&self) -> &'static str {
+        match self {
+            CabinetKind::Base => "BếpDưới",
+            CabinetKind::Wall => "BếpTrên",
+            CabinetKind::Wardrobe => "TủQA",
+            CabinetKind::OpenShelf => "Kệ",
+            CabinetKind::Drawer => "TủNgănKéo",
+            CabinetKind::Door => "Tủ1Cánh",
         }
     }
 }
@@ -206,6 +225,9 @@ pub fn base_params(spec: &CabinetSpec) -> Vec<(String, String)> {
         (s("door_thickness"), s("thickness")),
         (s("door_gap"), num(2.0)),
         (s("shelf_setback"), num(20.0)),
+        (s("back_groove"), num(0.0)),
+        (s("back_offset"), num(0.0)),
+        (s("rail_width"), num(100.0)),
     ]
 }
 
@@ -507,7 +529,7 @@ mod tests {
         let count = |r| l.panels.iter().filter(|p| p.role == r).count();
         assert_eq!(count(PanelRole::LeftSide), 1);
         assert_eq!(count(PanelRole::Shelf), 4);
-        assert_eq!(count(PanelRole::Door), 2);
+        assert_eq!(count(PanelRole::Door), 4);
         assert_eq!(count(PanelRole::Back), 1);
         assert!(l.hardware.iter().any(|h| h.kind == HardwareKind::Rail));
     }

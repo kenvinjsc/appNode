@@ -10,6 +10,7 @@ mod mfg;
 mod properties;
 pub mod protocol;
 mod render;
+mod zones;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
 
@@ -110,6 +111,10 @@ impl Engine {
         self.history.execute(&mut self.doc, cmd)
     }
 
+    pub(crate) fn exec_cmd(&mut self, cmd: Command) -> Result<(), CoreError> {
+        self.exec(cmd)
+    }
+
     fn reset(&mut self, doc: Document) {
         self.doc = doc;
         self.doc.mark_loaded();
@@ -144,8 +149,26 @@ impl Engine {
                 self.exec(Command::CreateRoom { id: None, name: format!("Room {n:02}"), width, depth, height })?;
                 ok(json!({ "id": self.last_root() }))
             }
-            CreateCabinet { kind, position, parent, overrides, name } => {
+            CreateCabinet { kind, position, parent, overrides, name, room, after } => {
                 let mut spec = CabinetSpec::preset(kind);
+                if let Some(r) = room {
+                    spec.room = r.trim().to_string();
+                }
+                // Automatic name by frame kind: BếpDưới01, TủQA01, …
+                let name = name.filter(|n| !n.trim().is_empty()).or_else(|| {
+                    let prefix = kind.frame_name();
+                    let taken: std::collections::BTreeSet<String> =
+                        self.doc.objects.values().filter_map(|o| o.as_cabinet()).map(|c| c.name.clone()).collect();
+                    (1..1000).map(|i| format!("{prefix}{i:02}")).find(|n| !taken.contains(n))
+                });
+                // Next to the given cabinet: its origin + its width along X.
+                let position = match after {
+                    Some(a) if self.doc.objects.get(&a).and_then(|o| o.as_cabinet()).is_some() => {
+                        let w = self.doc.param_value(a, "width").unwrap_or(0.0);
+                        Some(self.doc.scene.world(a).transform_point([w, 0.0, 0.0]))
+                    }
+                    _ => position,
+                };
                 let o = overrides;
                 if let Some(v) = o.width { spec.width = v; }
                 if let Some(v) = o.height { spec.height = v; }
@@ -175,7 +198,9 @@ impl Engine {
             }
             DeleteObjects { ids } => {
                 let ids = self.top_level_only(ids);
-                let cmds = ids.iter().map(|id| Command::DeleteObject { id: *id }).collect();
+                let (gen, plain): (Vec<ObjectId>, Vec<ObjectId>) = ids.iter().partition(|id| self.part_ref(**id).is_some());
+                let mut cmds: Vec<Command> = self.delete_generated(&gen)?;
+                cmds.extend(plain.iter().map(|id| Command::DeleteObject { id: *id }));
                 self.exec(Command::Batch { label: "Delete".into(), commands: cmds })?;
                 ok(json!({ "deleted": ids }))
             }
@@ -235,6 +260,28 @@ impl Engine {
             }
             RemoveFeature { id, index } => {
                 self.exec(Command::RemoveFeature { id, index })?;
+                ok(json!({}))
+            }
+            GetZones { cabinet } => ok(self.zones_info(cabinet)?),
+            ZoneAddPanels(r) => ok(self.zone_add_panels(r)?),
+            ZoneAddDoors { cabinet, zones, kind, cols, rows, mount, hinge, thickness, stop } => {
+                self.zone_set_front(cabinet, zones, Some(zones::default_door(kind, cols, rows, mount, hinge, thickness, stop)))?;
+                ok(json!({}))
+            }
+            ZoneAddDrawers { cabinet, zones, count, cols, mount, thickness, with_box } => {
+                self.zone_set_front(cabinet, zones, Some(zones::default_drawers(count, cols, mount, thickness, with_box)))?;
+                ok(json!({}))
+            }
+            ZoneAddLink { cabinet, zones, kind, offset } => {
+                self.zone_add_link(cabinet, zones, kind, offset)?;
+                ok(json!({}))
+            }
+            ZoneRemove { cabinet, uid } => {
+                self.zone_remove(cabinet, uid)?;
+                ok(json!({}))
+            }
+            SetPartMod { id, patch } => {
+                self.set_part_mod(id, patch)?;
                 ok(json!({}))
             }
             Undo => ok(json!({ "label": self.history.undo(&mut self.doc)? })),
@@ -308,6 +355,9 @@ impl Engine {
 
     /// Property-panel edits are routed here and turned into the right command.
     fn set_parameter(&mut self, id: ObjectId, name: &str, value: &str) -> Result<(), CoreError> {
+        if self.set_zone_property(id, name, value)? {
+            return Ok(());
+        }
         match name {
             "name" => self.exec(Command::SetName { id, name: value.into() }),
             "rx" | "ry" | "rz" => {

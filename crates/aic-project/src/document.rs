@@ -1,8 +1,8 @@
 use crate::{CoreError, Snapshot};
 use aic_domain::cabinet::{self, base_params, material_for, CabinetStructure};
 use aic_domain::{
-    default_materials, Cabinet, CabinetSpec, DomainObject, Hardware, IdAllocator, Material, MaterialId, ObjectId, Panel, PanelRole,
-    Room, Scene, SceneNode,
+    build_cabinet, default_materials, Cabinet, CabinetSpec, CabinetValues, DomainObject, Hardware, IdAllocator, JoinStyle, Layout, Material,
+    MaterialId, ObjectId, Panel, PanelRole, PartKind, Room, Scene, SceneNode,
 };
 use aic_math::{Aabb, Obb, Transform3D};
 use aic_parametric::{parse, Constraint, ParamGraph, ParamKey};
@@ -59,7 +59,7 @@ impl ChangeSet {
 }
 
 /// Parameter names that change a cabinet's structure (regeneration, not a solve).
-pub const STRUCTURAL_PARAMS: &[&str] = &["shelves", "doors", "drawers", "back_panel", "top_style", "bottom_style"];
+pub const STRUCTURAL_PARAMS: &[&str] = &["shelves", "doors", "drawers", "back_panel", "top_style", "bottom_style", "handles"];
 
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -76,6 +76,11 @@ pub struct Document {
     pub generated: BTreeSet<ObjectId>,
     pub revision: u64,
     changes: ChangeSet,
+    /// Guard: a cabinet regeneration is running (no nested re-flow).
+    in_regen: bool,
+    /// Ids of generated parts that disappeared, by (cabinet, part key): a part
+    /// that comes back (undo, re-adding) gets its old id again.
+    retired: BTreeMap<(ObjectId, String), ObjectId>,
 }
 
 pub fn key(owner: ObjectId, name: &str) -> ParamKey {
@@ -111,6 +116,8 @@ impl Document {
             generated: BTreeSet::new(),
             revision: 0,
             changes: ChangeSet::default(),
+            in_regen: false,
+            retired: BTreeMap::new(),
         }
     }
 
@@ -163,8 +170,7 @@ impl Document {
         if p.role != PanelRole::Door {
             return None;
         }
-        let doors = self.cabinet_of(id).and_then(|c| self.objects.get(&c)).and_then(|o| o.as_cabinet()).map(|c| c.doors).unwrap_or(1);
-        Some(doors == 1 || p.role_index % 2 == 0)
+        Some(p.hinge.is_none_or(|h| h == aic_domain::EdgeSide::Left))
     }
 
     /// Oriented box of an object in world space (panels and hardware).
@@ -281,6 +287,18 @@ impl Document {
         let first = defs[0].1.clone();
         let changed = self.params.set_many(compiled).map_err(|e| CoreError::from_param(&first, e))?;
         self.apply_param_values(&changed);
+        if !self.in_regen {
+            // Cabinet dimensions changed → re-flow its zones and parts.
+            let cabinets: BTreeSet<ObjectId> = changed
+                .iter()
+                .filter_map(|k| split_key(k))
+                .filter(|(o, n)| !matches!(*n, "x" | "y" | "z") && matches!(self.objects.get(o), Some(DomainObject::Cabinet(_))))
+                .map(|(o, _)| o)
+                .collect();
+            for c in cabinets {
+                self.regenerate_cabinet(c)?;
+            }
+        }
         Ok(())
     }
 
@@ -441,20 +459,7 @@ impl Document {
             }
         }
         let id = id.unwrap_or_else(|| self.ids.alloc());
-        let cab = Cabinet {
-            id,
-            name: name.unwrap_or_else(|| spec.kind.label().to_string()),
-            kind: spec.kind,
-            shelves: spec.shelves,
-            doors: spec.doors,
-            drawers: spec.drawers,
-            back_panel: spec.back_panel,
-            top_style: spec.top_style,
-            bottom_style: spec.bottom_style,
-            carcass_material: spec.carcass_material.clone(),
-            front_material: spec.front_material.clone(),
-            back_material: spec.back_material.clone(),
-        };
+        let cab = Cabinet::from_spec(id, name.unwrap_or_else(|| spec.kind.label().to_string()), spec);
         self.insert_object(DomainObject::Cabinet(cab), parent, Transform3D::from_translation(position[0], position[1], position[2]), None)?;
         let mut defs = Self::position_params(id, &position.map(fmt_num));
         defs.extend(base_params(spec).into_iter().map(|(n, s)| (id, n, s)));
@@ -469,107 +474,205 @@ impl Document {
         Ok(id)
     }
 
-    /// (Re)build the children of a cabinet from its structure. Generated children
-    /// are matched by (role, index) so their ids — and user overrides — are stable.
+    /// Current numeric parameters of a cabinet.
+    pub fn cabinet_values(&self, id: ObjectId) -> CabinetValues {
+        let v = |n: &str, d: f64| self.param_value(id, n).unwrap_or(d);
+        let t = v("thickness", 17.2);
+        CabinetValues {
+            width: v("width", 800.0),
+            height: v("height", 720.0),
+            depth: v("depth", 560.0),
+            thickness: t,
+            back_thickness: v("back_thickness", 8.6),
+            plinth_height: v("plinth_height", 0.0),
+            door_thickness: v("door_thickness", t),
+            door_gap: v("door_gap", 2.0),
+            shelf_setback: v("shelf_setback", 20.0),
+            back_groove: v("back_groove", 0.0),
+            back_offset: v("back_offset", 0.0),
+            rail_width: v("rail_width", 100.0),
+        }
+    }
+
+    /// Resolved layout of a cabinet (zones, panel positions, fittings).
+    pub fn cabinet_layout(&self, id: ObjectId) -> Option<Layout> {
+        let cab = self.objects.get(&id)?.as_cabinet()?;
+        Some(build_cabinet(cab, self.cabinet_values(id)))
+    }
+
+    /// Replace a cabinet's definition (zones, options, mods) and rebuild it.
+    pub(crate) fn set_cabinet(&mut self, id: ObjectId, mut def: Cabinet) -> Result<Cabinet, CoreError> {
+        let old = self.object(id)?.as_cabinet().cloned().ok_or(CoreError::NotFound { id })?;
+        def.id = id;
+        self.objects.insert(id, DomainObject::Cabinet(def));
+        if let Err(e) = self.regenerate_cabinet(id) {
+            self.objects.insert(id, DomainObject::Cabinet(old));
+            let _ = self.regenerate_cabinet(id);
+            return Err(e);
+        }
+        self.mark_changed(id);
+        self.mark_tree();
+        Ok(old)
+    }
+
+    /// (Re)build the children of a cabinet from its definition. Generated
+    /// children are matched by their stable part key, so ids and user
+    /// overrides survive any change of dimensions or layout.
     pub(crate) fn regenerate_cabinet(&mut self, id: ObjectId) -> Result<(), CoreError> {
-        let cab = self.object(id)?.as_cabinet().cloned().ok_or(CoreError::NotFound { id })?;
+        let was = std::mem::replace(&mut self.in_regen, true);
+        let r = self.regenerate_inner(id);
+        self.in_regen = was;
+        r
+    }
+
+    fn regenerate_inner(&mut self, id: ObjectId) -> Result<(), CoreError> {
+        let mut cab = self.object(id)?.as_cabinet().cloned().ok_or(CoreError::NotFound { id })?;
+        if !cab.zones_ready {
+            let t = self.param_value(id, "thickness").unwrap_or(17.2);
+            cab.zones = aic_domain::layout::default_zones(cab.kind, cab.shelves, cab.doors, cab.drawers, t);
+            cab.zones_ready = true;
+            self.objects.insert(id, DomainObject::Cabinet(cab.clone()));
+        }
         let st = CabinetStructure {
             kind: cab.kind,
-            shelves: cab.shelves,
-            doors: cab.doors,
-            drawers: cab.drawers,
+            shelves: 0,
+            doors: 0,
+            drawers: 0,
             back_panel: cab.back_panel,
-            top_style: cab.top_style,
+            top_style: if cab.top_style == JoinStyle::Rails { JoinStyle::Inset } else { cab.top_style },
             bottom_style: cab.bottom_style,
         };
-        let layout = cabinet::generate(&st);
+        let templates = cabinet::generate(&st);
 
         // Derived params + constraints of the cabinet itself.
         self.params.remove_constraints_with_prefix(&format!("#{}.", id.0));
-        let derived: Vec<(ObjectId, String, String)> = layout.derived.iter().map(|(n, s)| (id, n.clone(), s.clone())).collect();
+        let derived: Vec<(ObjectId, String, String)> = templates
+            .derived
+            .iter()
+            .filter(|(n, s)| self.params.get(&key(id, n)).map(|p| &p.source) != Some(s))
+            .map(|(n, s)| (id, n.clone(), s.clone()))
+            .collect();
         self.define_params(derived)?;
+        // Base params added in later versions.
+        let missing: Vec<(ObjectId, String, String)> = base_params(&CabinetSpec::preset(cab.kind))
+            .into_iter()
+            .filter(|(n, _)| !self.params.contains(&key(id, n)))
+            .map(|(n, s)| (id, n, s))
+            .collect();
+        self.define_params(missing)?;
 
-        // Index existing generated children.
-        let mut existing_panels: BTreeMap<(PanelRole, u32), ObjectId> = BTreeMap::new();
-        let mut existing_hw: BTreeMap<(aic_domain::HardwareKind, u32), ObjectId> = BTreeMap::new();
+        let layout = build_cabinet(&cab, self.cabinet_values(id));
+
+        // Existing generated children by part key.
+        let mut existing: BTreeMap<String, ObjectId> = BTreeMap::new();
         for c in self.scene.children(id).to_vec() {
             if !self.generated.contains(&c) {
                 continue;
             }
-            match self.objects.get(&c) {
-                Some(DomainObject::Panel(p)) => {
-                    existing_panels.insert((p.role, p.role_index), c);
-                }
-                Some(DomainObject::Hardware(h)) => {
-                    existing_hw.insert((h.kind, h.role_index), c);
-                }
-                _ => {}
+            let k = match self.objects.get(&c) {
+                Some(DomainObject::Panel(p)) => p.gen_key.clone(),
+                Some(DomainObject::Hardware(h)) => h.gen_key.clone(),
+                _ => None,
+            };
+            if let Some(k) = k {
+                existing.insert(k, c);
             }
         }
 
         let mut defs: Vec<(ObjectId, String, String)> = Vec::new();
         let mut keep: BTreeSet<ObjectId> = BTreeSet::new();
-        for t in &layout.panels {
-            let material = material_for(t.material, &cab.carcass_material, &cab.front_material, &cab.back_material);
-            let pid = match existing_panels.get(&(t.role, t.index)) {
-                Some(pid) => *pid,
-                None => {
-                    let pid = self.ids.alloc();
-                    let mut p = Panel::new(pid, t.name.clone(), t.role, [1.0, 1.0, 1.0], material);
-                    p.role_index = t.index;
-                    p.grain_direction = t.grain;
-                    self.insert_object(DomainObject::Panel(p), Some(id), Transform3D::new([0.0; 3], t.rotation_deg), None)?;
-                    self.generated.insert(pid);
-                    pid
-                }
-            };
-            keep.insert(pid);
-            let fields = [
-                ("width", &t.width),
-                ("height", &t.height),
-                ("thickness", &t.thickness),
-                ("x", &t.position[0]),
-                ("y", &t.position[1]),
-                ("z", &t.position[2]),
-            ];
-            for (n, src) in fields {
-                let k = key(pid, n);
-                if !self.overrides.contains(&k) && self.params.get(&k).map(|p| &p.source) != Some(src) {
-                    defs.push((pid, n.to_string(), src.clone()));
+        let mut role_counter: BTreeMap<PanelRole, u32> = BTreeMap::new();
+        for part in &layout.parts {
+            let is_panel = matches!(part.kind, PartKind::Panel { .. });
+            let mut oid = existing.get(&part.key).copied();
+            if let Some(o) = oid {
+                let same_kind = matches!((self.objects.get(&o), is_panel), (Some(DomainObject::Panel(_)), true) | (Some(DomainObject::Hardware(_)), false));
+                if !same_kind {
+                    self.remove_subtree(o)?;
+                    oid = None;
                 }
             }
-        }
-        for t in &layout.hardware {
-            let hid = match existing_hw.get(&(t.kind, t.index)) {
-                Some(h) => *h,
+            let oid = match oid {
+                Some(o) => o,
                 None => {
-                    let hid = self.ids.alloc();
-                    let hw = Hardware {
-                        id: hid,
-                        name: t.name.clone(),
-                        kind: t.kind,
-                        role_index: t.index,
-                        size_mm: t.size,
-                        catalog_code: t.catalog_code.clone(),
+                    let o = match self.retired.remove(&(id, part.key.clone())) {
+                        Some(o) if !self.scene.contains(o) && !self.objects.contains_key(&o) => o,
+                        _ => self.ids.alloc(),
                     };
-                    self.insert_object(DomainObject::Hardware(hw), Some(id), Transform3D::IDENTITY, None)?;
-                    self.generated.insert(hid);
-                    hid
+                    let obj = match &part.kind {
+                        PartKind::Panel { role, .. } => {
+                            let mut p = Panel::new(o, part.name.clone(), *role, part.size, cab.carcass_material.clone());
+                            p.gen_key = Some(part.key.clone());
+                            DomainObject::Panel(p)
+                        }
+                        PartKind::Hardware { kind, catalog } => DomainObject::Hardware(Hardware {
+                            id: o,
+                            name: part.name.clone(),
+                            kind: *kind,
+                            role_index: 0,
+                            size_mm: part.size,
+                            catalog_code: catalog.clone(),
+                            gen_key: Some(part.key.clone()),
+                        }),
+                    };
+                    self.insert_object(obj, Some(id), Transform3D::new(part.translation, part.rotation_deg), None)?;
+                    self.generated.insert(o);
+                    o
                 }
             };
-            keep.insert(hid);
-            let mut fields: Vec<(&str, &String)> = vec![("x", &t.position[0]), ("y", &t.position[1]), ("z", &t.position[2])];
-            if let Some(l) = &t.length_expr {
-                fields.push(("length", l));
+            keep.insert(oid);
+            // Domain fields.
+            let mut geometry = false;
+            match (&part.kind, self.objects.get_mut(&oid)) {
+                (PartKind::Panel { role, slot, grain, features, hinge }, Some(DomainObject::Panel(p))) => {
+                    let idx = role_counter.entry(*role).or_insert(0);
+                    let material = match cab.mods.get(&part.key).and_then(|m| m.material.clone()) {
+                        Some(m) => MaterialId::new(m),
+                        None => material_for(*slot, &cab.carcass_material, &cab.front_material, &cab.back_material),
+                    };
+                    geometry |= p.gen_features != *features || p.material_id != material;
+                    p.name = part.name.clone();
+                    p.role = *role;
+                    p.role_index = *idx;
+                    *idx += 1;
+                    p.grain_direction = *grain;
+                    p.gen_features = features.clone();
+                    p.hinge = *hinge;
+                    p.material_id = material;
+                    p.gen_key = Some(part.key.clone());
+                }
+                (PartKind::Hardware { kind, catalog }, Some(DomainObject::Hardware(h))) => {
+                    geometry |= h.size_mm != part.size;
+                    h.name = part.name.clone();
+                    h.kind = *kind;
+                    h.size_mm = part.size;
+                    h.catalog_code = catalog.clone();
+                }
+                _ => {}
             }
-            for (n, src) in fields {
-                let k = key(hid, n);
-                if !self.overrides.contains(&k) && self.params.get(&k).map(|p| &p.source) != Some(src) {
-                    defs.push((hid, n.to_string(), src.clone()));
+            if geometry {
+                self.mark_geometry(oid);
+            }
+            // Rotation lives on the node; sizes and position are parameters.
+            let node_t = self.scene.node(oid)?.local_transform;
+            if node_t.rotation_deg != part.rotation_deg {
+                let mut t = node_t;
+                t.rotation_deg = part.rotation_deg;
+                self.scene.set_local_transform(oid, t)?;
+            }
+            let mut fields: Vec<(&str, f64)> = vec![("x", part.translation[0]), ("y", part.translation[1]), ("z", part.translation[2])];
+            if is_panel {
+                fields.extend([("width", part.size[0]), ("height", part.size[1]), ("thickness", part.size[2])]);
+            }
+            for (n, val) in fields {
+                let k = key(oid, n);
+                let src = fmt_num(val);
+                if !self.overrides.contains(&k) && self.params.get(&k).map(|p| &p.source) != Some(&src) {
+                    defs.push((oid, n.to_string(), src));
                 }
             }
         }
-        // Remove generated children that no longer exist in the layout.
+        // Remove generated children that no longer exist (including pre-zone parts).
         let stale: Vec<ObjectId> = self
             .scene
             .children(id)
@@ -578,28 +681,21 @@ impl Document {
             .filter(|c| self.generated.contains(c) && !keep.contains(c))
             .collect();
         for c in stale {
+            let k = match self.objects.get(&c) {
+                Some(DomainObject::Panel(p)) => p.gen_key.clone(),
+                Some(DomainObject::Hardware(h)) => h.gen_key.clone(),
+                _ => None,
+            };
             self.remove_subtree(c)?;
+            if let Some(k) = k {
+                self.retired.insert((id, k), c);
+            }
         }
         self.define_params(defs)?;
-        // Drop derived params that the new layout no longer defines.
-        let wanted: BTreeSet<String> = base_params(&CabinetSpec::preset(cab.kind))
-            .into_iter()
-            .map(|(n, _)| n)
-            .chain(layout.derived.iter().map(|(n, _)| n.clone()))
-            .chain(["x", "y", "z"].iter().map(|s| s.to_string()))
-            .collect();
-        let prefix = format!("#{}.", id.0);
-        let extra: Vec<ParamKey> = self
-            .params
-            .keys_with_prefix(&prefix)
-            .filter(|k| split_key(k).is_some_and(|(_, n)| !wanted.contains(n)))
-            .cloned()
-            .collect();
-        if !extra.is_empty() {
-            let dirty = self.params.remove(&extra);
-            self.apply_param_values(&dirty);
-        }
-        for (i, c) in layout.constraints.iter().enumerate() {
+        for (i, c) in templates.constraints.iter().enumerate() {
+            if c.code == "TOO_MANY_SHELVES" || c.code == "DOOR_TOO_NARROW" {
+                continue;
+            }
             // Ordered ids: the most fundamental constraint is reported first.
             self.add_constraint(id, &format!("constraint.{i:02}.{}", c.code), &c.expr, &c.code, &c.message)?;
         }
@@ -737,16 +833,35 @@ impl Document {
             match v.to_ascii_uppercase().as_str() {
                 "INSET" => Ok(aic_domain::JoinStyle::Inset),
                 "OVERLAY" => Ok(aic_domain::JoinStyle::Overlay),
-                _ => Err(CoreError::InvalidParameter { name: name.into(), reason: "expected INSET/OVERLAY".into() }),
+                "RAILS" => Ok(aic_domain::JoinStyle::Rails),
+                _ => Err(CoreError::InvalidParameter { name: name.into(), reason: "expected INSET/OVERLAY/RAILS".into() }),
             }
         };
+        let t = 17.2f64.max(0.0);
+        let _ = t;
         match name {
-            "shelves" => cab.shelves = count()?,
-            "doors" => cab.doors = count()?,
-            "drawers" => cab.drawers = count()?,
+            "shelves" => {
+                let n = count()?;
+                let z = cab.zones.shelf_zone();
+                let thick = cab.zones.zone(z).and_then(|z| z.split.as_ref()).and_then(|s| s.panels.first()).map(|p| p.thickness);
+                let thick = thick.unwrap_or(17.2);
+                cab.zones.set_even_shelves(z, n, thick).map_err(|reason| CoreError::InvalidParameter { name: name.into(), reason })?;
+                cab.shelves = n;
+            }
+            "doors" => {
+                let n = count()?;
+                aic_domain::layout::set_legacy_front(&mut cab.zones, n, 0);
+                cab.doors = n;
+            }
+            "drawers" => {
+                let n = count()?;
+                aic_domain::layout::set_legacy_front(&mut cab.zones, 0, n);
+                cab.drawers = n;
+            }
             "back_panel" => cab.back_panel = flag()?,
             "top_style" => cab.top_style = style()?,
             "bottom_style" => cab.bottom_style = style()?,
+            "handles" => cab.handles = flag()?,
             _ => return Err(CoreError::InvalidParameter { name: name.into(), reason: "unknown parameter".into() }),
         }
         self.regenerate_cabinet(id)
@@ -802,7 +917,14 @@ impl Document {
             DomainObject::Panel(p) => p,
             _ => return Err(CoreError::InvalidParameter { name: "material".into(), reason: "not a panel".into() }),
         };
-        let old = std::mem::replace(&mut p.material_id, material);
+        let gen_key = p.gen_key.clone();
+        let old = std::mem::replace(&mut p.material_id, material.clone());
+        // Generated parts remember their material in the cabinet's part mods.
+        if let (Some(k), Some(cab_id)) = (gen_key, self.cabinet_of(id)) {
+            if let Some(DomainObject::Cabinet(c)) = self.objects.get_mut(&cab_id) {
+                c.mods.entry(k).or_default().material = Some(material.0.clone());
+            }
+        }
         self.mark_geometry(id);
         let _ = thickness;
         Ok(old)
@@ -830,9 +952,22 @@ impl Document {
     pub fn structure_value(&self, id: ObjectId, name: &str) -> Option<String> {
         let c = self.objects.get(&id)?.as_cabinet()?;
         Some(match name {
-            "shelves" => c.shelves.to_string(),
-            "doors" => c.doors.to_string(),
-            "drawers" => c.drawers.to_string(),
+            "shelves" => c
+                .zones
+                .zone(c.zones.shelf_zone())
+                .and_then(|z| z.split.as_ref())
+                .filter(|s| s.axis == 1)
+                .map_or(0, |s| s.panels.len())
+                .to_string(),
+            "doors" => match &c.zones.root.front {
+                Some(aic_domain::zone::Front::Doors(d)) => (d.cols * d.rows).to_string(),
+                _ => "0".into(),
+            },
+            "drawers" => match &c.zones.root.front {
+                Some(aic_domain::zone::Front::Drawers(d)) => (d.count * d.cols).to_string(),
+                _ => "0".into(),
+            },
+            "handles" => if c.handles { "on".into() } else { "off".into() },
             "back_panel" => if c.back_panel { "on".into() } else { "off".into() },
             "top_style" => format!("{:?}", c.top_style).to_uppercase(),
             "bottom_style" => format!("{:?}", c.bottom_style).to_uppercase(),
