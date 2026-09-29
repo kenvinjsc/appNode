@@ -229,6 +229,30 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                 numf("ext_top", "Giãn trên", m.extend[3], editable),
             ],
         });
+        // Ràng buộc động (edge → face of another part) + candidate targets.
+        let key_ids: std::collections::BTreeMap<String, ObjectId> = e
+            .doc
+            .scene
+            .node(cab)
+            .map(|n| n.children.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|c| e.doc.panel(c).and_then(|p| p.gen_key.clone()).map(|k| (k, c)))
+            .collect();
+        let name_of = |k: &str| key_ids.get(k).and_then(|i| e.doc.objects.get(i)).map(|o| o.name().to_string()).unwrap_or_else(|| k.to_string());
+        let anchors: Vec<Value> = m
+            .anchors
+            .iter()
+            .map(|a| json!({ "edge": a.edge, "target": key_ids.get(&a.target), "target_name": name_of(&a.target), "face": a.face, "offset": a.offset }))
+            .collect();
+        let mut af = f("anchors", "Ràng buộc", "anchors", Value::Array(anchors));
+        af.editable = editable;
+        af.options = key_ids
+            .iter()
+            .filter(|(_, i)| **i != id)
+            .map(|(_, i)| json!({ "value": json!(i).to_string(), "label": e.doc.objects.get(i).map(|o| o.name()).unwrap_or("") }))
+            .collect();
+        groups.push(Group { key: "constraints", title: "Constraints", fields: vec![af] });
         // Offset (lùi) of each face in the cabinet frame: stored as parameters.
         groups.push(Group {
             key: "offset",

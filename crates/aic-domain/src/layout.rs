@@ -62,9 +62,99 @@ pub struct PartMod {
     /// move, along the thickness) using the part's rotation.
     #[serde(default, skip_serializing_if = "is_zero6")]
     pub offsets: [f64; 6],
+    /// Ràng buộc động: an edge of this part follows a face of another part.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<EdgeAnchor>,
     /// Chia tấm: the part becomes `count` pieces along an axis with a gap between them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split: Option<PartSplit>,
+}
+
+/// Which face of the target an anchored edge follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AnchorFace {
+    /// The face turned towards the constrained part (mặt trong).
+    #[default]
+    Inner,
+    /// The far face (mặt ngoài).
+    Outer,
+}
+
+/// `edge` of the part → `face` of part `target` (key in the same cabinet), keeping
+/// `offset` mm between them. Example: Shelf.Right → HồiPhải.Inner, 0.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EdgeAnchor {
+    pub edge: EdgeSide,
+    pub target: String,
+    #[serde(default)]
+    pub face: AnchorFace,
+    #[serde(default)]
+    pub offset: f64,
+}
+
+/// Cabinet-frame AABB of a part.
+pub fn part_aabb(p: &Part) -> ([f64; 3], [f64; 3]) {
+    let t = aic_math::Transform3D::new(p.translation, p.rotation_deg);
+    let (mut mn, mut mx) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+    for i in 0..8 {
+        let c = [if i & 1 != 0 { p.size[0] } else { 0.0 }, if i & 2 != 0 { p.size[1] } else { 0.0 }, if i & 4 != 0 { p.size[2] } else { 0.0 }];
+        let w = t.transform_point(c);
+        for k in 0..3 {
+            mn[k] = mn[k].min(w[k]);
+            mx[k] = mx[k].max(w[k]);
+        }
+    }
+    (mn, mx)
+}
+
+/// Grow edges [l, r, b, t] of a panel (negative shrinks), keeping machining on the material.
+fn stretch(p: &mut Part, ext: [f64; 4]) {
+    let [l, r, bo, to] = ext;
+    if l == 0.0 && r == 0.0 && bo == 0.0 && to == 0.0 {
+        return;
+    }
+    p.size[0] = pos(p.size[0] + l + r);
+    p.size[1] = pos(p.size[1] + bo + to);
+    let t = aic_math::Transform3D::new(p.translation, p.rotation_deg);
+    p.translation = t.transform_point([-l, -bo, 0.0]);
+    if let PartKind::Panel { features, .. } = &mut p.kind {
+        for f in features.iter_mut() {
+            shift_feature(f, l, bo);
+        }
+    }
+}
+
+/// Resolve edge anchors (after the other mods): each anchored edge is stretched to
+/// the target face ± offset. Targets are read before any anchor is applied.
+fn solve_anchors(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
+    let boxes: BTreeMap<String, ([f64; 3], [f64; 3])> = out.parts.iter().map(|p| (p.key.clone(), part_aabb(p))).collect();
+    for p in &mut out.parts {
+        let Some(m) = mods.get(&p.key).filter(|m| !m.anchors.is_empty()) else { continue };
+        let (smn, smx) = part_aabb(p);
+        let t = aic_math::Transform3D::new([0.0; 3], p.rotation_deg);
+        let mut ext = [0.0; 4];
+        for a in &m.anchors {
+            let Some((tmn, tmx)) = boxes.get(&a.target) else { continue };
+            let (local, i) = match a.edge {
+                EdgeSide::Left => ([-1.0, 0.0, 0.0], 0),
+                EdgeSide::Right => ([1.0, 0.0, 0.0], 1),
+                EdgeSide::Bottom => ([0.0, -1.0, 0.0], 2),
+                EdgeSide::Top => ([0.0, 1.0, 0.0], 3),
+            };
+            let d = t.transform_vector(local);
+            let axis = (0..3).max_by(|&x, &y| d[x].abs().total_cmp(&d[y].abs())).unwrap();
+            let s = d[axis].signum();
+            let edge = if s > 0.0 { smx[axis] } else { smn[axis] };
+            let centre = (smn[axis] + smx[axis]) / 2.0;
+            let target_ahead = (tmn[axis] + tmx[axis]) / 2.0 > centre;
+            let (inner, outer) = if target_ahead { (tmn[axis], tmx[axis]) } else { (tmx[axis], tmn[axis]) };
+            let face = if a.face == AnchorFace::Inner { inner } else { outer };
+            let goal = face - s * a.offset;
+            ext[i] += (goal - edge) * s;
+        }
+        stretch(p, ext);
+    }
 }
 
 fn is_zero6(v: &[f64; 6]) -> bool {
@@ -843,26 +933,17 @@ fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
         for k in 0..3 {
             p.translation[k] += omove[k];
         }
+        if matches!(p.kind, PartKind::Panel { .. }) {
+            stretch(p, [m.extend[0] + oext[0], m.extend[1] + oext[1], m.extend[2] + oext[2], m.extend[3] + oext[3]]);
+        }
         if let PartKind::Panel { features, .. } = &mut p.kind {
-            let [l, r, bo, to] = [m.extend[0] + oext[0], m.extend[1] + oext[1], m.extend[2] + oext[2], m.extend[3] + oext[3]];
-            if l != 0.0 || r != 0.0 || bo != 0.0 || to != 0.0 {
-                p.size[0] = pos(p.size[0] + l + r);
-                p.size[1] = pos(p.size[1] + bo + to);
-                // Move the local origin by (-l, -bo) in the panel frame.
-                let t = aic_math::Transform3D::new(p.translation, p.rotation_deg);
-                let o = t.transform_point([-l, -bo, 0.0]);
-                p.translation = o;
-                // Existing machining keeps its position relative to the original origin.
-                for f in features.iter_mut() {
-                    shift_feature(f, l, bo);
-                }
-            }
             if let Some(tk) = m.thickness {
                 p.size[2] = pos(tk);
             }
             features.extend(m.features.iter().cloned());
         }
     }
+    solve_anchors(out, mods);
     split_parts(out, mods);
 }
 

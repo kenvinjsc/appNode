@@ -526,3 +526,8 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .tpl-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 12.5px; }
 .tpl-item span { flex: 1; }
 .tpl-item small { color: #868e96; }
+
+.anchor-row { display: flex; align-items: center; gap: 6px; }
+.anchor-row span { flex: 1; }
+.anchor-add { display: grid; grid-template-columns: 1fr 1.4fr; gap: 4px; margin-top: 6px; }
+.anchor-add .btn { grid-column: span 2; }

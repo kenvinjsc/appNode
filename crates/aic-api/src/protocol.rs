@@ -74,6 +74,12 @@ pub struct PartModPatch {
     pub thickness: Option<Option<f64>>,
     #[serde(default)]
     pub clear_tools: bool,
+    /// Ràng buộc động: add `edge → target face (+ offset)`; the target is a part of the same cabinet.
+    #[serde(default)]
+    pub add_anchor: Option<AnchorPatch>,
+    /// Remove the anchor at this index.
+    #[serde(default)]
+    pub remove_anchor: Option<usize>,
     /// Remove the outer shape override (bo góc / cắt) and restore the rectangle.
     #[serde(default)]
     pub clear_shape: bool,
@@ -84,6 +90,16 @@ pub struct PartModPatch {
     pub add_features: Option<Vec<MachiningFeature>>,
     #[serde(default)]
     pub tool: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AnchorPatch {
+    pub edge: aic_domain::EdgeSide,
+    pub target: ObjectId,
+    #[serde(default)]
+    pub face: aic_domain::AnchorFace,
+    #[serde(default)]
+    pub offset: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

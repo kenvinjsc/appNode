@@ -259,6 +259,16 @@ impl Engine {
 
     pub(crate) fn set_part_mod(&mut self, id: ObjectId, patch: PartModPatch) -> Result<(), CoreError> {
         let (cab, key) = self.part_ref(id).ok_or_else(|| bad("part", "not a generated part"))?;
+        let anchor = match &patch.add_anchor {
+            Some(a) => {
+                let (tcab, tkey) = self.part_ref(a.target).ok_or_else(|| bad("anchor", "target must be a part of the cabinet"))?;
+                if tcab != cab || tkey == key {
+                    return Err(bad("anchor", "target must be another part of the same cabinet"));
+                }
+                Some(aic_domain::EdgeAnchor { edge: a.edge, target: tkey, face: a.face, offset: a.offset })
+            }
+            None => None,
+        };
         self.edit_cabinet(cab, "Chỉnh tấm", |c| {
             let m = c.mods.entry(key.clone()).or_default();
             if let Some(n) = patch.name {
@@ -306,6 +316,16 @@ impl Engine {
                     m.tools.push(tool);
                 }
                 m.split = sp.filter(|s| s.count >= 2);
+            }
+            if let Some(a) = anchor {
+                // One anchor per edge: a new one replaces the old.
+                m.anchors.retain(|x| x.edge != a.edge);
+                m.anchors.push(a);
+            }
+            if let Some(i) = patch.remove_anchor {
+                if i < m.anchors.len() {
+                    m.anchors.remove(i);
+                }
             }
             if patch.clear_shape {
                 m.features.retain(|f| !matches!(f, MachiningFeature::Contour(c) if !c.inner));

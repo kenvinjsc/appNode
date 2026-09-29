@@ -66,7 +66,7 @@ export interface PropertyField {
   source: string | null;
   expression: boolean;
   unit: 'mm' | 'deg' | null;
-  kind: 'number' | 'text' | 'select' | 'bool' | 'readonly' | 'list';
+  kind: 'number' | 'text' | 'select' | 'bool' | 'readonly' | 'list' | 'anchors';
   options: { value: string; label: string; color?: string }[];
   editable: boolean;
   error: string | null;
@@ -422,6 +422,8 @@ export interface PartModPatch {
   clear_tools?: boolean;
   /** Bỏ hình dạng (bo góc / cắt) — về lại hình chữ nhật. */
   clear_shape?: boolean;
+  add_anchor?: { edge: EdgeSide; target: ObjectId; face?: 'INNER' | 'OUTER'; offset?: number };
+  remove_anchor?: number;
   /** Chia tấm: null = bỏ chia. */
   split?: { axis: 'X' | 'Y'; count: number; gap: number } | null;
   add_features?: MachiningFeature[];

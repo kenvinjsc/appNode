@@ -503,3 +503,41 @@ fn parametric_f_template_preset_mirror_array() {
     assert!(r.ok, "{:?}", r.error);
     assert_eq!(e.doc.objects.values().filter(|o| o.as_cabinet().is_some()).count(), n + 2);
 }
+
+#[test]
+fn parametric_d_dynamic_anchor_follows_moved_side() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"shelves": 1, "doors": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let id_of = |pfx: &str| -> ObjectId { serde_json::from_value(kids.iter().find(|k| k["name"].as_str().unwrap().starts_with(pfx)).unwrap()["id"].clone()).unwrap() };
+    let (shelf, right) = (id_of("KệDiĐộng"), id_of("HồiPhải"));
+    let boxes = |e: &Engine| {
+        let l = e.doc.cabinet_layout(cab).unwrap();
+        let get = |pfx: &str| aic_domain::layout::part_aabb(l.parts.iter().find(|p| p.name.starts_with(pfx)).unwrap());
+        (get("KệDiĐộng"), get("HồiPhải"))
+    };
+
+    // Shelf.Right → HồiPhải.Inner, 0 mm.
+    let r = call(&mut e, json!({"cmd": "set_part_mod", "id": shelf, "patch": {"add_anchor": {"edge": "RIGHT", "target": right, "face": "INNER", "offset": 0}}}));
+    assert!(r.ok, "{:?}", r.error);
+    let ((_, smx), (rmn, _)) = boxes(&e);
+    assert!((smx[0] - rmn[0]).abs() < 1e-6, "shelf touches the right side's inner face");
+    let props = call(&mut e, json!({"cmd": "get_properties", "id": shelf}));
+    assert!(props.result.to_string().contains("\"target_name\":\"HồiPhải\""));
+
+    // Move the right side 30 mm inward: the shelf follows (shorter by 30).
+    let w0 = e.doc.panel(shelf).unwrap().width_mm;
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": right, "name": "off_right", "value": "30"}));
+    assert!(r.ok, "{:?}", r.error);
+    let ((_, smx), (rmn, _)) = boxes(&e);
+    assert!((smx[0] - rmn[0]).abs() < 1e-6);
+    assert!((e.doc.panel(shelf).unwrap().width_mm - (w0 - 30.0)).abs() < 1e-6);
+    // Offset keeps a gap; removing the anchor restores the zone width.
+    call(&mut e, json!({"cmd": "set_part_mod", "id": shelf, "patch": {"add_anchor": {"edge": "RIGHT", "target": right, "offset": 2}}}));
+    let ((_, smx), (rmn, _)) = boxes(&e);
+    assert!((rmn[0] - smx[0] - 2.0).abs() < 1e-6);
+    call(&mut e, json!({"cmd": "set_part_mod", "id": shelf, "patch": {"remove_anchor": 0}}));
+    assert!(e.doc.panel(shelf).unwrap().width_mm > w0 - 1.0, "back to the zone size");
+}

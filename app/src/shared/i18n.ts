@@ -126,6 +126,7 @@ export const GROUP_LABEL: Record<string, string> = {
   link: 'Liên kết',
   stretch: 'Co giãn tấm',
   offset: 'Offset (lùi mặt)',
+  constraints: 'Ràng buộc (bám mặt tấm khác)',
   relations: 'Liên kết & tool',
   edge_rule: 'Luật dán cạnh',
 };

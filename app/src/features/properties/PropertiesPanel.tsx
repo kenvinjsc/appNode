@@ -9,7 +9,7 @@ import { Icon } from '../../shared/icons';
 import { FIELD_LABEL, GROUP_LABEL, KIND_LABEL, OPTION_LABEL, PURPOSE_LABEL, fmt, roleLabel } from '../../shared/i18n';
 
 const TAB_GROUPS: Record<string, string[]> = {
-  params: ['general', 'size', 'zone_position', 'door', 'drawer', 'link', 'stretch', 'offset', 'construction', 'content', 'position', 'rotation', 'derived', 'relations'],
+  params: ['general', 'size', 'zone_position', 'door', 'drawer', 'link', 'stretch', 'constraints', 'offset', 'construction', 'content', 'position', 'rotation', 'derived', 'relations'],
   material: ['material', 'edges', 'edge_rule'],
   machining: ['manufacturing'],
 };
@@ -152,6 +152,7 @@ function FieldRow({ id, ids, f, locked }: { id: number; ids?: number[]; f: Prope
   const label = FIELD_LABEL[f.key] ?? f.label;
   const editable = f.editable && !locked;
   const commit = (v: string) => (ids ? Commands.setParameterMulti(ids, f.key, v) : Commands.setParameter(id, f.key, v)).catch(() => undefined);
+  if (f.kind === 'anchors') return <AnchorsField id={id} f={f} editable={editable && !ids} />;
   if (f.kind === 'list') {
     const items = (Array.isArray(f.value) ? f.value : []) as (string | { id: number; name: string })[];
     return (
@@ -215,6 +216,66 @@ function FieldRow({ id, ids, f, locked }: { id: number; ids?: number[]; f: Prope
   }
   if (f.kind === 'text') return <TextRow label={label} value={f.mixed ? '' : String(f.value ?? '')} placeholder={f.mixed ? 'Nhiều giá trị' : undefined} onCommit={commit} disabled={!editable} />;
   return <NumberRow label={label} f={f} onCommit={commit} disabled={!editable} />;
+}
+
+const EDGE_VI: Record<string, string> = { LEFT: 'Trái', RIGHT: 'Phải', BOTTOM: 'Dưới', TOP: 'Trên' };
+
+/** Ràng buộc động: edge → face of another part (+ offset), one per edge. */
+function AnchorsField({ id, f, editable }: { id: number; f: PropertyField; editable: boolean }) {
+  type A = { edge: string; target: number | null; target_name: string; face: 'INNER' | 'OUTER'; offset: number };
+  const items = (Array.isArray(f.value) ? f.value : []) as A[];
+  const [edge, setEdge] = useState<'LEFT' | 'RIGHT' | 'BOTTOM' | 'TOP'>('RIGHT');
+  const [target, setTarget] = useState('');
+  const [face, setFace] = useState<'INNER' | 'OUTER'>('INNER');
+  const [offset, setOffset] = useState('0');
+  return (
+    <div className="prop-list anchors">
+      {items.map((a, i) => (
+        <div key={i} className="prop-list-item anchor-row">
+          <span>
+            {EDGE_VI[a.edge] ?? a.edge} → <b>{a.target_name}</b> · {a.face === 'INNER' ? 'mặt trong' : 'mặt ngoài'} · {fmt(a.offset)} mm
+          </span>
+          {editable && (
+            <button className="icon-btn danger" title="Bỏ ràng buộc" onClick={() => void Commands.setPartMod(id, { remove_anchor: i }).catch(() => undefined)}>
+              <Icon name="x" size={12} />
+            </button>
+          )}
+        </div>
+      ))}
+      {items.length === 0 && <div className="muted small">Chưa có. Kệ/vách mặc định bám theo khoang.</div>}
+      {editable && (
+        <div className="anchor-add">
+          <select className="field" value={edge} onChange={(e) => setEdge(e.target.value as typeof edge)} title="Cạnh của tấm này">
+            {Object.entries(EDGE_VI).map(([k, v]) => (
+              <option key={k} value={k}>
+                Cạnh {v.toLowerCase()}
+              </option>
+            ))}
+          </select>
+          <select className="field" value={target} onChange={(e) => setTarget(e.target.value)} title="Tấm đích">
+            <option value="">→ Tấm đích…</option>
+            {f.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select className="field" value={face} onChange={(e) => setFace(e.target.value as typeof face)}>
+            <option value="INNER">Mặt trong</option>
+            <option value="OUTER">Mặt ngoài</option>
+          </select>
+          <input className="field" value={offset} onChange={(e) => setOffset(e.target.value)} title="Offset (mm)" />
+          <button
+            className="btn primary"
+            disabled={!target}
+            onClick={() => void Commands.setPartMod(id, { add_anchor: { edge, target: Number(target), face, offset: Number(offset.replace(',', '.')) || 0 } }).catch(() => undefined)}
+          >
+            Thêm
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function lockDot(f: PropertyField) {

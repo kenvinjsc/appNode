@@ -125,6 +125,9 @@ Click một tấm, rồi mở tab **Chỉnh tấm**:
 - Cánh / ngăn kéo: lề, phủ/lọt, khe hở, thanh chặn.
 
 - **Offset (lùi mặt)**: lùi mặt trước/sau/trái/phải/trên/dưới theo hướng tủ (ví dụ kệ lùi trước 30). Lưu thành tham số, tủ đổi kích thước vẫn giữ.
+- **Ràng buộc (bám mặt tấm khác)**: chọn cạnh (trái/phải/dưới/trên) → tấm đích → mặt trong/ngoài → offset → *Thêm*.
+  Ví dụ: kệ *Cạnh phải → Hồi phải · mặt trong · 0*: hồi phải dịch vào (Lùi phải 30) thì kệ tự ngắn lại 30. Mỗi cạnh một
+  ràng buộc; nút × để bỏ.
 - **Neo rộng / cao / sâu** (khi chọn tủ): giữ trái/giữa/phải… khi đổi kích thước.
 
 **Chọn nhiều tấm** (Ctrl+click trên cây, 3D hoặc 2D): tab Chỉnh tấm hiện các thông số chung; ô có giá trị khác nhau hiện
