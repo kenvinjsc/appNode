@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aic-math",
+    "crates/aic-domain",
+    "crates/aic-geometry",
+    "crates/aic-spatial",
+    "crates/aic-parametric",
+    "crates/aic-assembly",
+    "crates/aic-manufacturing",
+    "crates/aic-nesting",
+    "crates/aic-project",
+    "crates/aic-api",
+    "crates/aic-dev-server",
+]
+# The Tauri shell lives in app/src-tauri and has its own workspace because it
+# needs WebKitGTK system libraries that are not required to build/test the core.
+exclude = ["app/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+rust-version = "1.75"
+
+[workspace.dependencies]
+aic-math = { path = "crates/aic-math" }
+aic-domain = { path = "crates/aic-domain" }
+aic-geometry = { path = "crates/aic-geometry" }
+aic-spatial = { path = "crates/aic-spatial" }
+aic-parametric = { path = "crates/aic-parametric" }
+aic-assembly = { path = "crates/aic-assembly" }
+aic-manufacturing = { path = "crates/aic-manufacturing" }
+aic-nesting = { path = "crates/aic-nesting" }
+aic-project = { path = "crates/aic-project" }
+aic-api = { path = "crates/aic-api" }
+
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+rayon = "1"
+
+[profile.dev.package."*"]
+opt-level = 2

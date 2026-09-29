@@ -1,0 +1,10 @@
+[package]
+name = "aic-spatial"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aic-math.workspace = true
+aic-domain.workspace = true
+serde.workspace = true

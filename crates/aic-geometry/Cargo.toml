@@ -1,0 +1,16 @@
+[package]
+name = "aic-geometry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Placeholder for the OpenCASCADE backend (opencascade-rs / cadrum). See docs/adr/0002.
+occt = []
+
+[dependencies]
+aic-math.workspace = true
+aic-domain.workspace = true
+serde.workspace = true
+thiserror.workspace = true
