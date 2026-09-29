@@ -408,3 +408,44 @@ fn parametric_b_c_drag_divider_and_shelf() {
     let r = call(&mut e, json!({"cmd": "move_split_panel", "id": shelf, "before": 5000}));
     assert!(!r.ok);
 }
+
+#[test]
+fn parametric_e_multi_edit_shelves() {
+    let mut e = Engine::new();
+    let _cab = created_cabinet(&mut e);
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let shelves: Vec<ObjectId> = kids.iter().filter(|k| k["name"].as_str().unwrap().starts_with("KệDiĐộng")).map(|k| serde_json::from_value(k["id"].clone()).unwrap()).collect();
+    let id_of = |n: &str| -> ObjectId { serde_json::from_value(kids.iter().find(|k| k["name"] == n).unwrap()["id"].clone()).unwrap() };
+    assert!(shelves.len() >= 4);
+    let right = id_of("HồiPhải");
+
+    // Mixed display: widths equal, thickness equal; set one shelf thicker → mixed.
+    call(&mut e, json!({"cmd": "set_parameter", "id": shelves[0], "name": "thickness", "value": "25"}));
+    let m = call(&mut e, json!({"cmd": "get_properties_multi", "ids": shelves}));
+    assert!(m.ok, "{:?}", m.error);
+    let s = m.result.to_string();
+    assert!(s.contains("\"mixed\":true"), "thickness differs → mixed");
+
+    // One multi-edit = one undo step; only the shelves' split changes.
+    let r = call(&mut e, json!({"cmd": "set_parameter_multi", "ids": shelves, "name": "thickness", "value": "18"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(!changed_ids(&r).contains(&right));
+    for id in &shelves {
+        assert!((e.doc.panel(*id).unwrap().thickness_mm - 18.0).abs() < 1e-9);
+    }
+    let r = call(&mut e, json!({"cmd": "set_parameter_multi", "ids": shelves, "name": "off_front", "value": "30"}));
+    assert!(r.ok, "{:?}", r.error);
+    let d0 = e.doc.panel(shelves[1]).unwrap().height_mm; // shelf local Y = depth
+    call(&mut e, json!({"cmd": "undo"}));
+    let d1 = e.doc.panel(shelves[1]).unwrap().height_mm;
+    assert!((d1 - d0 - 30.0).abs() < 1e-6, "front offset shortened the shelf by 30 ({d1} vs {d0})");
+    call(&mut e, json!({"cmd": "undo"}));
+    for id in &shelves[1..] {
+        assert!((e.doc.panel(*id).unwrap().thickness_mm - 17.2).abs() < 1e-9, "one undo restores every shelf");
+    }
+    // All or nothing: an invalid value on the group changes nothing.
+    let r = call(&mut e, json!({"cmd": "set_parameter_multi", "ids": shelves, "name": "thickness", "value": "500"}));
+    assert!(!r.ok);
+    assert!((e.doc.panel(shelves[1]).unwrap().thickness_mm - 17.2).abs() < 1e-9);
+}

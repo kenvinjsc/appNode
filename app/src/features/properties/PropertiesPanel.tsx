@@ -9,7 +9,7 @@ import { Icon } from '../../shared/icons';
 import { FIELD_LABEL, GROUP_LABEL, KIND_LABEL, OPTION_LABEL, PURPOSE_LABEL, fmt, roleLabel } from '../../shared/i18n';
 
 const TAB_GROUPS: Record<string, string[]> = {
-  params: ['general', 'size', 'zone_position', 'door', 'drawer', 'link', 'stretch', 'construction', 'content', 'position', 'rotation', 'derived', 'relations'],
+  params: ['general', 'size', 'zone_position', 'door', 'drawer', 'link', 'stretch', 'offset', 'construction', 'content', 'position', 'rotation', 'derived', 'relations'],
   material: ['material', 'edges', 'edge_rule'],
   machining: ['manufacturing'],
 };
@@ -19,19 +19,22 @@ export function PropertiesPanel({ embedded = false }: { embedded?: boolean }) {
   const [sheet, setSheet] = useState<PropertySheet | null>(null);
   const [flat, setFlat] = useState<FlatPanel | null>(null);
 
+  const multi = selection.length > 1;
+  const selKey = selection.join(',');
   useEffect(() => {
     let alive = true;
     if (active === null) {
       setSheet(null);
       return;
     }
-    Queries.properties(active)
+    (multi ? Queries.propertiesMulti(selection) : Queries.properties(active))
       .then((s) => alive && setSheet(s))
       .catch(() => alive && setSheet(null));
     return () => {
       alive = false;
     };
-  }, [active, revision]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, revision, selKey]);
 
   useEffect(() => {
     let alive = true;
@@ -104,7 +107,7 @@ export function PropertiesPanel({ embedded = false }: { embedded?: boolean }) {
           <section key={g.key} className="prop-group">
             <h4>{GROUP_LABEL[g.key] ?? g.title}</h4>
             {g.fields.map((f) => (
-              <FieldRow key={f.key} id={sheet.id} f={f} locked={sheet.locked} />
+              <FieldRow key={f.key} id={sheet.id} ids={sheet.ids} f={f} locked={sheet.locked} />
             ))}
           </section>
         ))}
@@ -145,10 +148,10 @@ function FeatureList({ flat }: { flat: FlatPanel }) {
   );
 }
 
-function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boolean }) {
+function FieldRow({ id, ids, f, locked }: { id: number; ids?: number[]; f: PropertyField; locked: boolean }) {
   const label = FIELD_LABEL[f.key] ?? f.label;
   const editable = f.editable && !locked;
-  const commit = (v: string) => Commands.setParameter(id, f.key, v).catch(() => undefined);
+  const commit = (v: string) => (ids ? Commands.setParameterMulti(ids, f.key, v) : Commands.setParameter(id, f.key, v)).catch(() => undefined);
   if (f.kind === 'list') {
     const items = (Array.isArray(f.value) ? f.value : []) as (string | { id: number; name: string })[];
     return (
@@ -186,7 +189,7 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
       <div className="prop-row">
         <label>{label}</label>
         <label className="switch">
-          <input type="checkbox" checked={Boolean(f.value)} disabled={!editable} onChange={(e) => void commit(e.target.checked ? 'on' : 'off')} />
+          <input type="checkbox" checked={Boolean(f.value)} ref={(el) => el && (el.indeterminate = !!f.mixed)} disabled={!editable} onChange={(e) => void commit(e.target.checked ? 'on' : 'off')} />
           <span />
         </label>
       </div>
@@ -198,7 +201,8 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
         <label>{label}</label>
         <div className="select-wrap">
           {f.options.find((o) => o.value === f.value)?.color && <i className="dot" style={{ background: f.options.find((o) => o.value === f.value)!.color }} />}
-          <select value={String(f.value)} disabled={!editable} onChange={(e) => void commit(e.target.value)}>
+          <select value={f.mixed ? '' : String(f.value)} disabled={!editable} onChange={(e) => e.target.value !== '' && void commit(e.target.value)}>
+            {f.mixed && <option value="">— Nhiều giá trị —</option>}
             {f.options.map((o) => (
               <option key={o.value} value={o.value}>
                 {OPTION_LABEL[o.value] ?? OPTION_LABEL[o.label] ?? o.label}
@@ -209,7 +213,7 @@ function FieldRow({ id, f, locked }: { id: number; f: PropertyField; locked: boo
       </div>
     );
   }
-  if (f.kind === 'text') return <TextRow label={label} value={String(f.value ?? '')} onCommit={commit} disabled={!editable} />;
+  if (f.kind === 'text') return <TextRow label={label} value={f.mixed ? '' : String(f.value ?? '')} placeholder={f.mixed ? 'Nhiều giá trị' : undefined} onCommit={commit} disabled={!editable} />;
   return <NumberRow label={label} f={f} onCommit={commit} disabled={!editable} />;
 }
 
@@ -217,7 +221,7 @@ export function lockDot(f: PropertyField) {
   return f.locked ? <i className="lock-dot" title="Tham số đang khóa" /> : null;
 }
 
-function TextRow({ label, value, onCommit, disabled }: { label: string; value: string; onCommit: (v: string) => void; disabled: boolean }) {
+function TextRow({ label, value, onCommit, disabled, placeholder }: { label: string; value: string; onCommit: (v: string) => void; disabled: boolean; placeholder?: string }) {
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
   return (
@@ -226,6 +230,7 @@ function TextRow({ label, value, onCommit, disabled }: { label: string; value: s
       <input
         className="field"
         value={v}
+        placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => setV(e.target.value)}
         onBlur={() => v !== value && onCommit(v)}
@@ -250,6 +255,7 @@ export function NumberRow({ label, f, onCommit, disabled }: { label: string; f: 
   }, [shown, focus]);
   const isExpr = f.expression && f.source;
   const step = (dir: number, big: boolean) => {
+    if (f.mixed) return;
     const v = (typeof f.value === 'number' ? f.value : 0) + dir * (big ? 10 : 1);
     onCommit(String(Math.round(v * 1000) / 1000));
   };
@@ -263,6 +269,7 @@ export function NumberRow({ label, f, onCommit, disabled }: { label: string; f: 
       <div className={`num ${isExpr ? 'expr' : ''}`}>
         <input
           ref={ref}
+          placeholder={f.mixed ? 'Nhiều giá trị' : undefined}
           value={focus ? text : shown}
           disabled={disabled}
           onFocus={() => {
@@ -291,7 +298,7 @@ export function NumberRow({ label, f, onCommit, disabled }: { label: string; f: 
           }}
         />
         {f.unit && <em>{f.unit === 'deg' ? '°' : 'mm'}</em>}
-        {!disabled && (
+        {!disabled && !f.mixed && (
           <span className="spin">
             <button tabIndex={-1} onClick={(e) => step(1, e.shiftKey)}>
               <Icon name="chevronDown" size={10} style={{ transform: 'rotate(180deg)' }} />

@@ -1,6 +1,6 @@
 // Right-hand "Thiết kế tủ" panel: Khung · Tạo tấm · Chỉnh tấm · Quản lý · Thư viện · Cài đặt.
 import { useEffect, useState } from 'react';
-import { useUi, type DesignerTab } from '../../app/uiStore';
+import { findNode, useUi, type DesignerTab } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
 import type { Costing } from '../../core-api/types';
@@ -22,7 +22,20 @@ const TABS: [DesignerTab, string][] = [
 ];
 
 export function CabinetDesigner() {
-  const { designerTab, set } = useUi();
+  const { designerTab, set, selection, tree, pinned } = useUi();
+  // Contextual inspector: a part (or several objects) → Chỉnh tấm; a pinned zone → Tạo tấm.
+  const selKey = selection.join(',');
+  useEffect(() => {
+    if (!selection.length) return;
+    const kind = findNode(tree, selection[0])?.node.kind;
+    if (selection.length > 1 || kind === 'PANEL' || kind === 'HARDWARE') set({ designerTab: 'edit' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selKey]);
+  const pinKey = `${pinned.cabinet}:${pinned.zones.join(',')}`;
+  useEffect(() => {
+    if (pinned.zones.length) set({ designerTab: 'create' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinKey]);
   return (
     <div className="panel designer">
       <div className="designer-tabs">

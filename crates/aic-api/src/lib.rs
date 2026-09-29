@@ -322,6 +322,18 @@ impl Engine {
             Redo => ok(json!({ "label": self.history.redo(&mut self.doc)? })),
             GetSceneTree => ok(properties::scene_tree(&self.doc)),
             GetProperties { id } => ok(properties::properties(self, id)?),
+            GetPropertiesMulti { ids } => ok(properties::properties_multi(self, &ids)?),
+            SetParameterMulti { ids, name, value } => {
+                let mark = self.history.mark();
+                for id in &ids {
+                    if let Err(e) = self.set_parameter(*id, &name, &value) {
+                        self.history.rollback(&mut self.doc, mark);
+                        return Err(e);
+                    }
+                }
+                self.history.squash(mark, "Sửa nhiều đối tượng");
+                ok(json!({ "changed": ids.len() }))
+            }
             GetRenderObjects { ids, known_keys } => ok(self.render_objects(ids, &known_keys)?),
             GetMaterials => ok(&self.doc.materials),
             GetRelations { id } => {

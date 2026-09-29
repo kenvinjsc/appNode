@@ -18,6 +18,8 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 | 2D: kéo vách / kệ (PREVIEW cục bộ, thả chuột = COMMIT) | `move_split_panel {id, before}` | Chỉ 2 khoang kề đổi; khoang KHÓA giữ nguyên | ObjectChanged | |
 | Menu vùng: Chia đều lại | `equalize_split {cabinet, zone}` | Mọi khoang AUTO | | |
 | 2D: bấm W / H tủ; Chỉnh tấm: Neo rộng/cao/sâu | `set_parameter {id, name: width \| height \| depth \| anchor_w \| anchor_h \| anchor_d}` | Đổi tham số + dời gốc theo neo (một bước undo), không scale | TransformChanged, ObjectChanged | |
+| Chọn nhiều đối tượng → Chỉnh tấm (giá trị khác nhau = "Nhiều giá trị") | `get_properties_multi {ids}`, `set_parameter_multi {ids, name, value}` | Một bước undo, lỗi một đối tượng thì hoàn tác cả nhóm | ObjectChanged | |
+| Chỉnh tấm → Offset (lùi mặt trước/sau/trái/phải/trên/dưới) | `set_parameter {id, name: off_front …}` | `PartMod.offsets` (hướng tủ) → cạnh tấm theo góc xoay, hoặc dời theo chiều dày | ObjectChanged | |
 | Báo cáo | `get_costing`, `set_price {key, value}` | Bóc m², mét chỉ, phụ kiện | SettingsChanged | ReportWindow |
 | Sửa ô Rộng/Cao/… (số hoặc `= biểu thức`) | `set_parameter {id, name, value}` | `Command::SetParameter` → `ParamGraph::set_many` (incremental) | GeometryChanged (chỉ các tấm đổi kích thước), TransformChanged, ObjectChanged | lấy lại mesh theo key mới; ma trận mới; properties |
 | Số đợt/cánh/ngăn kéo, kiểu nóc/đáy, tấm hậu | `set_parameter` (tham số cấu trúc) | sinh lại tủ, khớp (vai trò, chỉ số) để giữ id; lệnh nghịch đảo `ReplaceSubtree` | ObjectCreated/Deleted/Changed, SceneTreeChanged | như trên |

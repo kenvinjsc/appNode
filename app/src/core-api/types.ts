@@ -71,6 +71,8 @@ export interface PropertyField {
   editable: boolean;
   error: string | null;
   locked?: boolean;
+  /** Multi-selection: values differ between the selected objects. */
+  mixed?: boolean;
 }
 
 export interface PropertyGroup {
@@ -86,6 +88,8 @@ export interface Bounds {
 
 export interface PropertySheet {
   id: ObjectId;
+  /** Multi-selection sheet: edits go to every id. */
+  ids?: ObjectId[];
   kind: TreeNode['kind'];
   name: string;
   locked: boolean;

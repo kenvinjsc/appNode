@@ -43,6 +43,8 @@ export const Commands = {
   zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL', offset = 60) => command({ cmd: 'zone_add_link', cabinet, zones, kind, offset }),
   zoneRemove: (cabinet: ObjectId, uid: number) => command({ cmd: 'zone_remove', cabinet, uid }),
   setPartMod: (id: ObjectId, patch: PartModPatch) => command({ cmd: 'set_part_mod', id, patch }),
+  /** Multi-edit: one undo step, all or nothing. */
+  setParameterMulti: (ids: ObjectId[], name: string, value: string) => command({ cmd: 'set_parameter_multi', ids, name, value }),
   setBay: (cabinet: ObjectId, zone: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_bay', cabinet, zone, index, mode, value }),
   equalizeSplit: (cabinet: ObjectId, zone: number) => command({ cmd: 'equalize_split', cabinet, zone }),
   /** Kéo vách / kệ: `before` = clear size of the bay before the panel. */

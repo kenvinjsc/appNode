@@ -185,6 +185,10 @@ pub enum Request {
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
+    /// Multi-edit: the same parameter on many objects, one undo step, all or nothing.
+    SetParameterMulti { ids: Vec<ObjectId>, name: String, value: String },
+    /// Property sheet of several objects: common fields, `mixed` where values differ.
+    GetPropertiesMulti { ids: Vec<ObjectId> },
     /// Kích thước khoang: LOCK (mm) / AUTO / PERCENT (%) of one bay of a split zone.
     SetBay {
         cabinet: ObjectId,

@@ -24,6 +24,29 @@ impl History {
         Ok(())
     }
 
+    /// Position to group the commands executed after it (see `squash`, `rollback`).
+    pub fn mark(&self) -> usize {
+        self.undo.len()
+    }
+
+    /// Merge every step since `mark` into one undo step (multi-edit = one Ctrl+Z).
+    pub fn squash(&mut self, mark: usize, label: &str) {
+        if self.undo.len() <= mark + 1 {
+            return;
+        }
+        let steps: Vec<Command> = self.undo.drain(mark..).map(|(_, inv)| inv).rev().collect();
+        self.undo.push((label.to_string(), Command::Batch { label: label.to_string(), commands: steps }));
+    }
+
+    /// Undo every step since `mark` without keeping them for redo (failed group).
+    pub fn rollback(&mut self, doc: &mut Document, mark: usize) {
+        while self.undo.len() > mark {
+            if let Some((_, inv)) = self.undo.pop() {
+                let _ = inv.execute(doc);
+            }
+        }
+    }
+
     pub fn undo(&mut self, doc: &mut Document) -> Result<String, CoreError> {
         let (label, inv) = self.undo.pop().ok_or(CoreError::NothingTo { action: "undo".into() })?;
         match inv.clone().execute(doc) {

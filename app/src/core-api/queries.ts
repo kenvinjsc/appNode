@@ -18,6 +18,7 @@ async function query<T>(req: Record<string, unknown>, signal?: AbortSignal): Pro
 export const Queries = {
   sceneTree: () => query<SceneTree>({ cmd: 'get_scene_tree' }),
   properties: (id: ObjectId) => query<PropertySheet>({ cmd: 'get_properties', id }),
+  propertiesMulti: (ids: ObjectId[]) => query<PropertySheet>({ cmd: 'get_properties_multi', ids }),
   renderObjects: (ids: ObjectId[] | null, knownKeys: string[]) =>
     query<RenderBatch>({ cmd: 'get_render_objects', ids, known_keys: knownKeys }),
   materials: () => query<Material[]>({ cmd: 'get_materials' }),

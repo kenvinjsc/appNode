@@ -429,6 +429,33 @@ impl Engine {
             self.set_part_mod(id, PartModPatch { name: Some(value.to_string()), ..Default::default() })?;
             return Ok(true);
         }
+        if let Some(i) = crate::properties::OFFSET_KEYS.iter().position(|k| *k == name) {
+            let v = num(name, value)?;
+            let (_, key2) = self.part_ref(id).unwrap();
+            let rot = self
+                .doc
+                .cabinet_layout(cab)
+                .and_then(|l| l.parts.iter().find(|p| p.key == key2).map(|p| p.rotation_deg))
+                .unwrap_or([0.0; 3]);
+            self.edit_cabinet(cab, "Offset", |c| {
+                let m = c.mods.entry(key2.clone()).or_default();
+                let (before, _) = aic_domain::layout::offsets_to_local(rot, &m.offsets);
+                m.offsets[i] = v;
+                let (after, _) = aic_domain::layout::offsets_to_local(rot, &m.offsets);
+                // Tool machining stays on the same material when the left/bottom edge moves.
+                let (dl, db) = (after[0] - before[0], after[2] - before[2]);
+                if dl != 0.0 || db != 0.0 {
+                    for f in &mut m.features {
+                        aic_domain::layout::shift_feature(f, dl, db);
+                    }
+                }
+                if m.is_default() {
+                    c.mods.remove(&key2);
+                }
+                Ok(())
+            })?;
+            return Ok(true);
+        }
         if let Some(edge) = name.strip_prefix("ext_") {
             let i = match edge {
                 "left" => 0,

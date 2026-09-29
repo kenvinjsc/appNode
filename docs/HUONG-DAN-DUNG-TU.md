@@ -124,6 +124,13 @@ Click một tấm, rồi mở tab **Chỉnh tấm**:
 - Độ dày, vật liệu, tên, dán cạnh từng cạnh.
 - Cánh / ngăn kéo: lề, phủ/lọt, khe hở, thanh chặn.
 
+- **Offset (lùi mặt)**: lùi mặt trước/sau/trái/phải/trên/dưới theo hướng tủ (ví dụ kệ lùi trước 30). Lưu thành tham số, tủ đổi kích thước vẫn giữ.
+- **Neo rộng / cao / sâu** (khi chọn tủ): giữ trái/giữa/phải… khi đổi kích thước.
+
+**Chọn nhiều tấm** (Ctrl+click trên cây, 3D hoặc 2D): tab Chỉnh tấm hiện các thông số chung; ô có giá trị khác nhau hiện
+"Nhiều giá trị". Sửa một lần áp cho tất cả, Ctrl+Z hoàn tác cả nhóm. Bảng bên phải tự chuyển tab: chọn tấm → Chỉnh tấm,
+ghim vùng → Tạo tấm.
+
 **Chuột phải vào một tấm** để thao tác nhanh:
 - Đổi kệ di động ↔ cố định.
 - Căn giữa vùng (50%).

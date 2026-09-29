@@ -57,9 +57,51 @@ pub struct PartMod {
     /// Manual edge-band overrides (on/off per edge) on top of the cabinet rule.
     #[serde(default)]
     pub edges: BTreeMap<EdgeSide, bool>,
+    /// Offset (lùi) of the part's faces in the cabinet frame, mm inward:
+    /// [left, right, bottom, top, back, front]. Converted to edge extension (or a
+    /// move, along the thickness) using the part's rotation.
+    #[serde(default, skip_serializing_if = "is_zero6")]
+    pub offsets: [f64; 6],
     /// Chia tấm: the part becomes `count` pieces along an axis with a gap between them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split: Option<PartSplit>,
+}
+
+fn is_zero6(v: &[f64; 6]) -> bool {
+    v.iter().all(|x| *x == 0.0)
+}
+
+/// Cabinet-frame directions of the six offsets.
+const OFFSET_DIRS: [[f64; 3]; 6] = [[-1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [0.0, 0.0, 1.0]];
+
+/// Offsets → (edge extension [l, r, b, t] in the panel frame, translation in the
+/// cabinet frame for offsets along the thickness).
+pub fn offsets_to_local(rotation_deg: [f64; 3], offsets: &[f64; 6]) -> ([f64; 4], [f64; 3]) {
+    let t = aic_math::Transform3D::new([0.0; 3], rotation_deg);
+    let (ax, ay) = (t.transform_vector([1.0, 0.0, 0.0]), t.transform_vector([0.0, 1.0, 0.0]));
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let mut ext = [0.0; 4];
+    let mut mv = [0.0; 3];
+    for (d, off) in OFFSET_DIRS.iter().zip(offsets) {
+        if *off == 0.0 {
+            continue;
+        }
+        let (dx, dy) = (dot(ax, *d), dot(ay, *d));
+        if dx > 0.9 {
+            ext[1] -= off;
+        } else if dx < -0.9 {
+            ext[0] -= off;
+        } else if dy > 0.9 {
+            ext[3] -= off;
+        } else if dy < -0.9 {
+            ext[2] -= off;
+        } else {
+            for k in 0..3 {
+                mv[k] -= d[k] * off;
+            }
+        }
+    }
+    (ext, mv)
 }
 
 /// Chia tấm (P11). Pieces get keys `{key}`, `{key}~2`, `{key}~3`, …
@@ -797,8 +839,12 @@ fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
         if let Some(n) = &m.name {
             p.name = n.clone();
         }
+        let (oext, omove) = offsets_to_local(p.rotation_deg, &m.offsets);
+        for k in 0..3 {
+            p.translation[k] += omove[k];
+        }
         if let PartKind::Panel { features, .. } = &mut p.kind {
-            let [l, r, bo, to] = m.extend;
+            let [l, r, bo, to] = [m.extend[0] + oext[0], m.extend[1] + oext[1], m.extend[2] + oext[2], m.extend[3] + oext[3]];
             if l != 0.0 || r != 0.0 || bo != 0.0 || to != 0.0 {
                 p.size[0] = pos(p.size[0] + l + r);
                 p.size[1] = pos(p.size[1] + bo + to);

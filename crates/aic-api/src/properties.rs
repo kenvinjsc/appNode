@@ -229,6 +229,18 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                 numf("ext_top", "Giãn trên", m.extend[3], editable),
             ],
         });
+        // Offset (lùi) of each face in the cabinet frame: stored as parameters.
+        groups.push(Group {
+            key: "offset",
+            title: "Offset",
+            fields: ["off_front", "off_back", "off_left", "off_right", "off_top", "off_bottom"]
+                .iter()
+                .map(|k| {
+                    let i = OFFSET_KEYS.iter().position(|x| x == k).unwrap();
+                    numf(k, k, m.offsets[i], editable)
+                })
+                .collect(),
+        });
         // Liên kết (x/y): neighbours touching this part.
         let rel = e.relations();
         let names: Vec<Value> = rel
@@ -286,6 +298,55 @@ fn position(doc: &Document, id: ObjectId, editable: bool) -> Group {
     let fields = ["x", "y", "z"].iter().filter_map(|n| param(doc, id, n, &n.to_uppercase(), editable)).collect();
     Group { key: "position", title: "Position", fields }
 }
+
+/// Multi-selection sheet: groups / fields present on every object; a field whose
+/// values differ is `mixed` (value null). List fields are left out.
+pub fn properties_multi(e: &mut Engine, ids: &[ObjectId]) -> Result<Value, CoreError> {
+    let sheets: Vec<Value> = ids.iter().map(|id| properties(e, *id)).collect::<Result<_, _>>()?;
+    let Some(first) = sheets.first() else { return Ok(json!({ "kind": "MULTI", "ids": ids, "groups": [] })) };
+    let field = |sheet: &Value, g: &str, k: &str| -> Option<Value> {
+        sheet["groups"].as_array()?.iter().find(|x| x["key"] == g)?["fields"].as_array()?.iter().find(|f| f["key"] == k).cloned()
+    };
+    let mut groups = Vec::new();
+    for g in first["groups"].as_array().cloned().unwrap_or_default() {
+        let gk = g["key"].as_str().unwrap_or_default().to_string();
+        let mut fields = Vec::new();
+        for f in g["fields"].as_array().cloned().unwrap_or_default() {
+            let k = f["key"].as_str().unwrap_or_default();
+            if f["kind"] == "list" || k == "name" {
+                continue;
+            }
+            let others: Option<Vec<Value>> = sheets[1..].iter().map(|s| field(s, &gk, k)).collect();
+            let Some(others) = others else { continue };
+            let mut out = f.clone();
+            let same = others.iter().all(|o| o["value"] == f["value"]);
+            if !same {
+                out["value"] = Value::Null;
+                out["mixed"] = json!(true);
+            }
+            let editable = f["editable"].as_bool().unwrap_or(false) && others.iter().all(|o| o["editable"].as_bool().unwrap_or(false));
+            out["editable"] = json!(editable);
+            out["expression"] = json!(false);
+            fields.push(out);
+        }
+        if !fields.is_empty() {
+            groups.push(json!({ "key": gk, "title": g["title"], "fields": fields }));
+        }
+    }
+    let kinds: std::collections::BTreeSet<String> = sheets.iter().filter_map(|s| s["kind"].as_str().map(str::to_string)).collect();
+    Ok(json!({
+        "id": ids[0],
+        "ids": ids,
+        "kind": if kinds.len() == 1 { kinds.into_iter().next().unwrap() } else { "MULTI".into() },
+        "name": format!("{} đối tượng", ids.len()),
+        "locked": sheets.iter().any(|s| s["locked"] == true),
+        "groups": groups,
+        "bounds": Value::Null,
+    }))
+}
+
+/// Offset parameter keys in `PartMod::offsets` order.
+pub const OFFSET_KEYS: [&str; 6] = ["off_left", "off_right", "off_bottom", "off_top", "off_back", "off_front"];
 
 pub fn properties(e: &mut Engine, id: ObjectId) -> Result<Value, CoreError> {
     let locked = e.doc.scene.is_effectively_locked(id);
