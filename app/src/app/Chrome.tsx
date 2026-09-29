@@ -331,6 +331,8 @@ export function ContextMenu() {
     </button>
   );
   const id = contextMenu.id;
+  const selection = useUi.getState().selection;
+  const sel2 = selection.length === 2 && selection.every((x) => findNode(tree, x)?.node.kind === 'PANEL') ? selection : [];
   return (
     <div className="ctx" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(e) => e.stopPropagation()}>
       <div className="ctx-title">{n?.name}</div>
@@ -343,6 +345,19 @@ export function ContextMenu() {
       {item('chevronRight', 'Chọn đối tượng cha', () => Actions.selectParent(id), undefined, findNode(tree, id)?.parent == null)}
       {item('chevronDown', 'Chọn các con', () => Actions.selectChildren(id), undefined, !n?.children.length)}
       <hr />
+      {sel2.length === 2 && (
+        <>
+          <hr />
+          <div className="ctx-title">Quan hệ 2 tấm (A = chọn trước)</div>
+          {item('shelf', 'A phủ B', () => void Commands.setRelation(sel2[0], sel2[1], 'OVERLAY').catch(() => undefined))}
+          {item('shelf', 'A lọt B', () => void Commands.setRelation(sel2[0], sel2[1], 'INSET').catch(() => undefined))}
+          {item('align', 'Bằng mặt trước', () => void Commands.setRelation(sel2[0], sel2[1], 'FLUSH').catch(() => undefined))}
+          {item('fit', 'Khe…', () =>
+            set({ prompt: { title: 'Khe giữa 2 tấm', label: 'Khe (mm)', value: '3', ok: (v) => void Commands.setRelation(sel2[0], sel2[1], 'GAP', Number(v.replace(',', '.')) || 0).catch(() => undefined) } }),
+          )}
+          {item('x', 'Bỏ quan hệ', () => void Commands.setRelation(sel2[0], sel2[1], 'NONE').catch(() => undefined))}
+        </>
+      )}
       {n?.kind === 'PANEL' && n.generated && (
         <>
           <hr />

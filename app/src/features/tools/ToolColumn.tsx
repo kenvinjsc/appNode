@@ -1,11 +1,11 @@
 // "Tool" column: switches + the 19 cabinet tools. Tools only collect parameters;
 // the resulting machining/modification is stored by the core as part mods.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Actions } from '../../app/actions';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
-import type { Corner, EdgeSide, FaceSide, MachiningFeature, ObjectId } from '../../core-api/types';
+import type { Corner, EdgeSide, FaceSide, FlatPanel, MachiningFeature, ObjectId, RelationKind } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { Num, Radio, Steps } from '../../shared/ui';
 import { cabinetOf } from '../cabinet/useZones';
@@ -31,6 +31,9 @@ const TOOLS: [string, string, boolean][] = [
   ['18', 'Tạo Vbit', true],
   ['19', 'Xoá tool cả tủ', true],
   ['20', 'Chia tấm', true],
+  ['21', 'Cung cạnh', true],
+  ['22', 'Biên dạng tự do', true],
+  ['23', 'Quan hệ 2 tấm', true],
 ];
 
 export function ToolColumn() {
@@ -107,6 +110,12 @@ function ToolForm({ id }: { id: string }) {
       return <ClearToolsTool />;
     case '20':
       return <SplitPartTool />;
+    case '21':
+      return <EdgeArcTool />;
+    case '22':
+      return <PolygonTool />;
+    case '23':
+      return <RelationTool />;
     default:
       return null;
   }
@@ -575,4 +584,149 @@ function SplitPartTool() {
       <p className="muted small">Các tấm con tự cập nhật khi tủ đổi kích thước. Gia công nằm trên tấm con nào thì giữ ở tấm đó.</p>
     </div>
   );
+}
+
+function EdgeArcTool() {
+  const { selection } = useTargets();
+  const [edge, setEdge] = useState<EdgeSide>('TOP');
+  const [depth, setDepth] = useState(50);
+  const [dir, setDir] = useState<'OUT' | 'IN'>('IN');
+  return (
+    <div className="tool-form">
+      <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
+      <Radio value={edge} onChange={setEdge} options={[['TOP', 'Cạnh trên'], ['BOTTOM', 'Cạnh dưới'], ['LEFT', 'Cạnh trái'], ['RIGHT', 'Cạnh phải']]} />
+      <Radio value={dir} onChange={setDir} options={[['IN', 'Cung lõm (khoét vào)'], ['OUT', 'Cung lồi (phình ra)']]} />
+      <div className="form-row"><label>Độ cong (mm)</label><Num value={depth} onCommit={(v) => setDepth(Math.abs(v))} /></div>
+      <button
+        className="btn primary"
+        disabled={!selection.length}
+        onClick={() => void Commands.shapeTool(selection, { kind: 'EDGE_ARC', edge, sagitta: dir === 'OUT' ? depth : -depth }).catch(() => undefined)}
+      >
+        Tạo cung
+      </button>
+      <ClearShape ids={selection} />
+      <p className="muted small">Độ cong = khoảng cách từ giữa cạnh thẳng tới đỉnh cung. Cạnh trái/phải/trên/dưới tính theo mặt A của tấm.</p>
+    </div>
+  );
+}
+
+/** Biên dạng tự do: click on the panel sketch to place points (snap 5 mm, Shift 1 mm). */
+function PolygonTool() {
+  const { selection, revision } = useUi();
+  const id = selection.length === 1 ? selection[0] : null;
+  const [flat, setFlat] = useState<FlatPanel | null>(null);
+  const [pts, setPts] = useState<[number, number][]>([]);
+  const [mode, setMode] = useState<'SUBTRACT' | 'HOLE' | 'OUTLINE'>('SUBTRACT');
+  const [xy, setXy] = useState({ x: 0, y: 0 });
+  const svg = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (id === null) return setFlat(null);
+    Queries.manufacturing(id)
+      .then(setFlat)
+      .catch(() => setFlat(null));
+  }, [id, revision]);
+  useEffect(() => setPts([]), [id]);
+  const pad = flat ? Math.max(flat.width, flat.height) * 0.08 : 10;
+  const vb = flat ? `${-pad} ${-flat.height - pad} ${flat.width + 2 * pad} ${flat.height + 2 * pad}` : '0 0 100 100';
+  const u = flat ? Math.max(flat.width, flat.height) / 100 : 1;
+  const path = (poly: { points: { x: number; y: number }[] }) => poly.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${-p.y}`).join(' ') + ' Z';
+  const add = (e: React.MouseEvent) => {
+    if (!svg.current || !flat) return;
+    const pt = svg.current.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.current.getScreenCTM()!.inverse());
+    const step = e.shiftKey ? 1 : 5;
+    setPts([...pts, [Math.round(p.x / step) * step, Math.round(-p.y / step) * step]]);
+  };
+  return (
+    <div className="tool-form">
+      <Steps
+        steps={[
+          { label: 'Chọn 1 tấm', done: id !== null },
+          { label: 'Click trên sơ đồ để đặt điểm (≥ 3)', done: pts.length >= 3, detail: `${pts.length} điểm` },
+        ]}
+      />
+      <Radio value={mode} onChange={setMode} options={[['SUBTRACT', 'Cắt bỏ vùng'], ['HOLE', 'Khoét lỗ xuyên'], ['OUTLINE', 'Thay cả biên dạng']]} />
+      {flat && (
+        <svg ref={svg} className="poly-canvas" viewBox={vb} onClick={add}>
+          <path d={path(flat.outer)} className="pc-outer" />
+          {flat.inner.map((h, i) => (
+            <path key={i} d={path(h)} className="pc-hole" />
+          ))}
+          {pts.length > 1 && <polyline points={[...pts, pts[0]].map((p) => `${p[0]},${-p[1]}`).join(' ')} className="pc-new" />}
+          {pts.map((p, i) => (
+            <circle key={i} cx={p[0]} cy={-p[1]} r={u * 1.4} className="pc-pt" />
+          ))}
+        </svg>
+      )}
+      <div className="form-row">
+        <label>X / Y</label>
+        <div className="xy-row">
+          <Num value={xy.x} onCommit={(v) => setXy({ ...xy, x: v })} />
+          <Num value={xy.y} onCommit={(v) => setXy({ ...xy, y: v })} />
+          <button className="btn" onClick={() => setPts([...pts, [xy.x, xy.y]])}>+</button>
+        </div>
+      </div>
+      <div className="pts-list">
+        {pts.map((p, i) => (
+          <span key={i} className="chip">
+            {i + 1}: {p[0]}, {p[1]}
+            <button className="icon-btn" onClick={() => setPts(pts.filter((_, j) => j !== i))}>
+              <Icon name="x" size={10} />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="row-btns">
+        <button className="btn" disabled={!pts.length} onClick={() => setPts(pts.slice(0, -1))}>Bỏ điểm cuối</button>
+        <button className="btn" disabled={!pts.length} onClick={() => setPts([])}>Xóa hết</button>
+      </div>
+      <button
+        className="btn primary"
+        disabled={id === null || pts.length < 3}
+        onClick={() => id !== null && void Commands.shapeTool([id], { kind: 'POLYGON', points: pts, mode }).then(() => setPts([])).catch(() => undefined)}
+      >
+        Áp biên dạng
+      </button>
+      {id !== null && <ClearShape ids={[id]} />}
+      <p className="muted small">Tọa độ theo mặt A (gốc góc dưới trái). Bắt lưới 5 mm, giữ Shift để 1 mm. Điểm có thể nằm ngoài tấm khi cắt bỏ vùng ở mép.</p>
+    </div>
+  );
+}
+
+function RelationTool() {
+  const { selection, tree } = useTargets();
+  const [gap, setGap] = useState(3);
+  const name = (id: ObjectId | undefined) => (id === undefined ? '–' : findName(tree?.roots ?? [], id) ?? `#${id}`);
+  const ok = selection.length === 2;
+  const run = (k: RelationKind) => ok && void Commands.setRelation(selection[0], selection[1], k, gap).catch(() => undefined);
+  return (
+    <div className="tool-form">
+      <Steps
+        steps={[
+          { label: 'Tấm A (chọn trước)', done: selection.length >= 1, detail: name(selection[0]) },
+          { label: 'Tấm B (Ctrl+click)', done: ok, detail: name(selection[1]) },
+        ]}
+      />
+      <div className="rel-grid">
+        <button className="btn" disabled={!ok} onClick={() => run('OVERLAY')} title="A phủ lên cạnh B, B dừng ở A">A phủ B</button>
+        <button className="btn" disabled={!ok} onClick={() => run('INSET')} title="A lọt giữa, dừng ở mặt trong B">A lọt B</button>
+        <button className="btn" disabled={!ok} onClick={() => run('FLUSH')} title="Cạnh trước A bằng mặt cạnh trước B">Bằng mặt trước</button>
+        <button className="btn" disabled={!ok} onClick={() => run('GAP')}>Khe {gap} mm</button>
+      </div>
+      <div className="form-row"><label>Khe (mm)</label><Num value={gap} onCommit={setGap} /></div>
+      <button className="btn" disabled={!ok} onClick={() => run('NONE')}>Bỏ quan hệ A–B</button>
+      <p className="muted small">Quan hệ được lưu thành ràng buộc: đổi kích thước tủ vẫn giữ. Ví dụ Đáy (A) phủ Hồi trái (B): đáy chạy dưới hồi, hồi đứng trên đáy.</p>
+    </div>
+  );
+}
+
+function findName(nodes: { id: number; name: string; children: unknown[] }[], id: number): string | null {
+  for (const n of nodes) {
+    if (n.id === id) return n.name;
+    const r = findName(n.children as never, id);
+    if (r) return r;
+  }
+  return null;
 }

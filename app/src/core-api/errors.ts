@@ -26,6 +26,14 @@ function SHAPE_REASON(r: string): string {
     ['same plane', 'Các tấm phải nằm cùng một mặt phẳng.'],
     ['do not touch', 'Các tấm phải chạm hoặc chồng lên nhau.'],
     ['two or more', 'Chọn từ 2 tấm trở lên (Ctrl+click).'],
+    ['sagitta', 'Độ cong phải khác 0.'],
+    ['arc too deep', 'Cung quá sâu so với cạnh tấm.'],
+    ['no straight segment', 'Cạnh này không còn thẳng (đã bo/cắt) — bỏ hình dạng trước.'],
+    ['crosses itself', 'Đa giác tự cắt — sắp lại thứ tự điểm.'],
+    ['3+ points', 'Cần ít nhất 3 điểm.'],
+    ['no area', 'Đa giác không có diện tích.'],
+    ['hole must lie inside', 'Lỗ phải nằm trong tấm.'],
+    ['does not touch the panel', 'Vùng cắt không chạm tấm.'],
     ['cabinet parts', 'Tool này dùng cho tấm thuộc tủ.'],
     ['at least one', 'Chọn ít nhất một tấm.'],
   ];
@@ -51,6 +59,8 @@ export function describeError(e: ApiError, action = 'Không thể thực hiện 
       if (d.name === 'zone')
         return { title: 'Không thể thêm tấm vào vùng này.', detail: 'Vùng đã được chia theo hướng khác — hãy click ghim một vùng con (ô trống) rồi bấm [TAB].' };
       if (d.name === 'shape' || d.name === 'merge') return { title: 'Không áp được tool.', detail: SHAPE_REASON(String(d.reason ?? '')) };
+      if (d.name === 'relation') return { title: 'Không đặt được quan hệ.', detail: 'Chọn 2 tấm của cùng một tủ, tấm thứ nhất phải có cạnh quay về tấm thứ hai (Bằng mặt: tấm thứ nhất cần có cạnh trước).' };
+      if (d.name === 'resize') return { title: 'Không kéo được cạnh.', detail: 'Giá trị không hợp lệ.' };
       if (d.name === 'anchor') return { title: 'Không thêm được ràng buộc.', detail: 'Tấm đích phải là một tấm khác trong cùng tủ.' };
       if (d.name === 'template') return { title: 'Không dùng được template.', detail: 'Cần tên template; template phải còn trong dự án.' };
       if (d.name === 'preset') return { title: 'Không lưu/áp được preset.', detail: 'Cần tên preset (không trùng preset có sẵn).' };

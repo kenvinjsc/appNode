@@ -10,7 +10,7 @@ import { expandSubtrees, getEngine, useSceneRevision } from '../../viewport/view
 import { useCurrentCabinet, useZones } from '../cabinet/useZones';
 import { EditLayer } from './EditLayer';
 
-type Plane = 'front' | 'side' | 'top';
+type Plane = 'front' | 'side' | 'right' | 'top' | 'section_x' | 'section_y';
 
 export interface Item {
   id: ObjectId;
@@ -24,14 +24,18 @@ export interface Item {
   y1: number;
   depth: number;
   front: boolean;
+  /** Cut by the section plane (drawn hatched). */
+  cut?: boolean;
 }
 
 export function Drawing2D({ onClose }: { onClose?: () => void }) {
-  const { selection, tree, select, active } = useUi();
+  const { selection, tree, select, active, resizeMode } = useUi();
   const rev = useSceneRevision((s) => s.rev);
   const [plane, setPlane] = useState<Plane>('front');
   const [hideFronts, setHideFronts] = useState(true);
   const [showDims, setShowDims] = useState(true);
+  /** Section plane position, % of the scope's extent along the cut axis. */
+  const [cutAt, setCutAt] = useState(50);
   const svgRef = useRef<SVGSVGElement>(null);
   // 2D editor: the current cabinet (selection or pinned zone), front view.
   const current = useCurrentCabinet();
@@ -50,10 +54,27 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
     return roots.length ? expandSubtrees(tree, roots) : Array.from(e.entries.keys());
   }, [selection, tree, rev]);
 
+  // Extent of the scope along the section axis (for the cut slider).
+  const cutPos = useMemo(() => {
+    const e = getEngine();
+    if (!e || (plane !== 'section_x' && plane !== 'section_y')) return 0;
+    const ax = plane === 'section_x' ? 'x' : 'y';
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const id of scope) {
+      const b = e.worldBox(id);
+      if (!b || e.entries.get(id)?.ro.kind === 'ROOM') continue;
+      lo = Math.min(lo, b.min[ax]);
+      hi = Math.max(hi, b.max[ax]);
+    }
+    return Number.isFinite(lo) ? lo + ((hi - lo) * cutAt) / 100 : 0;
+  }, [scope, plane, cutAt, rev]);
+
   const items = useMemo(() => {
     const e = getEngine();
     if (!e) return [] as Item[];
     const out: Item[] = [];
+    const section = plane === 'section_x' || plane === 'section_y';
     for (const id of scope) {
       const en = e.entries.get(id);
       if (!en || !en.ro.visible || en.ro.kind === 'ROOM') continue;
@@ -61,24 +82,39 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
       if (hideFronts && isFront && plane === 'front') continue;
       const b = e.worldBox(id);
       if (!b) continue;
-      const [ax, ay, dz] = plane === 'front' ? (['x', 'y', 'z'] as const) : plane === 'side' ? (['z', 'y', 'x'] as const) : (['x', 'z', 'y'] as const);
+      // Section: only what the plane cuts, plus what lies behind it (looking along −axis).
+      let cut = false;
+      if (section) {
+        const ax = plane === 'section_x' ? 'x' : 'y';
+        cut = b.min[ax] <= cutPos && b.max[ax] >= cutPos;
+        if (!cut && b.min[ax] > cutPos) continue;
+      }
+      const [ax, ay, dz] =
+        plane === 'front'
+          ? (['x', 'y', 'z'] as const)
+          : plane === 'side' || plane === 'right' || plane === 'section_x'
+            ? (['z', 'y', 'x'] as const)
+            : (['x', 'z', 'y'] as const);
+      // 'side' looks from the left (front on the right); 'right' / section X from the right.
+      const flip = plane === 'right' || plane === 'section_x';
       out.push({
         id,
         kind: en.ro.kind,
         role: en.ro.role,
         name: en.ro.name,
         color: en.ro.color,
-        x0: b.min[ax],
-        x1: b.max[ax],
-        y0: plane === 'top' ? b.min[ay] : -b.max[ay],
-        y1: plane === 'top' ? b.max[ay] : -b.min[ay],
-        depth: plane === 'side' ? -b.max[dz] : b.max[dz],
+        x0: flip ? -b.max[ax] : b.min[ax],
+        x1: flip ? -b.min[ax] : b.max[ax],
+        y0: plane === 'top' || plane === 'section_y' ? b.min[ay] : -b.max[ay],
+        y1: plane === 'top' || plane === 'section_y' ? b.max[ay] : -b.min[ay],
+        depth: plane === 'side' ? -b.min[dz] : b.max[dz],
         front: isFront,
+        cut,
       });
     }
     out.sort((a, b) => a.depth - b.depth);
     return out;
-  }, [scope, plane, hideFronts, rev]);
+  }, [scope, plane, hideFronts, rev, cutPos]);
 
   const bounds = useMemo(() => {
     const b = new THREE.Box2();
@@ -102,15 +138,31 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
     <div className="panel drawing">
       <div className="panel-header">
         <Icon name="drawing" size={16} />
-        <span>2D · Bản vẽ</span>
+        <span title="2D · Bản vẽ">2D</span>
         <div className="spacer" />
         <select value={plane} onChange={(e) => setPlane(e.target.value as Plane)}>
           <option value="front">Mặt đứng (Trước)</option>
-          <option value="side">Mặt cắt cạnh (Phải)</option>
+          <option value="side">Mặt bên (Trái)</option>
+          <option value="right">Mặt bên (Phải)</option>
           <option value="top">Mặt bằng (Trên)</option>
+          <option value="section_x">Mặt cắt dọc (theo X)</option>
+          <option value="section_y">Mặt cắt ngang (theo cao)</option>
         </select>
+        {(plane === 'section_x' || plane === 'section_y') && (
+          <label className="cut-slider" title="Vị trí mặt cắt">
+            <input type="range" min={1} max={99} value={cutAt} onChange={(e) => setCutAt(Number(e.target.value))} />
+            <span>{fmt(cutPos, 0)}</span>
+          </label>
+        )}
         <button className={`icon-btn ${hideFronts ? 'on' : ''}`} title="Ẩn cánh / mặt ngăn kéo" onClick={() => setHideFronts(!hideFronts)}>
           <Icon name="door" size={16} />
+        </button>
+        <button
+          className={`btn tiny ${resizeMode === 'constrained' ? 'on' : ''}`}
+          title="Kéo cạnh tấm: Giữ ràng buộc (cạnh đang bám mặt tấm khác chỉ đổi khe) / Tự do (đổi offset)"
+          onClick={() => useUi.getState().set({ resizeMode: resizeMode === 'constrained' ? 'free' : 'constrained' })}
+        >
+          {resizeMode === 'constrained' ? 'Giữ ràng buộc' : 'Tự do'}
         </button>
         <button className={`icon-btn ${showDims ? 'on' : ''}`} title="Hiển thị kích thước" onClick={() => setShowDims(!showDims)}>
           <Icon name="dimension" size={16} />
@@ -138,7 +190,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
                     y={it.y0}
                     width={Math.max(w, 0.5)}
                     height={Math.max(h, 0.5)}
-                    fill={sel ? '#ffd8bf' : it.kind === 'HARDWARE' ? '#adb5bd' : it.color}
+                    fill={sel ? '#ffd8bf' : it.cut ? 'url(#d2hatch)' : it.kind === 'HARDWARE' ? '#adb5bd' : it.color}
                     fillOpacity={it.front ? 0.55 : 0.9}
                     stroke={sel || inSel ? '#e8590c' : '#495057'}
                     strokeWidth={sel ? unit * 0.28 : unit * 0.1}
@@ -168,6 +220,10 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
               </g>
             )}
             <defs>
+              <pattern id="d2hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="12" height="12" fill="#fff4e6" />
+                <line x1="0" y1="0" x2="0" y2="12" stroke="#e8590c" strokeWidth="3" />
+              </pattern>
               <marker id="d2a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0 1 L9 5 L0 9 z" fill="#343a40" />
               </marker>

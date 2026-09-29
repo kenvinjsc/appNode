@@ -32,8 +32,9 @@ Phase 3–5: multi-edit ("Nhiều giá trị", một bước undo), offset 6 ph�
 giải lại), rule preset, lật gương, nhân dãy tủ, nhân tấm.
 Constraint động tường minh (cạnh → mặt tấm khác + offset).
 Khe cánh từng phía; cao từng ngăn kéo (KHÓA/%/AUTO) + kéo đường chia ngăn trên 2D.
-Còn lại của spec Parametric: relation Flush/Gap, handle resize tấm trên 2D, view Left/Section, contour
-arc/polygon, đồng bộ SketchUp (dự án `aic_object_relation`).
+Quan hệ 2 tấm Phủ/Lọt/Bằng mặt/Khe, kéo 4 cạnh tấm trên 2D (giữ ràng buộc / tự do), view Trái/Phải/Mặt cắt dọc/ngang,
+cung cạnh và biên dạng đa giác tự do.
+Còn lại của spec Parametric: đồng bộ SketchUp (dự án `aic_object_relation`).
 Chưa làm: tool 05, 07, 15; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
 
 ## Chưa làm / hạn chế đã biết

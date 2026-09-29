@@ -585,3 +585,81 @@ fn drawer_heights_and_door_side_gaps() {
     assert!(r.ok, "{:?}", r.error);
     assert!(e.doc.panel(door).unwrap().width_mm < w0, "a wider left reveal narrows the doors");
 }
+
+#[test]
+fn relations_overlay_inset_gap_flush_and_edge_drag() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"shelves": 1, "doors": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let id_of = |pfx: &str| -> ObjectId { serde_json::from_value(kids.iter().find(|k| k["name"].as_str().unwrap().starts_with(pfx)).unwrap()["id"].clone()).unwrap() };
+    let (bottom, left, shelf) = (id_of("Đáy"), id_of("HồiTrái"), id_of("KệDiĐộng"));
+    let bx = |e: &Engine, pfx: &str| {
+        let l = e.doc.cabinet_layout(cab).unwrap();
+        aic_domain::layout::part_aabb(l.parts.iter().find(|p| p.name.starts_with(pfx)).unwrap())
+    };
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+
+    // Phủ: the bottom runs under the left side, the side sits on the bottom.
+    let r = call(&mut e, json!({"cmd": "set_relation", "a": bottom, "b": left, "kind": "OVERLAY"}));
+    assert!(r.ok, "{:?}", r.error);
+    let (b, l) = (bx(&e, "Đáy"), bx(&e, "HồiTrái"));
+    assert!(near(b.0[0], l.0[0]), "bottom reaches the side's outer face");
+    assert!(near(l.0[1], b.1[1]), "side stands on the bottom");
+    // Lọt.
+    call(&mut e, json!({"cmd": "set_relation", "a": bottom, "b": left, "kind": "INSET"}));
+    let (b, l) = (bx(&e, "Đáy"), bx(&e, "HồiTrái"));
+    assert!(near(b.0[0], l.1[0]) && near(l.0[1], b.0[1]));
+    // Khe 3 mm.
+    call(&mut e, json!({"cmd": "set_relation", "a": bottom, "b": left, "kind": "GAP", "gap": 3}));
+    let (b, l) = (bx(&e, "Đáy"), bx(&e, "HồiTrái"));
+    assert!(near(b.0[0] - l.1[0], 3.0));
+    // Bằng mặt: the shelf's front edge flush with the side's front edge.
+    let r = call(&mut e, json!({"cmd": "set_relation", "a": shelf, "b": left, "kind": "FLUSH"}));
+    assert!(r.ok, "{:?}", r.error);
+    let (s, l) = (bx(&e, "KệDiĐộng"), bx(&e, "HồiTrái"));
+    assert!(near(s.1[2], l.1[2]), "front flush {} vs {}", s.1[2], l.1[2]);
+
+    // Kéo cạnh: free drag of the shelf's right side +20 → 20 mm longer.
+    let w0 = e.doc.panel(shelf).unwrap().width_mm;
+    let r = call(&mut e, json!({"cmd": "resize_panel_side", "id": shelf, "side": "RIGHT", "delta": 20}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(near(e.doc.panel(shelf).unwrap().width_mm, w0 + 20.0));
+    // Constrained: the right edge anchored to the right side keeps the anchor, gap changes.
+    let right = id_of("HồiPhải");
+    call(&mut e, json!({"cmd": "set_part_mod", "id": shelf, "patch": {"add_anchor": {"edge": "RIGHT", "target": right, "offset": 10}}}));
+    call(&mut e, json!({"cmd": "resize_panel_side", "id": shelf, "side": "RIGHT", "delta": 4, "constrained": true}));
+    let (s, rr) = (bx(&e, "KệDiĐộng"), bx(&e, "HồiPhải"));
+    assert!(near(rr.0[0] - s.1[0], 6.0), "gap 10 − 4 = 6");
+    // Undo restores in one step each; NONE removes the bottom/side relation.
+    let r = call(&mut e, json!({"cmd": "set_relation", "a": bottom, "b": left, "kind": "NONE"}));
+    assert!(r.ok);
+}
+
+#[test]
+fn contour_arc_and_free_polygon_on_a_part() {
+    let mut e = Engine::new();
+    let _cab = created_cabinet(&mut e);
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let door: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"].as_str().unwrap().starts_with("CửaĐôi")).unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [door], "op": {"kind": "EDGE_ARC", "edge": "TOP", "sagitta": -40}}));
+    assert!(r.ok, "{:?}", r.error);
+    // A free hole (triangle) inside the door and a region cut from the bottom corner.
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [door], "op": {"kind": "POLYGON", "mode": "HOLE", "points": [[100, 1000], [250, 1000], [175, 1150]]}}));
+    assert!(r.ok, "{:?}", r.error);
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [door], "op": {"kind": "POLYGON", "mode": "SUBTRACT", "points": [[-10, -10], [120, -10], [-10, 120]]}}));
+    assert!(r.ok, "{:?}", r.error);
+    // A hole outside the panel is refused; a bow-tie outline too.
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [door], "op": {"kind": "POLYGON", "mode": "HOLE", "points": [[-100, 0], [50, 0], [0, 50]]}}));
+    assert!(!r.ok);
+    let r = call(&mut e, json!({"cmd": "shape_tool", "ids": [door], "op": {"kind": "POLYGON", "mode": "OUTLINE", "points": [[0, 0], [300, 300], [300, 0], [0, 300]]}}));
+    assert!(!r.ok);
+    // Geometry and the flat pattern (CNC) build.
+    let m = call(&mut e, json!({"cmd": "get_render_objects", "ids": [door]}));
+    assert!(m.ok, "{:?}", m.error);
+    let f = call(&mut e, json!({"cmd": "get_manufacturing", "id": door}));
+    assert!(f.ok, "{:?}", f.error);
+    assert!(f.result["inner"].as_array().is_some_and(|v| !v.is_empty()), "hole in the flat pattern");
+}

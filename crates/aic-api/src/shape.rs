@@ -16,8 +16,10 @@ pub const TOOL_FREE_CUT: &str = "04. Cắt tự do";
 pub const TOOL_CUT_BY_PANEL: &str = "09. Cắt theo tấm";
 pub const TOOL_CORNERS: &str = "10. Bo/Vác góc";
 pub const TOOL_MERGE: &str = "06. Hợp tấm";
+pub const TOOL_ARC: &str = "21. Cung cạnh";
+pub const TOOL_POLY: &str = "22. Biên dạng tự do";
 /// Tools whose result is the outer shape (removed together by "bỏ hình dạng").
-pub const SHAPE_TOOLS: [&str; 3] = [TOOL_FREE_CUT, TOOL_CUT_BY_PANEL, TOOL_CORNERS];
+pub const SHAPE_TOOLS: [&str; 5] = [TOOL_FREE_CUT, TOOL_CUT_BY_PANEL, TOOL_CORNERS, TOOL_ARC, TOOL_POLY];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -48,6 +50,111 @@ pub enum ShapeOp {
     CutLine { a: [f64; 2], b: [f64; 2], #[serde(default)] keep: Keep },
     /// Remove where the cutter panel passes through (+ clearance on every side).
     CutByPanel { cutter: ObjectId, #[serde(default)] clearance: f64 },
+    /// Cung cạnh: the straight edge becomes an arc; sagitta > 0 bulges out (lồi), < 0 in (lõm).
+    EdgeArc { edge: aic_domain::EdgeSide, sagitta: f64 },
+    /// Đa giác vẽ tay (local mm).
+    Polygon { points: Vec<[f64; 2]>, mode: PolyMode },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PolyMode {
+    /// Replace the outline.
+    Outline,
+    /// Cut this region away from the outline.
+    Subtract,
+    /// Through hole (must lie inside the outline).
+    Hole,
+}
+
+/// Replace the outline's segment on a bounding-box edge by a circular arc.
+pub fn edge_arc(poly: &Polygon2D, edge: aic_domain::EdgeSide, sagitta: f64) -> Result<Polygon2D, String> {
+    use aic_domain::EdgeSide::*;
+    if !sagitta.is_finite() || sagitta.abs() < 0.1 {
+        return Err("sagitta must be non-zero".into());
+    }
+    let (mn, mx) = poly.bounds();
+    let on = |p: Point2| match edge {
+        Left => (p.x - mn.x).abs() < 1e-6,
+        Right => (p.x - mx.x).abs() < 1e-6,
+        Bottom => (p.y - mn.y).abs() < 1e-6,
+        Top => (p.y - mx.y).abs() < 1e-6,
+    };
+    let outward = match edge {
+        Left => (-1.0, 0.0),
+        Right => (1.0, 0.0),
+        Bottom => (0.0, -1.0),
+        Top => (0.0, 1.0),
+    };
+    let p = &poly.points;
+    let n = p.len();
+    let i = (0..n).find(|&i| on(p[i]) && on(p[(i + 1) % n])).ok_or("no straight segment on that edge")?;
+    let (a, b) = (p[i], p[(i + 1) % n]);
+    let chord = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt();
+    if sagitta.abs() >= chord / 2.0 {
+        return Err("arc too deep for the edge".into());
+    }
+    if sagitta < 0.0 {
+        // A concave arc must stay inside the panel.
+        let depth = match edge {
+            Left | Right => mx.x - mn.x,
+            _ => mx.y - mn.y,
+        };
+        if -sagitta >= depth - 1.0 {
+            return Err("arc too deep for the edge".into());
+        }
+    }
+    // Circle through a, b and the arc's apex.
+    let mid = Point2::new((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
+    let apex = Point2::new(mid.x + outward.0 * sagitta, mid.y + outward.1 * sagitta);
+    let r = (chord * chord / 4.0 + sagitta * sagitta) / (2.0 * sagitta.abs());
+    let c = Point2::new(apex.x - outward.0 * sagitta.signum() * r, apex.y - outward.1 * sagitta.signum() * r);
+    let ang = |q: Point2| (q.y - c.y).atan2(q.x - c.x);
+    let (a0, am) = (ang(a), ang(apex));
+    let mut a1 = ang(b);
+    // Sweep from a to b passing through the apex.
+    let norm = |x: f64| x.rem_euclid(std::f64::consts::TAU);
+    let ccw = norm(am - a0) < norm(a1 - a0);
+    if ccw {
+        while a1 < a0 {
+            a1 += std::f64::consts::TAU;
+        }
+    } else {
+        while a1 > a0 {
+            a1 -= std::f64::consts::TAU;
+        }
+    }
+    // Segment count from a 0.1 mm chord deviation (smooth enough for CNC and render).
+    let step = 2.0 * (1.0 - (0.1 / r).min(1.0)).acos();
+    let segs = (((a1 - a0).abs() / step.max(1e-3)).ceil() as usize).clamp(8, 256);
+    let mut out = Vec::with_capacity(n + segs);
+    for (j, q) in p.iter().enumerate() {
+        out.push(*q);
+        if j == i {
+            for s in 1..segs {
+                let t = a0 + (a1 - a0) * s as f64 / segs as f64;
+                out.push(Point2::new(c.x + r * t.cos(), c.y + r * t.sin()));
+            }
+        }
+    }
+    Ok(Polygon2D::new(out).ensure_ccw())
+}
+
+/// A simple (non self-intersecting) polygon from points; None if degenerate.
+fn simple_polygon(points: &[[f64; 2]]) -> Result<Polygon2D, String> {
+    if points.len() < 3 || points.iter().any(|p| !p[0].is_finite() || !p[1].is_finite()) {
+        return Err("polygon needs 3+ points".into());
+    }
+    let p = Polygon2D::new(points.iter().map(|q| Point2::new(q[0], q[1])).collect()).ensure_ccw();
+    if p.area() < 1.0 {
+        return Err("polygon has no area".into());
+    }
+    // Self-intersection: normalising it must give exactly one polygon of the same area.
+    let norm = polygon_ops::union(std::slice::from_ref(&p), &[]);
+    if norm.len() != 1 || (norm[0].area() - p.area()).abs() > 1.0 {
+        return Err("polygon crosses itself".into());
+    }
+    Ok(p)
 }
 
 /// Current outer outline of a panel (last outer contour, else its rectangle).
@@ -330,6 +437,48 @@ impl Engine {
                         continue;
                     }
                 },
+                ShapeOp::EdgeArc { edge, sagitta } => match edge_arc(&poly, *edge, *sagitta) {
+                    Ok(p) => (Some(p), vec![], TOOL_ARC),
+                    Err(e) => {
+                        skipped.push(json!({ "id": id, "reason": e }));
+                        continue;
+                    }
+                },
+                ShapeOp::Polygon { points, mode } => {
+                    let pg = match simple_polygon(points) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            skipped.push(json!({ "id": id, "reason": e }));
+                            continue;
+                        }
+                    };
+                    match mode {
+                        PolyMode::Outline => (Some(pg), vec![], TOOL_POLY),
+                        PolyMode::Subtract => {
+                            let mut pieces = polygon_ops::difference(std::slice::from_ref(&poly), &[pg]);
+                            pieces.sort_by(|a, b| b.area().total_cmp(&a.area()));
+                            match pieces.into_iter().next() {
+                                Some(best) if best.area() + 1.0 < poly.area() => (Some(best.ensure_ccw()), vec![], TOOL_POLY),
+                                Some(_) => {
+                                    skipped.push(json!({ "id": id, "reason": "the region does not touch the panel" }));
+                                    continue;
+                                }
+                                None => {
+                                    skipped.push(json!({ "id": id, "reason": "the cut removes the whole panel" }));
+                                    continue;
+                                }
+                            }
+                        }
+                        PolyMode::Hole => {
+                            let inside = polygon_ops::difference(&[pg.clone()], std::slice::from_ref(&poly)).iter().map(|q| q.area()).sum::<f64>() < 1.0;
+                            if !inside {
+                                skipped.push(json!({ "id": id, "reason": "hole must lie inside the panel" }));
+                                continue;
+                            }
+                            (None, vec![MachiningFeature::Contour(ContourFeature { polygon: pg, inner: true, depth: t })], TOOL_POLY)
+                        }
+                    }
+                }
                 ShapeOp::CutByPanel { cutter, clearance } => {
                     let corners = self.corners_in(*cutter, id)?;
                     match cut_by_box(&poly, t, &corners, *clearance) {
@@ -434,6 +583,23 @@ mod tests {
         let c = round_corners(&r, &[Corner::BottomLeft], 30.0, true).unwrap();
         assert!((c.area() - (240000.0 - 450.0)).abs() < 1e-6);
         assert!(round_corners(&r, &[Corner::BottomLeft], 500.0, false).is_err());
+    }
+
+    #[test]
+    fn edge_arc_and_polygons() {
+        let r = Polygon2D::rect(0.0, 0.0, 600.0, 400.0);
+        let convex = edge_arc(&r, aic_domain::EdgeSide::Top, 50.0).unwrap();
+        let concave = edge_arc(&r, aic_domain::EdgeSide::Top, -50.0).unwrap();
+        // Circular segment area for chord 600, sagitta 50.
+        let rr = (300.0f64 * 300.0 + 2500.0) / 100.0;
+        let th = 2.0 * (300.0 / rr).asin();
+        let seg = rr * rr / 2.0 * (th - th.sin());
+        assert!((convex.area() - (240000.0 + seg)).abs() < 150.0, "{} vs {}", convex.area(), 240000.0 + seg);
+        assert!((concave.area() - (240000.0 - seg)).abs() < 150.0);
+        assert!(convex.bounds().1.y > 449.0 && concave.bounds().1.y <= 400.0 + 1e-9);
+        assert!(edge_arc(&r, aic_domain::EdgeSide::Left, 300.0).is_err());
+        assert!(simple_polygon(&[[0.0, 0.0], [100.0, 100.0], [100.0, 0.0], [0.0, 100.0]]).is_err(), "bow-tie");
+        assert!(simple_polygon(&[[0.0, 0.0], [100.0, 0.0], [50.0, 80.0]]).is_ok());
     }
 
     #[test]

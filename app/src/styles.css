@@ -531,3 +531,26 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .anchor-row span { flex: 1; }
 .anchor-add { display: grid; grid-template-columns: 1fr 1.4fr; gap: 4px; margin-top: 6px; }
 .anchor-add .btn { grid-column: span 2; }
+
+.poly-canvas { width: 100%; height: 200px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: crosshair; }
+.poly-canvas .pc-outer { fill: #fff4e6; stroke: #495057; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.poly-canvas .pc-hole { fill: #f8f9fa; stroke: #495057; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.poly-canvas .pc-new { fill: rgba(232, 89, 12, 0.18); stroke: #e8590c; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.poly-canvas .pc-pt { fill: #e8590c; }
+.xy-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 4px; }
+.pts-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.pts-list .chip { display: inline-flex; align-items: center; gap: 2px; font-size: 11.5px; padding: 1px 6px; border: 1px solid #dee2e6; border-radius: 10px; }
+.rel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+.d2e-edge { fill: #fff; stroke: #e8590c; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.d2e-edge.x { cursor: ew-resize; }
+.d2e-edge.y { cursor: ns-resize; }
+.d2e-edge:hover, .d2e-edge.on { fill: #e8590c; }
+.d2e-ghost { fill: rgba(232, 89, 12, 0.15); stroke: #e8590c; stroke-dasharray: 5 3; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.btn.tiny { padding: 2px 8px; font-size: 11.5px; }
+.btn.tiny.on { background: #fff4e6; border-color: #e8590c; color: #e8590c; }
+
+.cut-slider { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: #495057; }
+.cut-slider input { width: 90px; accent-color: #e8590c; }
+.drawing .panel-header { flex-wrap: nowrap; overflow-x: auto; }
+.drawing .panel-header select { max-width: 150px; }

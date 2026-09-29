@@ -14,6 +14,7 @@ mod render;
 mod zones;
 pub mod shape;
 mod templates;
+pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
 
@@ -310,6 +311,11 @@ impl Engine {
             }
             SetBay { cabinet, zone, index, mode, value } => {
                 self.set_bay(cabinet, zone, index, mode, value)?;
+                ok(json!({}))
+            }
+            SetRelation { a, b, kind, gap } => ok(self.set_relation(a, b, kind, gap)?),
+            ResizePanelSide { id, side, delta, constrained } => {
+                self.resize_panel_side(id, side, delta, constrained)?;
                 ok(json!({}))
             }
             SetDrawerHeight { cabinet, uid, index, mode, value } => {

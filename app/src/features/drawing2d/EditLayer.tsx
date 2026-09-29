@@ -3,9 +3,9 @@
 // release), zone pinning and the zone context menu. Every edit is a core
 // request; this layer only shows positions the core returned.
 import { useRef, useState } from 'react';
-import { useUi } from '../../app/uiStore';
+import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { BayInfo, BayMode, FrontBay, ObjectId, Vec3, ZonesInfo } from '../../core-api/types';
+import type { BayInfo, BayMode, FrontBay, ObjectId, PanelSide, Vec3, ZonesInfo } from '../../core-api/types';
 import { fmt } from '../../shared/i18n';
 import type { Item } from './Drawing2D';
 
@@ -50,7 +50,10 @@ interface Drag {
 }
 
 export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: Item[]; unit: number; svg: SVGSVGElement | null }) {
-  const { pinned, set, select } = useUi();
+  const { pinned, set, select, selection, tree, resizeMode } = useUi();
+  type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number };
+  const [edrag, setEdrag] = useState<EDrag | null>(null);
+  const edragRef = useRef<EDrag | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -263,6 +266,80 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
     });
   }
 
+  // Edge handles of the selected cabinet part (kéo 4 cạnh).
+  const edges: JSX.Element[] = [];
+  const selId = selection.length === 1 ? selection[0] : null;
+  const selNode = selId !== null ? findNode(tree, selId) : null;
+  const selItem = selId !== null ? items.find((i) => i.id === selId) : undefined;
+  if (straight && selItem && selNode?.node.kind === 'PANEL' && selNode.node.generated && selNode.parent === info.cabinet) {
+    const it = selItem;
+    const d = edrag && edrag.id === it.id ? edrag : null;
+    // Preview rectangle (2D: x right, y down).
+    const px0 = it.x0 - (d?.side === 'LEFT' ? d.delta : 0);
+    const px1 = it.x1 + (d?.side === 'RIGHT' ? d.delta : 0);
+    const py0 = it.y0 - (d?.side === 'TOP' ? d.delta : 0);
+    const py1 = it.y1 + (d?.side === 'BOTTOM' ? d.delta : 0);
+    const s = unit * 0.9;
+    const handle = (side: PanelSide, cx: number, cy: number) => (
+      <rect
+        key={side}
+        className={`d2e-edge ${side === 'LEFT' || side === 'RIGHT' ? 'x' : 'y'} ${d?.side === side ? 'on' : ''}`}
+        x={cx - s / 2}
+        y={cy - s / 2}
+        width={s}
+        height={s}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          (e.target as Element).setPointerCapture(e.pointerId);
+          const p = toSvg(e);
+          const v: EDrag = { id: it.id, side, from: side === 'LEFT' || side === 'RIGHT' ? p.x : p.y, delta: 0 };
+          edragRef.current = v;
+          setEdrag(v);
+        }}
+        onPointerMove={(e) => {
+          const v = edragRef.current;
+          if (!v || v.side !== side) return;
+          const p = toSvg(e);
+          const raw = side === 'LEFT' || side === 'RIGHT' ? p.x - v.from : p.y - v.from;
+          // Growing: right / bottom (svg) move +, left / top move −.
+          let delta = side === 'RIGHT' || side === 'BOTTOM' ? raw : -raw;
+          delta = e.shiftKey ? Math.round(delta / 10) * 10 : Math.round(delta * 2) / 2;
+          const n = { ...v, delta };
+          edragRef.current = n;
+          setEdrag(n);
+        }}
+        onPointerUp={() => {
+          const v = edragRef.current;
+          edragRef.current = null;
+          setEdrag(null);
+          if (v && Math.abs(v.delta) > 0.01) {
+            // 2D "bottom" is −Y in the cabinet: map svg sides to cabinet sides.
+            const side3: PanelSide = v.side === 'TOP' ? 'TOP' : v.side === 'BOTTOM' ? 'BOTTOM' : v.side;
+            void Commands.resizePanelSide(v.id, side3, v.delta, resizeMode === 'constrained').catch(() => undefined);
+          }
+        }}
+      >
+        <title>{`Kéo cạnh ${side === 'LEFT' ? 'trái' : side === 'RIGHT' ? 'phải' : side === 'TOP' ? 'trên' : 'dưới'} (${resizeMode === 'constrained' ? 'giữ ràng buộc' : 'tự do'}; Shift: bước 10 mm)`}</title>
+      </rect>
+    );
+    edges.push(
+      <g key="edges" className="d2e-edges">
+        {d && <rect className="d2e-ghost" x={px0} y={py0} width={Math.max(px1 - px0, 0.5)} height={Math.max(py1 - py0, 0.5)} />}
+        {d && (
+          <text className="d2e-num" x={(px0 + px1) / 2} y={py0 - unit * 1.2} textAnchor="middle" fontSize={fs}>
+            {fmt(px1 - px0, 1)} × {fmt(py1 - py0, 1)} ({d.delta > 0 ? '+' : ''}
+            {fmt(d.delta, 1)})
+          </text>
+        )}
+        {handle('LEFT', px0, (py0 + py1) / 2)}
+        {handle('RIGHT', px1, (py0 + py1) / 2)}
+        {handle('TOP', (px0 + px1) / 2, py0)}
+        {handle('BOTTOM', (px0 + px1) / 2, py1)}
+      </g>,
+    );
+  }
+
   // Leaf zones: click = pin, Ctrl+click = add, right-click = quick build menu.
   const leaves = info.zones.filter((z) => z.leaf);
 
@@ -357,6 +434,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
       {handles}
       {chains}
       {fronts}
+      {edges}
       {/* Cabinet W / H (editable). */}
       <g className="d2e-cab">
         <line x1={cab.x0} y1={cab.y0 - unit * 2.5} x2={cab.x1} y2={cab.y0 - unit * 2.5} markerStart="url(#d2a)" markerEnd="url(#d2a)" />

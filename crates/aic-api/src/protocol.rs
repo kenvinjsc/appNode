@@ -244,6 +244,10 @@ pub enum Request {
         #[serde(default)]
         value: Option<f64>,
     },
+    /// Quan hệ 2 tấm: INSET (lọt) / OVERLAY (phủ) / FLUSH (bằng mặt trước) / GAP (khe) / NONE.
+    SetRelation { a: ObjectId, b: ObjectId, kind: crate::relations_edit::RelationKind, #[serde(default)] gap: f64 },
+    /// Kéo cạnh tấm (handle 2D): side in the cabinet frame, `delta` > 0 grows.
+    ResizePanelSide { id: ObjectId, side: crate::relations_edit::Side, delta: f64, #[serde(default)] constrained: bool },
     /// Cao từng ngăn kéo (0 = dưới cùng): LOCK mm / PERCENT / AUTO.
     SetDrawerHeight {
         cabinet: ObjectId,

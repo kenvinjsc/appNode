@@ -67,6 +67,8 @@ interface UiState {
   zoneMenu: { x: number; y: number; cabinet: ObjectId; zone: number } | null;
   /** Small input dialog (tên template, số lượng…). */
   prompt: { title: string; label: string; value: string; ok: (v: string) => void } | null;
+  /** 2D edge handles: keep constraints (anchored edges change their gap) or free. */
+  resizeMode: 'free' | 'constrained';
   renaming: ObjectId | null;
   cursor: [number, number, number] | null;
   mfgPanel: ObjectId | null;
@@ -133,6 +135,7 @@ export const useUi = create<UiState>((set, get) => ({
   contextMenu: null,
   zoneMenu: null,
   prompt: null,
+  resizeMode: 'constrained',
   renaming: null,
   cursor: null,
   mfgPanel: null,

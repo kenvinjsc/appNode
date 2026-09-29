@@ -427,7 +427,12 @@ export type Corner = 'BOTTOM_LEFT' | 'BOTTOM_RIGHT' | 'TOP_RIGHT' | 'TOP_LEFT';
 export type ShapeOp =
   | { kind: 'CORNERS'; corners: Corner[]; size: number; chamfer: boolean }
   | { kind: 'CUT_LINE'; a: [number, number]; b: [number, number]; keep: 'AUTO' | 'LEFT' | 'RIGHT' }
-  | { kind: 'CUT_BY_PANEL'; cutter: ObjectId; clearance: number };
+  | { kind: 'CUT_BY_PANEL'; cutter: ObjectId; clearance: number }
+  | { kind: 'EDGE_ARC'; edge: EdgeSide; sagitta: number }
+  | { kind: 'POLYGON'; points: [number, number][]; mode: 'OUTLINE' | 'SUBTRACT' | 'HOLE' };
+
+export type RelationKind = 'INSET' | 'OVERLAY' | 'FLUSH' | 'GAP' | 'NONE';
+export type PanelSide = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'TOP' | 'BACK' | 'FRONT';
 
 export interface PartModPatch {
   name?: string;

@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -62,6 +62,9 @@ export const Commands = {
   /** Kéo vách / kệ: `before` = clear size of the bay before the panel. */
   moveSplitPanel: (id: ObjectId, before: number) => command<{ zone: number }>({ cmd: 'move_split_panel', id, before }),
   shapeTool: (ids: ObjectId[], op: ShapeOp) => command<{ changed: number; skipped: { id: ObjectId; reason: string }[] }>({ cmd: 'shape_tool', ids, op }),
+  setRelation: (a: ObjectId, b: ObjectId, kind: RelationKind, gap = 0) => command({ cmd: 'set_relation', a, b, kind, gap }),
+  /** Kéo cạnh tấm: `delta` > 0 grows that side (cabinet frame). */
+  resizePanelSide: (id: ObjectId, side: PanelSide, delta: number, constrained: boolean) => command({ cmd: 'resize_panel_side', id, side, delta, constrained }),
   mergePanels: (ids: ObjectId[]) => command<{ id: ObjectId; size: [number, number] }>({ cmd: 'merge_panels', ids }),
   setPrice: (key: string, value: number | null) => command({ cmd: 'set_price', key, value }),
   createPanel: (p: { name?: string; width: number; height: number; thickness: number; material?: string; transform?: Transform3D; parent?: ObjectId }) =>

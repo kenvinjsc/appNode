@@ -170,6 +170,32 @@ Màu số: xanh dương = AUTO, đỏ = KHÓA, xanh lá = %. Nếu thay đổi l
 - **Chuột phải tủ**: Lật gương trái ↔ phải (khoang, bản lề), Nhân dãy tủ sang phải, Sửa kích thước, Báo cáo.
 - **Chuột phải kệ / vách**: Nhân tấm (thêm n tấm giống, chia đều), Chia đều lại.
 
+## 4d. Quan hệ 2 tấm, kéo cạnh, mặt cắt
+![Kéo cạnh](screenshots/09-keo-canh.png)
+
+**Quan hệ 2 tấm**: chọn tấm A, Ctrl+click tấm B → chuột phải (hoặc Tool 23):
+
+| Lựa chọn | Kết quả |
+|---|---|
+| A phủ B | A chạy tới mặt ngoài B, B dừng ở A (ví dụ Đáy phủ Hồi: hồi đứng trên đáy). |
+| A lọt B | A dừng ở mặt trong B, B chạy qua A. |
+| Bằng mặt trước | Cạnh trước A bằng mặt cạnh trước B (ví dụ kệ không lùi). |
+| Khe… | Như lọt, chừa khe g mm. |
+| Bỏ quan hệ | Xóa ràng buộc giữa A và B. |
+
+Quan hệ lưu thành ràng buộc nên đổi kích thước tủ vẫn giữ.
+
+**Kéo 4 cạnh tấm**: chọn một tấm của tủ, ở Mặt đứng xuất hiện 4 ô vuông cam ở giữa các cạnh. Kéo để xem trước
+kích thước mới (Shift: bước 10 mm), thả chuột để lưu. Nút trên thanh bản vẽ đổi chế độ:
+- **Giữ ràng buộc**: cạnh đang bám mặt tấm khác chỉ đổi khe tới mặt đó.
+- **Tự do**: bỏ ràng buộc của cạnh đó và đổi offset của tấm.
+
+![Mặt cắt](screenshots/10-mat-cat.png)
+
+**View**: Mặt đứng (Trước), Mặt bên (Trái), Mặt bên (Phải), Mặt bằng (Trên), **Mặt cắt dọc (theo X)** và **Mặt cắt
+ngang (theo cao)**. Với mặt cắt, kéo thanh trượt để chọn vị trí cắt (số mm hiện bên cạnh); tấm bị cắt tô gạch chéo,
+phần phía trước mặt cắt được bỏ đi.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 
@@ -192,6 +218,9 @@ Chọn tấm rồi chọn tool. Các tool đã dùng được:
 | 18 Vbit | Rãnh V-bit. |
 | 19 Xóa tool cả tủ | Xóa mọi gia công đã thêm của tủ. |
 | 20 Chia tấm | Chia một tấm (hậu, cánh…) thành 2–50 tấm theo chiều cao hoặc rộng, có khe; tự cập nhật khi đổi kích thước tủ. |
+| 21 Cung cạnh | Chọn cạnh, cung lõm (khoét vào) hoặc lồi (phình ra), độ cong mm. |
+| 22 Biên dạng tự do | Click trên sơ đồ tấm để đặt điểm (bắt 5 mm, Shift 1 mm) hoặc nhập X/Y; chọn Cắt bỏ vùng / Khoét lỗ xuyên / Thay cả biên dạng. Đa giác tự cắt bị từ chối. |
+| 23 Quan hệ 2 tấm | Như menu chuột phải: phủ / lọt / bằng mặt / khe / bỏ. |
 
 Các tool ghi "Sắp có" chưa làm.
 

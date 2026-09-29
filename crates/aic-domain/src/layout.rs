@@ -79,6 +79,8 @@ pub enum AnchorFace {
     Inner,
     /// The far face (mặt ngoài).
     Outer,
+    /// The target face on the same side as the edge (bằng mặt: edges coplanar).
+    Flush,
 }
 
 /// `edge` of the part → `face` of part `target` (key in the same cabinet), keeping
@@ -91,6 +93,24 @@ pub struct EdgeAnchor {
     pub face: AnchorFace,
     #[serde(default)]
     pub offset: f64,
+}
+
+/// Local edge of a panel pointing along `dir` (cabinet frame), if any.
+pub fn edge_along(rotation_deg: [f64; 3], dir: [f64; 3], min_dot: f64) -> Option<EdgeSide> {
+    let t = aic_math::Transform3D::new([0.0; 3], rotation_deg);
+    let len = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
+    if len < 1e-9 {
+        return None;
+    }
+    [(EdgeSide::Left, [-1.0, 0.0, 0.0]), (EdgeSide::Right, [1.0, 0.0, 0.0]), (EdgeSide::Bottom, [0.0, -1.0, 0.0]), (EdgeSide::Top, [0.0, 1.0, 0.0])]
+        .into_iter()
+        .map(|(e, l)| {
+            let v = t.transform_vector(l);
+            (e, (v[0] * dir[0] + v[1] * dir[1] + v[2] * dir[2]) / len)
+        })
+        .filter(|(_, d)| *d > min_dot)
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(e, _)| e)
 }
 
 /// Cabinet-frame AABB of a part.
@@ -149,7 +169,11 @@ fn solve_anchors(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
             let centre = (smn[axis] + smx[axis]) / 2.0;
             let target_ahead = (tmn[axis] + tmx[axis]) / 2.0 > centre;
             let (inner, outer) = if target_ahead { (tmn[axis], tmx[axis]) } else { (tmx[axis], tmn[axis]) };
-            let face = if a.face == AnchorFace::Inner { inner } else { outer };
+            let face = match a.face {
+                AnchorFace::Inner => inner,
+                AnchorFace::Outer => outer,
+                AnchorFace::Flush => if s > 0.0 { tmx[axis] } else { tmn[axis] },
+            };
             let goal = face - s * a.offset;
             ext[i] += (goal - edge) * s;
         }
