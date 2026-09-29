@@ -1,0 +1,16 @@
+[package]
+name = "aic-cad-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "AIC CAD desktop shell (Tauri 2). The UI talks to the core only through the `dispatch` IPC command."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+aic-api = { path = "../../crates/aic-api" }
+tauri = { version = "2", features = [] }
+serde_json = "1"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
