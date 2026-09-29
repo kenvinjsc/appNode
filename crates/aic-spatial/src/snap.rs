@@ -71,7 +71,7 @@ pub fn snap_translation(moving: &Aabb, delta: [f64; 3], others: &[(ObjectId, Aab
                 (oc - mc, SnapKind::Center, oc),
             ];
             for (corr, kind, value) in cands {
-                if corr.abs() <= s.tolerance_mm && best.as_ref().map_or(true, |b| corr.abs() < b.0.abs()) {
+                if corr.abs() <= s.tolerance_mm && best.as_ref().is_none_or(|b| corr.abs() < b.0.abs()) {
                     best = Some((corr, SnapHint { kind, axis, value, target: Some(*id), distance: None }));
                 }
             }

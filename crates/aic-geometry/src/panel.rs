@@ -197,8 +197,8 @@ mod tests {
         let pocket = 60.0 * 40.0 * 8.0;
         let v = m.volume();
         assert!(v < full - pocket + 1.0 && v > full - pocket - 1000.0, "volume {v}");
-        assert!(m.face_ids.iter().any(|f| *f == face_ids::FEATURE_BASE));
-        assert!(m.face_ids.iter().any(|f| *f == face_ids::FEATURE_BASE + 1));
+        assert!(m.face_ids.contains(&face_ids::FEATURE_BASE));
+        assert!(m.face_ids.contains(&(face_ids::FEATURE_BASE + 1)));
         assert_eq!(m.edge_ids.iter().filter(|e| **e < 12).count(), 12);
     }
 }

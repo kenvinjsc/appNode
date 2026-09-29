@@ -5,3 +5,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+aic-math.workspace = true
+aic-domain.workspace = true
+aic-geometry.workspace = true
+aic-spatial.workspace = true
+aic-parametric.workspace = true
+aic-assembly.workspace = true
+aic-manufacturing.workspace = true
+aic-nesting.workspace = true
+aic-project.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true

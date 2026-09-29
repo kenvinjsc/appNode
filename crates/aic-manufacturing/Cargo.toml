@@ -5,3 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+aic-math.workspace = true
+aic-domain.workspace = true
+aic-assembly.workspace = true
+aic-nesting.workspace = true
+serde.workspace = true
+clipper2 = "0.5"

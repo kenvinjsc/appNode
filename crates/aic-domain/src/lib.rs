@@ -12,7 +12,7 @@ pub mod object;
 pub mod panel;
 pub mod scene;
 
-pub use cabinet::{CabinetKind, CabinetSpec, JoinStyle, PanelTemplate};
+pub use cabinet::{CabinetKind, CabinetSpec, JoinStyle, MaterialSlot, PanelTemplate};
 pub use error::DomainError;
 pub use feature::*;
 pub use ids::{IdAllocator, MaterialId, NodeId, ObjectId};
