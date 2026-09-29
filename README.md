@@ -33,11 +33,13 @@ Desktop (Tauri 2, cần WebKitGTK trên Linux):
 cd app && npm install && npx tauri dev     # hoặc: npx tauri build
 ```
 
-Bản chạy một tiến trình (phục vụ luôn frontend đã build):
+> Cổng **8787** là API của lõi CAD. Giao diện ở **5173** khi chạy `npm run dev`.
+
+Chạy một cổng duy nhất: khi đã có `app/dist`, dev server tự phục vụ luôn giao diện.
 
 ```bash
 cd app && npm run build && cd ..
-AIC_STATIC=app/dist cargo run -p aic-dev-server --release   # mở http://127.0.0.1:8787
+cargo run -p aic-dev-server --release   # mở http://127.0.0.1:8787
 ```
 
 ## Kiểm thử

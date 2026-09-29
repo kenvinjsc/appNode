@@ -24,9 +24,19 @@ fn content_type(p: &Path) -> &'static str {
 
 fn main() {
     let addr = std::env::var("AIC_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".into());
-    let static_dir: Option<PathBuf> = std::env::var("AIC_STATIC").ok().map(PathBuf::from);
+    // Serve the built UI when available: AIC_STATIC, else <repo>/app/dist.
+    let static_dir: Option<PathBuf> = std::env::var("AIC_STATIC")
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/dist")))
+        .and_then(|p| p.canonicalize().ok())
+        .filter(|p| p.join("index.html").is_file());
     let server = Server::http(&addr).expect("bind");
-    eprintln!("AIC dev server listening on http://{addr}");
+    eprintln!("AIC CAD core: http://{addr}/api");
+    match &static_dir {
+        Some(d) => eprintln!("Giao diện: http://{addr}  (phục vụ từ {})", d.display()),
+        None => eprintln!("Giao diện chưa build. Chạy `cd app && npm run dev` rồi mở http://localhost:5173"),
+    }
     let mut engine = Engine::new();
     for mut req in server.incoming_requests() {
         let cors = [
@@ -58,6 +68,7 @@ fn main() {
                     Err(_) => Response::from_data(b"not found".to_vec()).with_status_code(404),
                 }
             }
+            (Method::Get, _) => Response::from_string(HELP_PAGE).with_header(header("Content-Type", "text/html; charset=utf-8")),
             _ => Response::from_data(b"AIC dev server: POST /api".to_vec()).with_status_code(404),
         };
         let mut resp = resp;
@@ -67,3 +78,16 @@ fn main() {
         let _ = req.respond(resp);
     }
 }
+
+const HELP_PAGE: &str = r#"<!doctype html><html lang="vi"><meta charset="utf-8"><title>AIC CAD core</title>
+<body style="font-family:system-ui,sans-serif;max-width:640px;margin:60px auto;color:#212529;line-height:1.6">
+<h2 style="color:#e8590c">AIC CAD – lõi CAD đang chạy</h2>
+<p>Cổng này là <b>API của lõi CAD</b> (<code>POST /api</code>), không phải giao diện.</p>
+<p><b>Cách 1 – chế độ phát triển:</b> mở terminal khác và chạy</p>
+<pre style="background:#f1f3f5;padding:12px;border-radius:6px">cd app
+npm install
+npm run dev</pre>
+<p>rồi mở <a href="http://localhost:5173">http://localhost:5173</a>.</p>
+<p><b>Cách 2 – một cổng duy nhất:</b> build giao diện (<code>cd app &amp;&amp; npm run build</code>), khởi động lại lõi,
+rồi tải lại trang này.</p>
+</body></html>"#;
