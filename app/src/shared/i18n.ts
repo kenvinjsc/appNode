@@ -117,6 +117,12 @@ export const CONTACT_LABEL: Record<string, string> = { TOUCH: 'Tiếp xúc', GAP
 export const ORIENT_LABEL: Record<string, string> = { PARALLEL: 'Song song', PERPENDICULAR: 'Vuông góc', OBLIQUE: 'Xiên' };
 export const REGION_LABEL: Record<string, string> = { FACE: 'Mặt', EDGE: 'Cạnh', END: 'Đầu' };
 
+/** Role label from either `LeftSide` or `LEFT_SIDE` spelling. */
+export function roleLabel(role: string): string {
+  const pascal = role.includes('_') || role === role.toUpperCase() ? role.toLowerCase().replace(/(^|_)([a-z])/g, (_, __, c: string) => c.toUpperCase()) : role;
+  return ROLE_LABEL[pascal] ?? role;
+}
+
 export function objectLabel(kind: string, role: string | null): string {
   if (role && ROLE_LABEL[role]) return ROLE_LABEL[role];
   return KIND_LABEL[kind] ?? kind;
@@ -125,5 +131,5 @@ export function objectLabel(kind: string, role: string | null): string {
 export function fmt(n: number | null | undefined, digits = 1): string {
   if (n === null || n === undefined || Number.isNaN(n)) return '–';
   const r = Math.round(n * 10 ** digits) / 10 ** digits;
-  return r.toLocaleString('vi-VN', { maximumFractionDigits: digits });
+  return r.toLocaleString('vi-VN', { maximumFractionDigits: digits, useGrouping: false });
 }
