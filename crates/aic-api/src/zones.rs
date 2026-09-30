@@ -514,6 +514,45 @@ impl Engine {
                     }
                     Ok(())
                 }).map(|_| true),
+                k if k.starts_with("edge_g_") => {
+                    // edge_g_<nhóm>_<mode|code>: luật dán cạnh riêng của một nhóm tấm.
+                    let rest = &k["edge_g_".len()..];
+                    let (group, field) = rest.rsplit_once('_').ok_or_else(|| bad(k, "edge_g_<group>_<mode|code>"))?;
+                    if !matches!(group, "front" | "carcass" | "shelf" | "back" | "drawer") {
+                        return Err(bad(k, "front | carcass | shelf | back | drawer"));
+                    }
+                    let (group, field, v) = (group.to_string(), field.to_string(), value.trim().to_string());
+                    self.edit_cabinet(id, "Dán cạnh theo nhóm", move |c| {
+                        let r = &mut c.edge_rule;
+                        let base = aic_domain::GroupEdge { mode: r.mode, band_code: r.band_code.clone(), band_thickness: r.band_thickness };
+                        match field.as_str() {
+                            "mode" => {
+                                let m = match v.to_ascii_uppercase().as_str() {
+                                    "INHERIT" | "" => {
+                                        r.groups.remove(&group);
+                                        return Ok(());
+                                    }
+                                    "ALL" => aic_domain::EdgeMode::All,
+                                    "NONE" => aic_domain::EdgeMode::None,
+                                    "EXPOSED_ONLY" => aic_domain::EdgeMode::ExposedOnly,
+                                    _ => return Err(bad("edge_mode", "INHERIT | EXPOSED_ONLY | ALL | NONE")),
+                                };
+                                r.groups.entry(group).or_insert(base).mode = m;
+                            }
+                            "code" => {
+                                if v.is_empty() {
+                                    return Err(bad("edge_code", "band code"));
+                                }
+                                let g = r.groups.entry(group).or_insert(base);
+                                g.band_thickness = aic_domain::band_thickness_of(&v);
+                                g.band_code = v.to_ascii_uppercase();
+                            }
+                            _ => return Err(bad("edge_group", "mode | code")),
+                        }
+                        Ok(())
+                    })
+                    .map(|_| true)
+                }
                 "floor" => self.edit_cabinet(id, "Tầng", |c| {
                     c.floor = value.trim().to_string();
                     Ok(())

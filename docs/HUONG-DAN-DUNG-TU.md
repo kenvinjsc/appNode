@@ -274,6 +274,10 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab mới:
   cho tủ đầu dãy, dùng khi đáy phủ hồi) / chân nhựa tăng chỉnh (hồi đứng trên chân; 4/6/8 chân theo rộng) / chân nhựa + len kẹp /
   tủ treo (2 ke treo + thanh treo tường 17 × 60 tùy chọn)*. Báo giá có chân nhựa, ke treo.
 
+- **Dán cạnh** (theo nhóm tấm): cánh / mặt ngăn kéo, thùng, kệ, hậu, hộc — mỗi nhóm chọn *theo luật chung / dán hở bỏ khuất /
+  dán toàn bộ / không dán* và loại chỉ (Đơn 0.5/1/2, Kép 1, ABS 1/2, PVC 1). Hậu và đáy hộc mặc định không dán theo vai trò
+  (không phụ thuộc độ dày). Kích thước cắt trừ đúng độ dày chỉ từng cạnh; báo giá tách mét chỉ theo mã.
+
 Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của tủ này (trừ Rộng/Cao/Sâu) vào thư viện dùng chung;
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.
 Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ).

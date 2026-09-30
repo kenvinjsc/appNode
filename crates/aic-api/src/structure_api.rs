@@ -208,6 +208,32 @@ impl Engine {
                 ],
             ),
             (
+                "edges".into(),
+                "Dán cạnh".into(),
+                {
+                    let mut v = Vec::new();
+                    for (g, label) in [("front", "Cánh / mặt ngăn kéo"), ("carcass", "Thùng (hồi, nóc, đáy, vách)"), ("shelf", "Kệ"), ("back", "Hậu"), ("drawer", "Hộc ngăn kéo")] {
+                        let cur = def.edge_rule.groups.get(g);
+                        let mode = match cur.map(|x| x.mode) {
+                            None => "INHERIT",
+                            Some(aic_domain::EdgeMode::All) => "ALL",
+                            Some(aic_domain::EdgeMode::None) => "NONE",
+                            Some(aic_domain::EdgeMode::ExposedOnly) => "EXPOSED_ONLY",
+                        };
+                        v.push(section(label));
+                        let inherit = if g == "back" { "Theo luật chung (hậu: không dán)" } else { "Theo luật chung" };
+                        v.push(select(&format!("edge_g_{g}_mode"), "Kiểu dán", mode, &[("INHERIT", inherit), ("EXPOSED_ONLY", "Dán hở bỏ khuất"), ("ALL", "Dán toàn bộ"), ("NONE", "Không dán")]));
+                        v.push(select(
+                            &format!("edge_g_{g}_code"),
+                            "Loại chỉ",
+                            cur.map(|x| x.band_code.as_str()).unwrap_or(def.edge_rule.band_code.as_str()),
+                            &[("DON-0.5", "Đơn 0.5mm"), ("DON-1", "Đơn 1mm"), ("DON-2", "Đơn 2mm"), ("KEP-1", "Kép 1mm"), ("ABS-1", "ABS 1mm"), ("ABS-2", "ABS 2mm"), ("PVC-1", "PVC 1mm")],
+                        ));
+                    }
+                    v
+                },
+            ),
+            (
                 "drawers".into(),
                 "Ngăn kéo".into(),
                 vec![

@@ -87,6 +87,35 @@ pub struct EdgeRule {
     pub threshold: f64,
     /// Bỏ cạnh ngắn ≤.
     pub min_length: f64,
+    /// Luật riêng theo nhóm tấm (`front`, `carcass`, `shelf`, `back`, `drawer`); thiếu = luật chung.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub groups: std::collections::BTreeMap<String, GroupEdge>,
+}
+
+/// Dán cạnh của một nhóm tấm.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GroupEdge {
+    pub mode: EdgeMode,
+    pub band_code: String,
+    pub band_thickness: f64,
+}
+
+/// Nhóm dán cạnh của một vai trò tấm.
+pub fn edge_group(role: crate::PanelRole) -> &'static str {
+    use crate::PanelRole::*;
+    match role {
+        Door | DrawerFront => "front",
+        Shelf | ShelfFixed => "shelf",
+        Back | BackSub => "back",
+        DrawerSide | DrawerBack | DrawerBottom => "drawer",
+        _ => "carcass",
+    }
+}
+
+/// Mã chỉ → độ dày (mm).
+pub fn band_thickness_of(code: &str) -> f64 {
+    let c = code.to_ascii_uppercase();
+    c.rsplit('-').next().and_then(|t| t.replace(',', ".").parse::<f64>().ok()).filter(|t| *t > 0.0 && *t <= 5.0).unwrap_or(1.0)
 }
 
 impl Default for EdgeRule {
@@ -98,6 +127,7 @@ impl Default for EdgeRule {
             skip_thicknesses: vec![8.6],
             threshold: 0.5,
             min_length: 20.0,
+            groups: Default::default(),
         }
     }
 }

@@ -68,7 +68,15 @@ impl Engine {
         let Ok(def) = self.cabinet_def(cab) else { return p.edge_bands };
         let rule = &def.edge_rule;
         let overrides = def.mods.get(&key).map(|m| m.edges.clone()).unwrap_or_default();
-        let skip = rule.skip_thicknesses.iter().any(|s| (s - p.thickness_mm).abs() < 0.05);
+        // Luật theo nhóm tấm; hậu / đáy hộc mặc định không dán (theo vai trò, không theo độ dày).
+        let group = aic_domain::edge_group(p.role);
+        let g = rule.groups.get(group);
+        let (mode, code, band_t) = match g {
+            Some(g) => (g.mode, g.band_code.clone(), g.band_thickness),
+            None => (rule.mode, rule.band_code.clone(), rule.band_thickness),
+        };
+        let role_skip = g.is_none() && matches!(p.role, PanelRole::Back | PanelRole::BackSub | PanelRole::DrawerBottom);
+        let skip = role_skip || (g.is_none() && rule.skip_thicknesses.iter().any(|s| (s - p.thickness_mm).abs() < 0.05));
         let rels = self.relations().relations_of(id);
         let mut out = Vec::new();
         for edge in EdgeSide::ALL {
@@ -85,13 +93,13 @@ impl Engine {
                         && (r.contact != ContactType::Gap || r.gap_mm <= rule.threshold)
                 })
             };
-            let auto = match rule.mode {
+            let auto = match mode {
                 EdgeMode::None => false,
                 EdgeMode::All => !skip && len > rule.min_length,
                 EdgeMode::ExposedOnly => !skip && len > rule.min_length && !hidden(),
             };
             if overrides.get(&edge).copied().unwrap_or(auto) {
-                out.push(EdgeBand { edge, material_code: rule.band_code.clone(), thickness_mm: rule.band_thickness });
+                out.push(EdgeBand { edge, material_code: code.clone(), thickness_mm: band_t });
             }
         }
         out

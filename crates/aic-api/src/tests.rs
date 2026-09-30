@@ -1097,3 +1097,29 @@ fn blind_corner_cabinet_left_and_right() {
     let r = call(&mut e, json!({"cmd": "create_corner", "hand": "LEFT", "width": 600, "door_width": 500}));
     assert!(!r.ok);
 }
+
+#[test]
+fn edge_bands_per_panel_group() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "doors": 2}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let set = |e: &mut Engine, k: &str, v: &str| {
+        let r = call(e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v}));
+        assert!(r.ok, "{k}={v}: {:?}", r.error);
+    };
+    set(&mut e, "back_thickness", "9");
+    set(&mut e, "edge_g_front_mode", "ALL");
+    set(&mut e, "edge_g_front_code", "ABS-2");
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    let rows = c.result["cut_list"].as_array().unwrap().clone();
+    let door = rows.iter().find(|r| r["name"].as_str().unwrap().starts_with("CửaĐôi")).unwrap();
+    assert!((door["length"].as_f64().unwrap() - door["cut_length"].as_f64().unwrap() - 4.0).abs() < 1e-6, "ABS 2mm on both ends");
+    assert_eq!(door["edges"].as_array().unwrap().len(), 4);
+    let back = rows.iter().find(|r| r["role"] == "Back").unwrap();
+    assert!(back["edges"].as_array().unwrap().is_empty(), "9 mm back is not banded (by role)");
+    assert!(c.result["edges"].as_array().unwrap().iter().any(|l| l["key"].as_str().unwrap().contains("ABS-2")));
+    // Về luật chung.
+    set(&mut e, "edge_g_front_mode", "INHERIT");
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(!c.result["edges"].as_array().unwrap().iter().any(|l| l["key"].as_str().unwrap().contains("ABS-2")));
+}

@@ -22,6 +22,6 @@ pub use error::DomainError;
 pub use feature::*;
 pub use ids::{IdAllocator, MaterialId, NodeId, ObjectId};
 pub use material::{default_materials, Material, MaterialKind};
-pub use object::{Anchor, Anchors, Cabinet, DomainObject, EdgeMode, EdgeRule, Hardware, HardwareKind, ObjectKind, Room};
+pub use object::{band_thickness_of, edge_group, Anchor, Anchors, Cabinet, DomainObject, EdgeMode, EdgeRule, GroupEdge, Hardware, HardwareKind, ObjectKind, Room};
 pub use panel::{GrainDirection, Panel, PanelRole};
 pub use scene::{Scene, SceneNode};
