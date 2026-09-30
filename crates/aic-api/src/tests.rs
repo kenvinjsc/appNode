@@ -1317,7 +1317,7 @@ fn tool_features_are_parametric_and_one_undo() {
 fn kitchen_products_insert_with_one_undo() {
     let mut e = Engine::new();
     let info = call(&mut e, json!({"cmd": "get_products"}));
-    assert_eq!(info.result["products"].as_array().unwrap().iter().filter(|p| p["room"] == "Bếp").count(), 4);
+    assert_eq!(info.result["products"].as_array().unwrap().iter().filter(|p| p["room"] == "Bếp").count(), 5);
     let mut ids = Vec::new();
     for key in ["KITCHEN_BASE_800", "KITCHEN_WALL_800", "KITCHEN_CORNER_L", "KITCHEN_OVEN_TALL"] {
         let r = call(&mut e, json!({"cmd": "insert_product", "key": key}));
