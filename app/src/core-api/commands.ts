@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet, ParamFeature, BayInfo, PanelPosition } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet, ParamFeature, BayInfo, PanelPosition, BackCutout } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -87,6 +87,8 @@ export const Commands = {
   resizeCabinet: (id: ObjectId, name: 'width' | 'height' | 'depth', value: number, stretch: 'KEEP' | 'PROPORTIONAL' | 'EDGE', edge?: 'START' | 'END') =>
     command({ cmd: 'resize_cabinet', id, name, value, stretch, edge }),
   getStructure: (cabinet: ObjectId) => command<StructureInfo>({ cmd: 'get_structure', cabinet }),
+  /** Khoét hậu: thay cả danh sách lỗ (một undo). */
+  setBackCutouts: (cabinet: ObjectId, cutouts: BackCutout[]) => command({ cmd: 'set_back_cutouts', cabinet, cutouts }),
   saveGroupPreset: (cabinet: ObjectId, group: string, name: string) => command({ cmd: 'save_group_preset', cabinet, group, name }),
   applyGroupPreset: (ids: ObjectId[], group: string, name: string) => command({ cmd: 'apply_group_preset', ids, group, name }),
   deleteGroupPreset: (group: string, name: string) => command({ cmd: 'delete_group_preset', group, name }),

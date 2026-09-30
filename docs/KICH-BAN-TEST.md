@@ -92,6 +92,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
   một undo; Chia đều → khe bằng nhau; Xoay 90° → rộng / sâu đổi chỗ; Sát tường khe 5 → cách tường sau 5.
 - **TC-03.7 Đổi rộng tủ trong dãy** (Rust `row_of_cabinets_follows_a_width_change`). Tủ giữa dãy 600 → 700 → các tủ bên phải dịch
   100, không chồng nhau.
+- **TC-03.8 Khoét hậu, hậu ốp** (E2E 16, Rust `back_cutouts_overlay_back_and_split_at_fixed_shelves`). Thuộc tính kết cấu → Hậu →
+  + Ống nước Ø60 → lỗ tròn giữa hậu (CNC: đường cắt trong); đổi rộng tủ → lỗ vẫn giữa. Bật Hậu ốp bắt vít → hậu rộng bằng tủ,
+  hồi ngắn lại một độ dày hậu, báo giá có "Vít bắt hậu". Hậu lọt + Hậu chia theo kệ cố định + 1 kệ cố định → 2 tấm hậu, kệ
+  chạy tới mép sau.
 
 ### 04. Sửa trực tiếp trên bản vẽ 2D
 

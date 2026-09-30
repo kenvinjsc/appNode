@@ -25,6 +25,73 @@ pub struct BackRule {
     /// Đáy trùm hậu.
     #[serde(default)]
     pub bottom_covers: Option<bool>,
+    /// Hậu ốp bắt vít: the back covers the whole rear, screwed onto the carcass edges
+    /// (sides / top / bottom are shortened by the back thickness).
+    #[serde(default)]
+    pub overlay: bool,
+    /// Hậu chia theo kệ cố định (lapped back only): one back per section, full-width
+    /// fixed shelves run through to the rear edge.
+    #[serde(default)]
+    pub split_at_fixed: bool,
+    /// Khoét hậu: openings for sockets, pipes, vents.
+    #[serde(default)]
+    pub cutouts: Vec<BackCutout>,
+}
+
+/// Kiểu lỗ khoét hậu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CutoutKind {
+    /// Ổ điện (chữ nhật bo góc).
+    #[default]
+    Socket,
+    /// Ống nước (tròn, đường kính = `w`).
+    Pipe,
+    /// Thoát nhiệt (khe chữ nhật).
+    Vent,
+}
+
+/// Neo ngang của lỗ khoét: đo từ mép trái / tâm / mép phải lòng tủ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HAnchor {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
+/// Lỗ khoét trên hậu, tọa độ theo lòng tủ (không theo tấm hậu) nên đổi cỡ tủ vẫn đúng chỗ:
+/// tâm lỗ cách neo ngang `x` (Left: sang phải, Right: sang trái, Center: + sang phải) và cách
+/// mặt trên đáy `y`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BackCutout {
+    #[serde(default)]
+    pub kind: CutoutKind,
+    #[serde(default)]
+    pub anchor: HAnchor,
+    #[serde(default)]
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    #[serde(default)]
+    pub h: f64,
+    /// Bo góc (Socket / Vent).
+    #[serde(default)]
+    pub r: f64,
+}
+
+impl BackCutout {
+    /// Size (w, h) and corner radius of the opening.
+    pub fn shape(&self) -> (f64, f64, f64) {
+        match self.kind {
+            CutoutKind::Pipe => (self.w, self.w, self.w / 2.0),
+            _ => {
+                let h = if self.h > 0.0 { self.h } else { self.w };
+                (self.w, h, self.r.clamp(0.0, self.w.min(h) / 2.0))
+            }
+        }
+    }
 }
 
 impl BackRule {

@@ -1520,3 +1520,63 @@ fn tilted_shoe_shelves_and_partial_divider() {
     let d = e.doc.cabinet_layout(wc).unwrap().parts.into_iter().find(|p| p.name == "HôngGiữa_01").unwrap();
     assert!((d.size[1] - 400.0).abs() < 1e-6, "{:?}", d.size);
 }
+
+#[test]
+fn back_cutouts_overlay_back_and_split_at_fixed_shelves() {
+    use aic_domain::layout::PartKind;
+    use aic_domain::MachiningFeature;
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "height": 720, "depth": 560, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    // Tủ lavabo: ống Ø60 giữa tủ, tâm cách đáy 250.
+    let r = call(&mut e, json!({"cmd": "set_back_cutouts", "cabinet": cab, "cutouts": [{"kind": "PIPE", "anchor": "CENTER", "x": 0, "y": 250, "w": 60}]}));
+    assert!(r.ok, "{:?}", r.error);
+    let hole_center = |e: &Engine| {
+        let l = e.doc.cabinet_layout(cab).unwrap();
+        let back = l.parts.iter().find(|p| p.key == "c:back").unwrap();
+        let PartKind::Panel { features, .. } = &back.kind else { panic!() };
+        let c = features.iter().find_map(|f| match f { MachiningFeature::Contour(c) if c.inner => Some(c.clone()), _ => None }).expect("inner contour");
+        let n = c.polygon.points.len() as f64;
+        let (x, y) = c.polygon.points.iter().fold((0.0, 0.0), |a, p| (a.0 + p.x / n, a.1 + p.y / n));
+        (back.translation[0] + x, back.translation[1] + y)
+    };
+    let p = e.doc.param_value(cab, "plinth_height").unwrap();
+    let t = e.doc.param_value(cab, "thickness").unwrap();
+    let (x, y) = hole_center(&e);
+    assert!((x - 400.0).abs() < 0.5 && (y - (p + t + 250.0)).abs() < 0.5, "{x} {y}");
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "900"}));
+    assert!(r.ok, "{:?}", r.error);
+    let (x, _) = hole_center(&e);
+    assert!((x - 450.0).abs() < 0.5, "hole stays centred after resize: {x}");
+    assert!(call(&mut e, json!({"cmd": "get_structure", "cabinet": cab})).result["back_cutouts"].as_array().unwrap().len() == 1);
+
+    // Hậu ốp bắt vít: hậu phủ hết lưng, hồi ngắn lại một độ dày hậu, có vít.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "back_overlay", "value": "1"}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let bt = e.doc.param_value(cab, "back_thickness").unwrap();
+    let back = l.parts.iter().find(|p| p.key == "c:back").unwrap();
+    let side = l.parts.iter().find(|p| p.key == "c:left").unwrap();
+    assert!((back.size[0] - 900.0).abs() < 1e-6 && back.translation[2] == 0.0, "{:?}", back);
+    assert!((side.size[0] - (560.0 - bt)).abs() < 1e-6);
+    assert!(l.fittings.back_screws > 10);
+    call(&mut e, json!({"cmd": "undo"}));
+
+    // Hậu chia theo kệ cố định (hậu lọt): 2 tấm hậu, kệ chạy suốt ra mép sau.
+    for (k, v) in [("back_groove", "0"), ("back_split_at_fixed", "1")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_panels", "cabinet": cab, "zones": [root], "kind": "SHELF_FIXED", "count": 1}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let backs: Vec<_> = l.parts.iter().filter(|p| p.key.starts_with("c:back")).collect();
+    assert_eq!(backs.len(), 2, "one back per section");
+    let shelf = l.parts.iter().find(|p| p.name.starts_with("KệCốĐịnh")).unwrap();
+    assert!((shelf.translation[2] - shelf.size[1]).abs() < 1e-6, "fixed shelf reaches the rear edge");
+    assert!((backs[0].translation[1] + backs[0].size[1] - shelf.translation[1]).abs() < 1e-6);
+    // The pipe is in the lower section.
+    let PartKind::Panel { features, .. } = &backs[0].kind else { panic!() };
+    assert!(features.iter().any(|f| matches!(f, MachiningFeature::Contour(c) if c.inner)));
+}

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { MaterialSet, StructureField, StructureInfo } from '../../core-api/types';
+import type { BackCutout, MaterialSet, StructureField, StructureInfo } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 
 export function StructureDialog() {
@@ -202,6 +202,7 @@ export function StructureDialog() {
         {cur.fields.map((f, i) => (
           <StructField key={`${cur.key}-${f.key}-${i}`} f={f} onCommit={commit} />
         ))}
+        {cur.key === 'back' && <Cutouts cabinet={info.cabinet} list={info.back_cutouts ?? []} />}
       </div>
     </div>
   );
@@ -247,5 +248,74 @@ function StructField({ f, onCommit }: { f: StructureField; onCommit: (key: strin
         }}
       />
     </label>
+  );
+}
+
+const CUT_PRESETS: { label: string; c: BackCutout }[] = [
+  { label: 'Ổ điện', c: { kind: 'SOCKET', anchor: 'CENTER', x: 0, y: 300, w: 80, h: 80, r: 5 } },
+  { label: 'Ống nước Ø60', c: { kind: 'PIPE', anchor: 'CENTER', x: 0, y: 250, w: 60, h: 60, r: 30 } },
+  { label: 'Thoát nhiệt', c: { kind: 'VENT', anchor: 'CENTER', x: 0, y: 50, w: 400, h: 60, r: 10 } },
+];
+const KIND_LABEL = { SOCKET: 'Ổ điện', PIPE: 'Ống', VENT: 'Thoát nhiệt' } as const;
+
+/** Khoét hậu: danh sách lỗ; mỗi thay đổi gửi cả danh sách (core kiểm tra, một undo). */
+function Cutouts({ cabinet, list }: { cabinet: number; list: BackCutout[] }) {
+  const save = (next: BackCutout[]) => void Commands.setBackCutouts(cabinet, next).catch(() => undefined);
+  const patch = (i: number, p: Partial<BackCutout>) => save(list.map((c, k) => (k === i ? { ...c, ...p } : c)));
+  const Num = ({ i, k, title }: { i: number; k: 'x' | 'y' | 'w' | 'h'; title: string }) => (
+    <input
+      className="field cut-num"
+      title={title}
+      defaultValue={String(list[i][k])}
+      onBlur={(e) => {
+        const v = Number(e.target.value.replace(',', '.'));
+        if (Number.isFinite(v) && v !== list[i][k]) patch(i, { [k]: v });
+      }}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+  return (
+    <div className="back-cuts">
+      <h5 className="struct-section">Khoét hậu</h5>
+      {list.length > 0 && (
+        <div className="cut-row cut-head">
+          <span>Lỗ</span>
+          <span>Neo</span>
+          <span>x</span>
+          <span>y</span>
+          <span>Rộng</span>
+          <span>Cao</span>
+          <span />
+        </div>
+      )}
+      {list.map((c, i) => (
+        <div className="cut-row" key={`${i}-${c.kind}-${c.x}-${c.y}-${c.w}-${c.h}-${c.anchor}`}>
+          <span className="cut-kind">{KIND_LABEL[c.kind]}</span>
+          <select className="field" value={c.anchor} title="Neo ngang" onChange={(e) => patch(i, { anchor: e.target.value as BackCutout['anchor'] })}>
+            <option value="LEFT">Từ trái</option>
+            <option value="CENTER">Giữa</option>
+            <option value="RIGHT">Từ phải</option>
+          </select>
+          <Num i={i} k="x" title="Tâm lỗ cách neo (mm)" />
+          <Num i={i} k="y" title="Tâm lỗ cách mặt đáy (mm)" />
+          <Num i={i} k="w" title={c.kind === 'PIPE' ? 'Đường kính' : 'Rộng'} />
+          {c.kind !== 'PIPE' ? <Num i={i} k="h" title="Cao" /> : <span />}
+          <button className="icon-btn" title="Bỏ lỗ" onClick={() => save(list.filter((_, k) => k !== i))}>
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      ))}
+      <div className="cut-add">
+        {CUT_PRESETS.map((p) => (
+          <button key={p.label} className="btn" onClick={() => save([...list, p.c])}>
+            + {p.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted small">x: tâm cách neo · y: tâm cách mặt đáy · đổi cỡ tủ lỗ vẫn đúng chỗ.</p>
+    </div>
   );
 }

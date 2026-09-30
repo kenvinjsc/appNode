@@ -383,6 +383,9 @@ pub struct Fittings {
     /// Ke treo tủ.
     #[serde(default)]
     pub hangers: u32,
+    /// Vít bắt hậu ốp.
+    #[serde(default)]
+    pub back_screws: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -459,6 +462,8 @@ struct Ctx<'a> {
     drawer_sets: u32,
     /// Hàng lỗ chốt 32 đã khoan (part, y0, h) — không khoan trùng khi nhiều kệ cùng khoang.
     pin_rows: std::collections::HashSet<(usize, i64, i64)>,
+    /// Hậu chờ dựng sau khoang (kệ cố định, khoét hậu).
+    back: Option<BackPlan>,
 }
 
 const STD_SLIDES: [f64; 8] = [250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0];
@@ -517,7 +522,7 @@ impl<'a> Ctx<'a> {
 
 /// Build all parts of a cabinet.
 pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
-    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default() };
+    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default(), back: None };
     if let Some(dg) = cab.rules.diagonal.clone() {
         diagonal_corner(&mut cx, &dg);
         apply_mods(&mut cx.out, &cab.mods);
@@ -525,6 +530,7 @@ pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     }
     let root = carcass(&mut cx);
     zone(&mut cx, &cab.zones.root, root, 0);
+    backs(&mut cx);
     apply_mods(&mut cx.out, &cab.mods);
     cx.out
 }
@@ -654,7 +660,10 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     let top_overlay = cab.top_style == JoinStyle::Overlay;
     let rails = cab.top_style == JoinStyle::Rails;
     let bottom_overlay = cab.bottom_style == JoinStyle::Overlay;
-    let groove = cab.back_panel && v.back_groove > 0.0;
+    let rules = &cab.rules;
+    // Hậu ốp: the back covers the whole rear; the carcass stands in front of it.
+    let overlay = cab.back_panel && rules.back.overlay;
+    let groove = cab.back_panel && !overlay && v.back_groove > 0.0;
     // Z where the carcass horizontals start (behind them: the back).
     let back_front = if !cab.back_panel {
         0.0
@@ -663,11 +672,12 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     } else {
         bt
     };
-    let rules = &cab.rules;
     // Where the top / bottom start in depth: behind them sits a lapped back unless
     // they cover it (nóc / đáy trùm hậu).
     let (top_start, bottom_start) = if groove || !cab.back_panel {
         (0.0, 0.0)
+    } else if overlay {
+        (bt, bt)
     } else {
         (if rules.back.top_covers == Some(true) { 0.0 } else { bt }, if rules.back.bottom_covers == Some(true) { 0.0 } else { bt })
     };
@@ -676,8 +686,9 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     let side_y = if bottom_overlay { p + t } else if on_legs { p } else { 0.0 };
     let side_h = h - side_y - if top_overlay { t } else { 0.0 };
 
-    let l = cx.panel("c:left".into(), "HồiTrái".into(), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, side_h, t], [0.0, side_y, d], ROT_SIDE);
-    let r = cx.panel("c:right".into(), "HồiPhải".into(), PanelRole::RightSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, side_h, t], [w - t, side_y, d], ROT_SIDE);
+    let side_d = if overlay { d - bt } else { d };
+    let l = cx.panel("c:left".into(), "HồiTrái".into(), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [side_d, side_h, t], [0.0, side_y, d], ROT_SIDE);
+    let r = cx.panel("c:right".into(), "HồiPhải".into(), PanelRole::RightSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [side_d, side_h, t], [w - t, side_y, d], ROT_SIDE);
 
     let inner_w = w - 2.0 * t;
     let top_w = if top_overlay { w } else { inner_w };
@@ -701,7 +712,7 @@ fn carcass(cx: &mut Ctx) -> ZBox {
             let g = (v.back_groove - rules.back.clearance).max(0.0);
             let bw = inner_w + 2.0 * g;
             let bh = h - p - 2.0 * t + 2.0 * g;
-            back_pieces(cx, &rules.back, t - g + gl, bw - gl - gr, p + t - g + gb, bh - gb - gt, bt, v.back_offset);
+            cx.back = Some(BackPlan { rect: [t - g + gl, p + t - g + gb, bw - gl - gr, bh - gb - gt], z: v.back_offset, bt, lapped: false });
             let tol = 0.5;
             let gw = bt + tol;
             // Groove across the inner faces: sides (along height), top/bottom (along width).
@@ -719,12 +730,19 @@ fn carcass(cx: &mut Ctx) -> ZBox {
             }
             let gx_bot = (t - g) - bottom_x;
             cx.add_features(b, vec![MachiningFeature::Groove(GrooveFeature { x: gx_bot, y: hy, length: bw, width: gw, depth, direction: Axis2::X, side: FaceSide::A })]);
+        } else if overlay {
+            // Hậu ốp: whole rear, from the bottom of the sides to the top; screwed on
+            // the carcass edges every ~150 mm.
+            let (bw, bh) = (w - gl - gr, h - side_y - gb - gt);
+            cx.back = Some(BackPlan { rect: [gl, side_y + gb, bw, bh], z: 0.0, bt, lapped: false });
+            let n = |len: f64| ((len - 60.0).max(0.0) / 150.0).ceil() as u32 + 1;
+            cx.out.fittings.back_screws += 2 * n(bw) + 2 * n(bh);
         } else {
             // Lapped back: from the bottom (or on it when the bottom covers the back)
             // to under the top (or to the top edge when the top does not cover it).
             let y0 = if rules.back.bottom_covers == Some(true) { p + t } else { p };
             let y1 = if rules.back.top_covers == Some(false) { h } else { h - t };
-            back_pieces(cx, &rules.back, t + gl, inner_w - gl - gr, y0 + gb, y1 - y0 - gb - gt, bt, 0.0);
+            cx.back = Some(BackPlan { rect: [t + gl, y0 + gb, inner_w - gl - gr, y1 - y0 - gb - gt], z: 0.0, bt, lapped: true });
         }
     }
 
@@ -738,15 +756,116 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     }
 }
 
-/// Back board(s): one panel, or vertical pieces when "Chia dọc" is on.
-#[allow(clippy::too_many_arguments)]
-fn back_pieces(cx: &mut Ctx, rule: &crate::structure::BackRule, x: f64, w: f64, y: f64, h: f64, bt: f64, z: f64) {
-    let mut at = x;
-    for (i, pw) in rule.pieces(w.max(1.0)).into_iter().enumerate() {
-        let (key, name) = if i == 0 { ("c:back".to_string(), "Hậu".to_string()) } else { (format!("c:back:{}", i + 1), format!("Hậu_{}", i + 1)) };
-        cx.panel(key, name, PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [pw, h.max(1.0), bt], [at, y, z], [0.0; 3]);
-        at += pw;
+/// Tấm hậu chờ dựng: được dựng sau các khoang để biết vị trí kệ cố định.
+#[derive(Debug, Clone, Copy)]
+struct BackPlan {
+    /// [x, y, w, h] in the cabinet front plane.
+    rect: [f64; 4],
+    z: f64,
+    bt: f64,
+    /// Hậu lọt giữa hồi (chia theo kệ cố định được).
+    lapped: bool,
+}
+
+/// Back board(s): one panel, vertical pieces when "Chia dọc" is on, sections between
+/// full-width fixed shelves when "Hậu chia theo kệ cố định" is on; cutouts (khoét hậu)
+/// become inner contours on the piece that holds them.
+fn backs(cx: &mut Ctx) {
+    let Some(plan) = cx.back else { return };
+    let rule = &cx.cab.rules.back;
+    let [x, y, w, h] = plan.rect;
+    let (t, bt) = (cx.v.thickness, plan.bt);
+    // Sections along the height.
+    let mut rows = vec![(y, y + h)];
+    if plan.lapped && rule.split_at_fixed {
+        let inner_w = cx.v.width - 2.0 * t;
+        let mut cuts: Vec<(usize, f64, f64)> = Vec::new();
+        for (i, p) in cx.out.parts.iter().enumerate() {
+            let fixed = matches!(p.kind, PartKind::Panel { role: PanelRole::ShelfFixed, .. });
+            let rear = p.translation[2] - p.size[1];
+            if fixed && p.rotation_deg == ROT_HORIZONTAL && p.size[0] >= inner_w - 1.0 && (rear - plan.bt).abs() < 0.5 {
+                let (s0, s1) = (p.translation[1], p.translation[1] + p.size[2]);
+                if s0 > y + 20.0 && s1 < y + h - 20.0 {
+                    cuts.push((i, s0, s1));
+                }
+            }
+        }
+        cuts.sort_by(|a, b| a.1.total_cmp(&b.1));
+        if !cuts.is_empty() {
+            rows.clear();
+            let mut at = y;
+            for (i, s0, s1) in cuts {
+                // The shelf runs through to the rear edge, between two backs.
+                cx.out.parts[i].size[1] += bt;
+                rows.push((at, s0));
+                at = s1;
+            }
+            rows.push((at, y + h));
+        }
     }
+    let (v, cuts) = (cx.v, rule.cutouts.clone());
+    let centers: Vec<(f64, f64)> = cuts
+        .iter()
+        .map(|c| {
+            let cxw = match c.anchor {
+                crate::structure::HAnchor::Left => t + c.x,
+                crate::structure::HAnchor::Center => v.width / 2.0 + c.x,
+                crate::structure::HAnchor::Right => v.width - t - c.x,
+            };
+            (cxw, v.plinth_height + t + c.y)
+        })
+        .collect();
+    let mut n = 0;
+    for (y0, y1) in rows {
+        let mut at = x;
+        for pw in rule.pieces(w.max(1.0)) {
+            let (key, name) = if n == 0 { ("c:back".to_string(), "Hậu".to_string()) } else { (format!("c:back:{}", n + 1), format!("Hậu_{}", n + 1)) };
+            n += 1;
+            let ph = (y1 - y0).max(1.0);
+            let idx = cx.panel(key, name, PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [pw, ph, bt], [at, y0, plan.z], [0.0; 3]);
+            let mut feats = Vec::new();
+            for (c, (ccx, ccy)) in cuts.iter().zip(&centers) {
+                let (cw, ch, r) = c.shape();
+                let (lx, ly) = (ccx - at, ccy - y0);
+                let m = 5.0;
+                if cw > 0.0 && lx - cw / 2.0 >= m && lx + cw / 2.0 <= pw - m && ly - ch / 2.0 >= m && ly + ch / 2.0 <= ph - m {
+                    feats.push(MachiningFeature::Contour(crate::ContourFeature { polygon: rounded_rect(lx, ly, cw, ch, r), inner: true, depth: bt }));
+                }
+            }
+            cx.add_features(idx, feats);
+            at += pw;
+        }
+    }
+}
+
+/// Chữ nhật bo góc tâm (cx, cy), cạnh (w, h), bán kính r (r = w/2 = h/2 → hình tròn).
+fn rounded_rect(cx: f64, cy: f64, w: f64, h: f64, r: f64) -> aic_math::Polygon2D {
+    let (hw, hh) = (w / 2.0, h / 2.0);
+    let r = r.clamp(0.0, hw.min(hh));
+    let mut pts = Vec::new();
+    if r < 0.5 {
+        for (sx, sy) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+            pts.push(aic_math::Point2::new(cx + sx * hw, cy + sy * hh));
+        }
+    } else {
+        // Corner centres counter-clockwise from bottom-right, 8 segments per corner.
+        let corners = [(hw - r, -(hh - r), -90.0), (hw - r, hh - r, 0.0), (-(hw - r), hh - r, 90.0), (-(hw - r), -(hh - r), 180.0)];
+        for (ox, oy, a0) in corners {
+            for k in 0..=8 {
+                let a = (a0 + k as f64 * 90.0 / 8.0_f64).to_radians();
+                let p = aic_math::Point2::new(cx + ox + r * a.cos(), cy + oy + r * a.sin());
+                if pts.last().is_none_or(|q: &aic_math::Point2| (q.x - p.x).abs() > 1e-6 || (q.y - p.y).abs() > 1e-6) {
+                    pts.push(p);
+                }
+            }
+        }
+        if let (Some(a), Some(b)) = (pts.first(), pts.last()) {
+            if (a.x - b.x).abs() < 1e-6 && (a.y - b.y).abs() < 1e-6 {
+                pts.pop();
+            }
+        }
+    }
+    aic_math::Polygon2D::new(pts)
 }
 
 /// Thanh giằng (trên): front / back / extra rail sets, flat or on edge.

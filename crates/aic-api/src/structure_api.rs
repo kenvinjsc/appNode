@@ -144,6 +144,8 @@ impl Engine {
                     text("back_split_formula", "Công thức chia", &r.back.split_formula, "600 = mỗi tấm ≤ 600 mm · 3x = chia 3"),
                     flag("top_covers_back", "Nóc trùm hậu", r.back.top_covers == Some(true)),
                     flag("bottom_covers_back", "Đáy trùm hậu", r.back.bottom_covers == Some(true)),
+                    flag("back_overlay", "Hậu ốp bắt vít (sau hồi)", r.back.overlay),
+                    flag("back_split_at_fixed", "Hậu chia theo kệ cố định", r.back.split_at_fixed),
                 ],
             ),
             (
@@ -274,7 +276,7 @@ impl Engine {
             .collect();
         let rails_active = def.top_style == aic_domain::JoinStyle::Rails;
         let standards: Vec<&str> = self.library.groups.iter().filter(|g| g.group == SHOP_GROUP).map(|g| g.name.as_str()).collect();
-        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards, "room": def.room }))
+        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards, "room": def.room, "back_cutouts": def.rules.back.cutouts }))
     }
 
     /// Lưu mẫu tab: the tab's current values under `name` in the shared library.

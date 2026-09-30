@@ -286,6 +286,9 @@ impl Engine {
             if f.hangers > 0 {
                 add("hanger".into(), "Ke treo tủ".into(), f.hangers as f64, "Cái");
             }
+            if f.back_screws > 0 {
+                add("back_screw".into(), "Vít bắt hậu 3.5×16".into(), f.back_screws as f64, "Cái");
+            }
             if f.push_latches > 0 {
                 add("push_open".into(), "Nhấn mở (push-open)".into(), f.push_latches as f64, "Bộ");
             }

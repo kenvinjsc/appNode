@@ -298,6 +298,8 @@ pub enum Request {
     },
     /// Tool gia công theo tham số cho nhiều tấm (khấu góc, khấu bề mặt, rãnh LED / V-bit).
     ToolFeature { ids: Vec<ObjectId>, #[serde(default)] tool: String, feature: aic_domain::ParamFeature },
+    /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
+    SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.
     GetMaterialSets,
     SaveMaterialSet { cabinet: ObjectId, name: String },

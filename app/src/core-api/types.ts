@@ -521,6 +521,20 @@ export interface StructureInfo {
   standards: string[];
   /** Phòng của tủ (áp bộ vật liệu cả phòng). */
   room: string;
+  /** Khoét hậu (D15). */
+  back_cutouts: BackCutout[];
+}
+
+/** Lỗ khoét hậu, tọa độ theo lòng tủ: tâm cách neo ngang `x`, cách mặt trên đáy `y`. */
+export interface BackCutout {
+  kind: 'SOCKET' | 'PIPE' | 'VENT';
+  anchor: 'LEFT' | 'CENTER' | 'RIGHT';
+  x: number;
+  y: number;
+  /** Rộng (ống: đường kính). */
+  w: number;
+  h: number;
+  r: number;
 }
 
 // ---- Dãy tủ ----

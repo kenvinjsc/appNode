@@ -536,6 +536,8 @@ impl Engine {
                             "back_gap_top" => r.back.gaps[2] = n(&v)?.max(0.0),
                             "back_gap_bottom" => r.back.gaps[3] = n(&v)?.max(0.0),
                             "back_split" => r.back.split = on,
+                            "back_overlay" => r.back.overlay = on,
+                            "back_split_at_fixed" => r.back.split_at_fixed = on,
                             "back_split_formula" => r.back.split_formula = v.clone(),
                             "top_covers_back" => r.back.top_covers = Some(on),
                             "bottom_covers_back" => r.back.bottom_covers = Some(on),

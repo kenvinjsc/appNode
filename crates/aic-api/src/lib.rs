@@ -517,6 +517,19 @@ impl Engine {
             Preview { cabinet, request } => ok(self.preview(cabinet, *request)?),
             GetProducts => ok(self.products_info()),
             InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
+            SetBackCutouts { cabinet, cutouts } => {
+                for c in &cutouts {
+                    let (w, h, _) = c.shape();
+                    if !(w > 0.0 && h > 0.0 && c.x.is_finite() && c.y.is_finite()) {
+                        return Err(CoreError::InvalidParameter { name: "cutouts".into(), reason: "cutout size must be > 0".into() });
+                    }
+                }
+                self.edit_cabinet_checked(cabinet, "Khoét hậu", move |c| {
+                    c.rules.back.cutouts = cutouts;
+                    Ok(())
+                })?;
+                ok(json!({ "cabinet": cabinet }))
+            }
             ToolFeature { ids, tool, feature } => ok(json!({ "panels": self.tool_feature(&ids, &tool, feature)? })),
             GetMaterialSets => ok(self.material_sets_info()),
             SaveMaterialSet { cabinet, name } => {

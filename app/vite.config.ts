@@ -12,5 +12,5 @@ export default defineConfig({
     proxy: { '/api': 'http://127.0.0.1:8787' },
   },
   build: { chunkSizeWarningLimit: 1500 },
-  test: { environment: 'node' },
+  test: { environment: 'node', include: ['src/**/*.test.{ts,tsx}'] },
 } as never);
