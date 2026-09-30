@@ -796,10 +796,11 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
             cb.size[a] = (end - cursor).max(1.0);
             if a < 2 {
                 let (lo, hi) = if a == 0 { (0, 1) } else { (2, 3) };
-                if i > 0 && part_idx[i - 1].is_some() {
+                // Chia ảo: không có tấm, hai mặt cánh kề nhau chỉ cách một khe (t = 0).
+                if i > 0 {
                     cb.nb[lo] = Neighbor { t: s.panels[i - 1].thickness, outer: false, part: part_idx[i - 1] };
                 }
-                if i < s.panels.len() && part_idx[i].is_some() {
+                if i < s.panels.len() {
                     cb.nb[hi] = Neighbor { t: s.panels[i].thickness, outer: false, part: part_idx[i] };
                 }
             }
@@ -958,7 +959,7 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     let _ = &mut x1;
     let cw = ((x1 - x0) - (cols - 1) as f64 * gap) / cols as f64;
     let ch = ((y1 - y0) - (rows - 1) as f64 * gap) / rows as f64;
-    let base = if spec.kind == DoorKind::Double { "CửaĐôi" } else { "CửaĐơn" };
+    let base = if spec.fixed { "TấmMù" } else if spec.kind == DoorKind::Double { "CửaĐôi" } else { "CửaĐơn" };
     for r in 0..rows {
         for c in 0..cols {
             let hinge = match (spec.kind, spec.hinge) {
@@ -974,6 +975,10 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
             let dx = x0 + c as f64 * (cw + gap);
             let dy = y0 + r as f64 * (ch + gap);
             let idx = cx.panel(format!("d:{}:{r}:{c}", spec.uid), format!("{base}_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [cw, ch, t], [dx, dy, z], [0.0; 3]);
+            if spec.fixed {
+                // Tấm mù cố định: bắt vít vào hồi / vách, không bản lề, không tay nắm.
+                continue;
+            }
             let sr = cx.cab.rules.shop.clone();
             cx.add_features(idx, hinge_cups(&sr, cw, ch, hinge));
             if let PartKind::Panel { hinge: hs, .. } = &mut cx.out.parts[idx].kind {
@@ -1365,6 +1370,7 @@ pub fn set_legacy_front(t: &mut ZoneTree, doors: u32, drawers: u32) {
             gap: None,
             side_gaps: None,
             stop: StopRailSpec::default(),
+            fixed: false,
         }))
     } else {
         None

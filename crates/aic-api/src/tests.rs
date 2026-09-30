@@ -1071,3 +1071,29 @@ fn run_countertop_follows_cabinets_one_undo() {
     assert!(part(&e, "LenChânDãy").is_none());
     assert!(e.doc.cabinet_layout(ids[0]).unwrap().parts.iter().any(|p| p.name == "ChânTủ"));
 }
+
+#[test]
+fn blind_corner_cabinet_left_and_right() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_corner", "hand": "LEFT", "width": 1100, "door_width": 450}));
+    assert!(r.ok, "{:?}", r.error);
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let blind = l.parts.iter().find(|p| p.name.starts_with("TấmMù")).expect("blind panel");
+    let door = l.parts.iter().find(|p| p.name.starts_with("CửaĐơn")).expect("door");
+    assert!(blind.translation[0] < door.translation[0], "blind on the left");
+    let gap = door.translation[0] - (blind.translation[0] + blind.size[0]);
+    assert!(gap > 0.5 && gap < 5.0, "blind and door leave a door gap: {gap}");
+    assert!((door.size[0] - 450.0).abs() < 5.0, "door ≈ 450: {}", door.size[0]);
+    assert!(l.fittings.hinges == 2 && l.fittings.handles == 1, "only the door has hinges / handle");
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(e.doc.objects.get(&cab).is_none(), "one undo removes the corner cabinet");
+    let r = call(&mut e, json!({"cmd": "create_corner", "hand": "RIGHT", "width": 1000}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let blind = l.parts.iter().find(|p| p.name.starts_with("TấmMù")).unwrap();
+    let door = l.parts.iter().find(|p| p.name.starts_with("CửaĐơn")).unwrap();
+    assert!(blind.translation[0] > door.translation[0]);
+    let r = call(&mut e, json!({"cmd": "create_corner", "hand": "LEFT", "width": 600, "door_width": 500}));
+    assert!(!r.ok);
+}

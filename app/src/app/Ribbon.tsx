@@ -5,7 +5,8 @@ import { Icon } from '../shared/icons';
 import { View } from '../viewport/viewportBus';
 import { Actions } from './actions';
 import { openSplitTool } from '../features/cabinet/SplitDialog';
-import { useUi, type RibbonTab } from './uiStore';
+import { findNode, useUi, type RibbonTab } from './uiStore';
+import { Commands } from '../core-api/commands';
 
 function Btn({ icon, label, onClick, active, disabled, title, accent }: { icon: string; label: string; onClick?: () => void; active?: boolean; disabled?: boolean; title?: string; accent?: boolean }) {
   return (
@@ -42,6 +43,21 @@ function CabinetMenu() {
               }}
             >
               <Icon name={k.icon} size={16} /> {k.label}
+            </button>
+          ))}
+          {(['LEFT', 'RIGHT'] as const).map((hand) => (
+            <button
+              key={hand}
+              onClick={() => {
+                setOpen(false);
+                const s = useUi.getState();
+                const after = s.selection.find((id) => findNode(s.tree, id)?.node.kind === 'CABINET');
+                void Commands.createCorner(hand, after)
+                  .then((r) => s.select([r.id]))
+                  .catch(() => undefined);
+              }}
+            >
+              <Icon name="cabinet" size={16} /> Tủ góc L mù ({hand === 'LEFT' ? 'góc trái' : 'góc phải'})
             </button>
           ))}
         </div>

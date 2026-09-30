@@ -35,6 +35,8 @@ export const Commands = {
   createCabinet: (kind: CabinetKind, position: Vec3 | null, overrides: Record<string, unknown> = {}, extra: { parent?: ObjectId; name?: string; room?: string; floor?: string; after?: ObjectId } = {}) =>
     command<{ id: ObjectId }>({ cmd: 'create_cabinet', kind, position: position ?? undefined, overrides, ...extra }),
   /** Chia khoang theo công thức (`500`, `500,300`, `30%,*`, `3*400`, `/3`). */
+  /** Tủ góc bếp L mù (phần mù phía góc + 1 cánh). */
+  createCorner: (hand: 'LEFT' | 'RIGHT', after?: ObjectId, width?: number, door_width?: number) => command<{ id: ObjectId }>({ cmd: 'create_corner', hand, after, width, door_width }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),

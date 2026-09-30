@@ -373,6 +373,57 @@ impl Engine {
             }
             MoveSplitPanel { id, before } => ok(self.move_split_panel(id, before)?),
             CreateRun { ids, rules } => ok(self.create_run(ids, rules)?),
+            CreateCorner { hand, width, height, depth, door_width, position, room, floor, after } => {
+                let left = match hand.to_ascii_uppercase().as_str() {
+                    "LEFT" => true,
+                    "RIGHT" => false,
+                    _ => return Err(CoreError::InvalidParameter { name: "hand".into(), reason: "LEFT | RIGHT".into() }),
+                };
+                let w = width.unwrap_or(1100.0);
+                let dw = door_width.unwrap_or(450.0);
+                if dw < 250.0 || dw > w - 200.0 {
+                    return Err(CoreError::ConstraintViolated { constraint: "CORNER_DOOR".into(), message: format!("door {dw} in {w}") });
+                }
+                // Đặt cạnh tủ `after`: cùng phòng / tầng với tủ đó.
+                let (room, floor) = match after.and_then(|a| self.doc.objects.get(&a)).and_then(|o| o.as_cabinet()) {
+                    Some(c) => (room.or_else(|| Some(c.room.clone())), floor.or_else(|| Some(c.floor.clone()))),
+                    None => (room, floor),
+                };
+                let mark = self.history.mark();
+                let res = (|| -> Result<Value, CoreError> {
+                    let overrides = protocol::CabinetOverrides { width: Some(w), height, depth, doors: Some(0), shelves: Some(0), ..Default::default() };
+                    let r = self.handle(Request::CreateCabinet { kind: aic_domain::CabinetKind::Base, position, parent: None, overrides, name: Some(format!("BếpGóc{}", if left { "Trái" } else { "Phải" })), room, floor, after })?;
+                    let cab: ObjectId = serde_json::from_value(r["id"].clone()).map_err(|_| CoreError::NotFound { id: ObjectId(0) })?;
+                    let root = self.cabinet_def(cab)?.zones.root.id;
+                    let t = self.doc.param_value(cab, "thickness").unwrap_or(17.2);
+                    // Ô cánh = rộng cánh − phần phủ lên hồi (t − khe) + nửa khe giữa cánh và tấm mù.
+                    let gap = self.doc.param_value(cab, "door_gap").unwrap_or(2.0);
+                    let opening = (dw - (t - gap) + gap / 2.0).max(100.0);
+                    self.split_zone(protocol::SplitZone { cabinet: cab, zone: root, kind: aic_domain::zone::SplitKind::VirtualV, formula: format!("{opening}"), from_end: left, thickness: None })?;
+                    let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+                    let child = |i: usize| layout.bays.iter().find(|b| b.zone == root && b.index == i).map(|b| b.child);
+                    let (blind, door) = if left { (child(0), child(1)) } else { (child(1), child(0)) };
+                    let (Some(blind), Some(door)) = (blind, door) else { return Err(CoreError::NotFound { id: cab }) };
+                    let hinge = if left { aic_domain::zone::HingeSide::Right } else { aic_domain::zone::HingeSide::Left };
+                    self.zone_set_front(cab, vec![door], Some(zones::default_door(aic_domain::zone::DoorKind::Single, 1, 1, aic_domain::zone::Mount::Overlay, hinge, None, None)))?;
+                    let mut mute = zones::default_door(aic_domain::zone::DoorKind::Single, 1, 1, aic_domain::zone::Mount::Overlay, hinge, None, None);
+                    if let aic_domain::zone::Front::Doors(d) = &mut mute {
+                        d.fixed = true;
+                    }
+                    self.zone_set_front(cab, vec![blind], Some(mute))?;
+                    Ok(json!({ "id": cab }))
+                })();
+                match res {
+                    Ok(v) => {
+                        self.history.squash(mark, "Tủ góc L");
+                        ok(v)
+                    }
+                    Err(e) => {
+                        self.history.rollback(&mut self.doc, mark);
+                        Err(e)
+                    }
+                }
+            }
             UpdateRun { name, rules } => {
                 self.update_run(&name, rules)?;
                 ok(json!({}))

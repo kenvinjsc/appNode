@@ -434,6 +434,9 @@ pub struct DoorSpec {
     pub side_gaps: Option<[f64; 4]>,
     #[serde(default)]
     pub stop: StopRailSpec,
+    /// Tấm mù cố định (tủ góc L): không bản lề, không tay nắm.
+    #[serde(default)]
+    pub fixed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

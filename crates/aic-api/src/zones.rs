@@ -789,7 +789,7 @@ impl Engine {
 
 /// Default door spec used by the "Tạo cánh" panel.
 pub(crate) fn default_door(kind: DoorKind, cols: u32, rows: u32, mount: Mount, hinge: HingeSide, thickness: Option<f64>, stop: Option<StopRailSpec>) -> Front {
-    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default() })
+    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default(), fixed: false })
 }
 
 pub(crate) fn default_drawers(count: u32, cols: u32, mount: Mount, thickness: Option<f64>, with_box: bool) -> Front {

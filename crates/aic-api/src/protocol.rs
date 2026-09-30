@@ -142,6 +142,28 @@ pub enum Request {
         #[serde(default)]
         after: Option<ObjectId>,
     },
+    /// Tủ góc bếp L mù: phần mù (tấm cố định) phía góc, phần cánh phía ngoài.
+    CreateCorner {
+        /// LEFT = góc bên trái (phần mù bên trái), RIGHT = góc bên phải.
+        hand: String,
+        #[serde(default)]
+        width: Option<f64>,
+        #[serde(default)]
+        height: Option<f64>,
+        #[serde(default)]
+        depth: Option<f64>,
+        /// Rộng cánh (mm), mặc định 450.
+        #[serde(default)]
+        door_width: Option<f64>,
+        #[serde(default)]
+        position: Option<[f64; 3]>,
+        #[serde(default)]
+        room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
+        #[serde(default)]
+        after: Option<ObjectId>,
+    },
     CreatePanel {
         #[serde(default)]
         name: Option<String>,

@@ -287,6 +287,9 @@ trên lỗ gần nhất (lệch tối đa nửa bước lỗ), nên kích thư�
 - Bảng **Dãy tủ**: vật liệu mặt (đá thạch anh trắng / granite đen…), dày, nhô trước / trái / phải; **len chân liền cả dãy**
   (tủ trong dãy tự bỏ len riêng); **tấm lấp** trái / phải (mm); **cao độ trần** → tấm che trần từ đỉnh dãy lên trần.
 - Đổi rộng / cao / sâu hay dời tủ trong dãy: mặt đá, len chân, tấm lấp **tự sinh lại** trong cùng một bước undo.
+- **Tủ góc L mù**: Trang đầu → **Tủ ▾ → Tủ góc L mù (góc trái / góc phải)**. Tủ 1100 có **tấm mù** cố định phía góc (không
+  bản lề, không tay nắm) và **1 cánh 450** phía ngoài, mở ra phía ngoài góc. Chọn sẵn một tủ thì tủ góc đặt liền bên phải,
+  cùng phòng / tầng. Có thể sửa rộng tủ, kéo đường chia giữa tấm mù và cánh trên 2D như khoang thường.
 - Chuột phải tủ → **Dãy tủ của tủ này…** để mở lại bảng; **Xóa dãy** bỏ các tấm dãy và trả lại len chân riêng.
 
 ## 5. Tool (tab Tool bên trái)
