@@ -14,6 +14,8 @@ mod render;
 mod zones;
 pub mod shape;
 mod templates;
+pub mod library;
+mod structure_api;
 pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
@@ -38,6 +40,9 @@ pub struct Engine {
     pub(crate) nesting: HashMap<String, (u64, NestingResult)>,
     pub(crate) nesting_settings: HashMap<String, aic_nesting::NestingSettings>,
     pub(crate) relation_settings: RelationSettings,
+    /// Thư viện mẫu dùng chung mọi dự án (see `library.rs`).
+    pub(crate) library: library::Library,
+    pub(crate) library_path: Option<std::path::PathBuf>,
     pending_events: Vec<CoreEvent>,
 }
 
@@ -63,6 +68,8 @@ impl Engine {
             nesting: HashMap::new(),
             nesting_settings: HashMap::new(),
             relation_settings: RelationSettings::default(),
+            library: library::Library::default(),
+            library_path: None,
             pending_events: Vec::new(),
         };
         e.doc.mark_loaded();
@@ -318,6 +325,10 @@ impl Engine {
                 self.resize_panel_side(id, side, delta, constrained)?;
                 ok(json!({}))
             }
+            ResizeCabinet { id, name, value, stretch, edge } => {
+                self.resize_with_stretch(id, &name, value, stretch, edge)?;
+                ok(json!({}))
+            }
             SetDrawerHeight { cabinet, uid, index, mode, value } => {
                 self.set_drawer_height(cabinet, uid, index, mode, value)?;
                 ok(json!({}))
@@ -337,15 +348,37 @@ impl Engine {
             Redo => ok(json!({ "label": self.history.redo(&mut self.doc)? })),
             GetSceneTree => ok(properties::scene_tree(&self.doc)),
             GetProperties { id } => ok(properties::properties(self, id)?),
-            SaveTemplate { cabinet, name } => ok(self.save_template(cabinet, &name)?),
+            SaveTemplate { cabinet, name, to_library } => ok(self.save_template(cabinet, &name, to_library)?),
             InsertTemplate { name, width, height, depth, position, room, floor, after } => ok(self.insert_template(&name, [width, height, depth], position, room, floor, after)?),
             DeleteTemplate { name } => {
                 self.delete_template(&name)?;
                 ok(json!({}))
             }
             GetTemplates => ok(self.templates_info()),
-            SaveRulePreset { cabinet, name } => {
-                self.save_rule_preset(cabinet, &name)?;
+            GetStructure { cabinet } => ok(self.get_structure(cabinet)?),
+            SaveGroupPreset { cabinet, group, name } => {
+                self.save_group_preset(cabinet, &group, &name)?;
+                ok(json!({}))
+            }
+            ApplyGroupPreset { ids, group, name } => {
+                self.apply_group_preset(&ids, &group, &name)?;
+                ok(json!({}))
+            }
+            DeleteGroupPreset { group, name } => {
+                self.delete_group_preset(&group, &name)?;
+                ok(json!({}))
+            }
+            SaveZonePreset { cabinet, zone, name } => ok(self.save_zone_preset(cabinet, zone, &name)?),
+            ApplyZonePreset { cabinet, zones, name } => {
+                self.apply_zone_preset(cabinet, &zones, &name)?;
+                ok(json!({}))
+            }
+            DeleteZonePreset { name } => {
+                self.library_remove("zone", &name)?;
+                ok(json!({}))
+            }
+            SaveRulePreset { cabinet, name, to_library } => {
+                self.save_rule_preset(cabinet, &name, to_library)?;
                 ok(json!({}))
             }
             DeleteRulePreset { name } => {
@@ -466,6 +499,10 @@ impl Engine {
     }
 
     /// Property-panel edits are routed here and turned into the right command.
+    pub(crate) fn set_parameter_pub(&mut self, id: ObjectId, name: &str, value: &str) -> Result<(), CoreError> {
+        self.set_parameter(id, name, value)
+    }
+
     fn set_parameter(&mut self, id: ObjectId, name: &str, value: &str) -> Result<(), CoreError> {
         if self.set_zone_property(id, name, value)? {
             return Ok(());
@@ -555,6 +592,95 @@ impl Engine {
             }
         }
         self.exec(Command::Batch { label: "Đổi kích thước tủ".into(), commands: cmds })
+    }
+
+    /// Đổi kích thước tủ + chế độ dãn khoang (one undo step). The bays of every split
+    /// along the axis (and drawer fronts for the height) are first rewritten so the
+    /// change goes where the user wants: all bays by their current ratio, or only the
+    /// bay at the dragged edge; then the normal resize runs.
+    fn resize_with_stretch(&mut self, id: ObjectId, name: &str, value: f64, stretch: protocol::Stretch, edge: Option<aic_domain::Anchor>) -> Result<(), CoreError> {
+        use aic_domain::zone::{Bay, Front};
+        let axis = match name {
+            "width" => 0,
+            "height" => 1,
+            "depth" => 2,
+            _ => return Err(CoreError::InvalidParameter { name: name.into(), reason: "width | height | depth".into() }),
+        };
+        if stretch == protocol::Stretch::Keep {
+            return self.set_parameter(id, name, &format!("{value}"));
+        }
+        let def = self.doc.objects.get(&id).and_then(|o| o.as_cabinet()).cloned().ok_or(CoreError::NotFound { id })?;
+        let layout = self.doc.cabinet_layout(id).ok_or(CoreError::NotFound { id })?;
+        // Which end grows: the dragged edge, else the side opposite the anchor.
+        let anchor = [def.anchors.width, def.anchors.height, def.anchors.depth][axis];
+        let grows = edge.unwrap_or(match anchor {
+            aic_domain::Anchor::Start => aic_domain::Anchor::End,
+            aic_domain::Anchor::End => aic_domain::Anchor::Start,
+            aic_domain::Anchor::Center => aic_domain::Anchor::Center,
+        });
+        let is_edge = |i: usize, n: usize| match grows {
+            aic_domain::Anchor::End => i + 1 == n,
+            aic_domain::Anchor::Start => i == 0,
+            aic_domain::Anchor::Center => i == 0 || i + 1 == n,
+        };
+        let rewrite = |sizes: &[f64]| -> Vec<Bay> {
+            let usable: f64 = sizes.iter().sum();
+            sizes
+                .iter()
+                .enumerate()
+                .map(|(i, s)| match stretch {
+                    protocol::Stretch::Proportional => Bay::percent(if usable > 0.0 { s / usable * 100.0 } else { 0.0 }),
+                    _ => if is_edge(i, sizes.len()) { Bay::auto() } else { Bay::lock(*s) },
+                })
+                .collect()
+        };
+        let mut splits: std::collections::BTreeMap<u32, Vec<(usize, f64)>> = Default::default();
+        for b in layout.bays.iter().filter(|b| b.axis == axis) {
+            splits.entry(b.zone).or_default().push((b.index, b.size));
+        }
+        let mut stacks: std::collections::BTreeMap<u32, Vec<(usize, f64)>> = Default::default();
+        if axis == 1 {
+            for f in &layout.front_bays {
+                let v = stacks.entry(f.uid).or_default();
+                if !v.iter().any(|x| x.0 == f.index) {
+                    v.push((f.index, f.size));
+                }
+            }
+        }
+        let mark = self.history.mark();
+        let res = self
+            .edit_cabinet(id, "Chế độ dãn khoang", |c| {
+                for (zone, mut v) in splits {
+                    v.sort_by_key(|x| x.0);
+                    let sizes: Vec<f64> = v.into_iter().map(|x| x.1).collect();
+                    if let Some(s) = c.zones.split_mut(zone) {
+                        if sizes.len() == s.panels.len() + 1 {
+                            s.bays = rewrite(&sizes);
+                        }
+                    }
+                }
+                for (uid, mut v) in stacks {
+                    v.sort_by_key(|x| x.0);
+                    let sizes: Vec<f64> = v.into_iter().map(|x| x.1).collect();
+                    if let Some(Front::Drawers(d)) = c.zones.front_mut(uid) {
+                        if sizes.len() == d.count as usize {
+                            d.heights = rewrite(&sizes);
+                        }
+                    }
+                }
+                Ok(())
+            })
+            .and_then(|_| self.set_parameter(id, name, &format!("{value}")));
+        match res {
+            Ok(()) => {
+                self.history.squash(mark, "Đổi kích thước tủ");
+                Ok(())
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
     }
 
     /// Cabinets touching `id` in a row (same rotation, same height level and depth

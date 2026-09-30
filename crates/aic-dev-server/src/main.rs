@@ -38,6 +38,12 @@ fn main() {
         None => eprintln!("Giao diện chưa build. Chạy `cd app && npm run dev` rồi mở http://localhost:5173"),
     }
     let mut engine = Engine::new();
+    // Thư viện mẫu dùng chung mọi dự án (template, preset, mẫu vùng, mẫu kết cấu).
+    let lib = aic_api::library::default_library_path();
+    if let Some(p) = &lib {
+        eprintln!("Thư viện mẫu: {}", p.display());
+    }
+    engine.set_library_path(lib);
     for mut req in server.incoming_requests() {
         let cors = [
             header("Access-Control-Allow-Origin", "*"),

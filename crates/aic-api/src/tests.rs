@@ -697,3 +697,124 @@ fn row_of_cabinets_follows_a_width_change() {
     call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "width", "value": "600"}));
     assert_eq!(x(&e, c), xc - 300.0);
 }
+
+#[test]
+fn structure_tabs_back_rails_plinth_and_group_presets() {
+    let mut e = Engine::new();
+    let lib = std::env::temp_dir().join(format!("aic-lib-test-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&lib);
+    e.set_library_path(Some(lib.clone()));
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let s = call(&mut e, json!({"cmd": "get_structure", "cabinet": cab}));
+    assert!(s.ok, "{:?}", s.error);
+    let titles: Vec<&str> = s.result["tabs"].as_array().unwrap().iter().map(|t| t["title"].as_str().unwrap()).collect();
+    assert!(titles.contains(&"Hậu") && titles.contains(&"Thanh giằng (trên)"));
+    let count = |e: &Engine, pfx: &str| e.doc.cabinet_layout(cab).unwrap().parts.iter().filter(|p| p.name.starts_with(pfx)).count();
+
+    // Hậu: rãnh 9, dày 6, lùi 17, chia dọc mỗi tấm ≤ 400 → 2 tấm (800 − 2×17.2 + 2×9 = 783.6).
+    for (k, v) in [("back_groove", "9"), ("back_thickness", "6"), ("back_offset", "17"), ("back_split", "on"), ("back_split_formula", "400")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    assert_eq!(count(&e, "Hậu"), 2);
+    // Khe hở 1: the back enters 8 of the 9 mm groove.
+    let w0: f64 = e.doc.cabinet_layout(cab).unwrap().parts.iter().filter(|p| p.name.starts_with("Hậu")).map(|p| p.size[0]).sum();
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "back_clearance", "value": "1"}));
+    let w1: f64 = e.doc.cabinet_layout(cab).unwrap().parts.iter().filter(|p| p.name.starts_with("Hậu")).map(|p| p.size[0]).sum();
+    assert!((w0 - w1 - 2.0).abs() < 1e-6);
+
+    // Thanh giằng trên: 2 front rails standing (33), 1 extra.
+    for (k, v) in [("rt_front_count", "2"), ("rt_front_size", "33"), ("rt_front_horizontal", "off"), ("rt_extra_count", "1")] {
+        assert!(call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v})).ok);
+    }
+    assert_eq!(count(&e, "GiằngTrước"), 2);
+    assert_eq!(count(&e, "GiằngGiữa"), 1);
+
+    // Mẫu tab: save "Hậu 9-6-17", apply to a second cabinet in one undo step.
+    let r = call(&mut e, json!({"cmd": "save_group_preset", "cabinet": cab, "group": "back", "name": "Hậu 9-6-17"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(std::fs::read_to_string(&lib).unwrap().contains("Hậu 9-6-17"), "stored in the library file");
+    let r2 = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"doors": 0, "shelves": 0}}));
+    let cab2: ObjectId = serde_json::from_value(r2.result["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "apply_group_preset", "ids": [cab2], "group": "back", "name": "Hậu 9-6-17"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.param_value(cab2, "back_offset"), Some(17.0));
+    assert_eq!(e.doc.cabinet_layout(cab2).unwrap().parts.iter().filter(|p| p.name.starts_with("Hậu")).count(), 2);
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.param_value(cab2, "back_offset"), Some(0.0));
+
+    // A fresh engine on the same library file sees the preset (reuse in another project).
+    let mut e2 = Engine::new();
+    e2.set_library_path(Some(lib.clone()));
+    let r3 = call(&mut e2, json!({"cmd": "create_cabinet", "kind": "BASE"}));
+    let c3: ObjectId = serde_json::from_value(r3.result["id"].clone()).unwrap();
+    let s = call(&mut e2, json!({"cmd": "get_structure", "cabinet": c3}));
+    assert!(s.result.to_string().contains("Hậu 9-6-17"));
+    let _ = std::fs::remove_file(&lib);
+}
+
+#[test]
+fn zone_preset_saved_and_applied_to_another_cabinet() {
+    let mut e = Engine::new();
+    let a = created_cabinet(&mut e);
+    let za = call(&mut e, json!({"cmd": "get_zones", "cabinet": a}));
+    let root = za.result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "save_zone_preset", "cabinet": a, "zone": root, "name": "Tủ áo 2 khoang"}));
+    assert!(r.ok, "{:?}", r.error);
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"doors": 0, "shelves": 0, "width": 1200, "height": 2000}}));
+    let b: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let zb = call(&mut e, json!({"cmd": "get_zones", "cabinet": b}));
+    let rb = zb.result["zones"][0]["id"].as_u64().unwrap();
+    let before = e.doc.cabinet_layout(b).unwrap().parts.len();
+    let r = call(&mut e, json!({"cmd": "apply_zone_preset", "cabinet": b, "zones": [rb], "name": "Tủ áo 2 khoang"}));
+    assert!(r.ok, "{:?}", r.error);
+    let parts = e.doc.cabinet_layout(b).unwrap().parts;
+    assert!(parts.len() > before + 5, "divider, shelves, doors, rail copied");
+    assert!(parts.iter().any(|p| p.name.starts_with("HôngGiữa")));
+    let info = call(&mut e, json!({"cmd": "get_templates"}));
+    assert!(info.result["zones"][0]["summary"].as_str().unwrap().contains("tấm chia"));
+}
+
+#[test]
+fn resize_stretch_proportional_or_edge_bay() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = z.result["zones"][0]["id"].as_u64().unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let divider: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"] == "HôngGiữa_01").unwrap()["id"].clone()).unwrap();
+    call(&mut e, json!({"cmd": "move_split_panel", "id": divider, "before": 600}));
+    let b = bays(&mut e, cab, root);
+    let (a0, a1) = (b[0].0, b[1].0);
+    assert!((a0 - 600.0).abs() < 1e-6);
+
+    // Chỉ khoang sát cạnh kéo (right edge): the right bay takes the +200.
+    let r = call(&mut e, json!({"cmd": "resize_cabinet", "id": cab, "name": "width", "value": 1800, "stretch": "EDGE", "edge": "END"}));
+    assert!(r.ok, "{:?}", r.error);
+    let b = bays(&mut e, cab, root);
+    assert!((b[0].0 - a0).abs() < 1e-6 && (b[1].0 - (a1 + 200.0)).abs() < 1e-6, "{b:?}");
+    // One undo restores size and bay modes.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.param_value(cab, "width"), Some(1600.0));
+
+    // Dãn đều tất cả: both bays keep their ratio.
+    call(&mut e, json!({"cmd": "resize_cabinet", "id": cab, "name": "width", "value": 1800, "stretch": "PROPORTIONAL"}));
+    let b = bays(&mut e, cab, root);
+    let k = (a0 + a1 + 200.0) / (a0 + a1);
+    assert!((b[0].0 - a0 * k).abs() < 1e-6 && (b[1].0 - a1 * k).abs() < 1e-6, "{b:?}");
+
+    // Height, edge = top: only the top shelf cell grows; the lower cells keep their size.
+    let zi = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let shelf_zone = zi.result["positions"].as_array().unwrap().iter().find(|p| p["zone"].as_u64() != Some(root)).unwrap()["zone"].as_u64().unwrap();
+    let s0 = bays(&mut e, cab, shelf_zone);
+    let r = call(&mut e, json!({"cmd": "resize_cabinet", "id": cab, "name": "height", "value": 2500, "stretch": "EDGE", "edge": "END"}));
+    assert!(r.ok, "{:?}", r.error);
+    let s1 = bays(&mut e, cab, shelf_zone);
+    let n = s0.len();
+    for i in 0..n - 1 {
+        assert!((s1[i].0 - s0[i].0).abs() < 1e-6, "cell {i}");
+    }
+    assert!((s1[n - 1].0 - s0[n - 1].0 - 100.0).abs() < 1e-6);
+}

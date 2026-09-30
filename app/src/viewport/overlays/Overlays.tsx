@@ -3,7 +3,7 @@
 // geometry; everything is re-projected every rendered frame.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useUi } from '../../app/uiStore';
+import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import { Queries, transformOf } from '../../core-api/queries';
 import type { AssemblyRelation, ObjectId, SnapHint, Vec3 } from '../../core-api/types';
@@ -36,7 +36,7 @@ export function useFrame(engine: ViewportEngine | null) {
 
 type P = { x: number; y: number; visible: boolean };
 
-function DimLine({ a, b, label, offset = 0 }: { a: P; b: P; label: string; offset?: number }) {
+function DimLine({ a, b, label, offset = 0, onPick }: { a: P; b: P; label: string; offset?: number; onPick?: (x: number, y: number) => void }) {
   if (!a.visible || !b.visible) return null;
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -56,7 +56,14 @@ function DimLine({ a, b, label, offset = 0 }: { a: P; b: P; label: string; offse
       <line x1={a.x} y1={a.y} x2={A.x} y2={A.y} className="dim-ext" />
       <line x1={b.x} y1={b.y} x2={B.x} y2={B.y} className="dim-ext" />
       <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} className="dim-line" markerStart="url(#dim-arrow)" markerEnd="url(#dim-arrow)" />
-      <g transform={`translate(${mx} ${my}) rotate(${ang})`}>
+      <g
+        transform={`translate(${mx} ${my}) rotate(${ang})`}
+        className={onPick ? 'dim-edit' : undefined}
+        style={onPick ? { pointerEvents: 'all', cursor: 'text' } : undefined}
+        onPointerDown={onPick ? (e) => e.stopPropagation() : undefined}
+        onClick={onPick ? () => onPick(mx, my) : undefined}
+      >
+        {onPick && <title>Bấm để nhập kích thước mới</title>}
         <rect x={-label.length * 3.7 - 5} y={-9} width={label.length * 7.4 + 10} height={18} rx={3} className="dim-bg" />
         <text textAnchor="middle" dy={4} className="dim-text">
           {label}
@@ -68,8 +75,19 @@ function DimLine({ a, b, label, offset = 0 }: { a: P; b: P; label: string; offse
 
 export function DimensionOverlay({ engine }: { engine: ViewportEngine }) {
   useFrame(engine);
-  const { selection, tree, showDimensions } = useUi();
+  const { selection, tree, showDimensions, stretchMode } = useUi();
   useSceneRevision((s) => s.rev);
+  const [edit, setEdit] = useState<{ key: 'width' | 'height' | 'depth'; x: number; y: number; value: number } | null>(null);
+  // One cabinet selected: its W / H / D labels are editable (a parameter change,
+  // spread over the bays by the chosen stretch mode).
+  const cab = selection.length === 1 && findNode(tree, selection[0])?.node.kind === 'CABINET' ? selection[0] : null;
+  const pick = (key: 'width' | 'height' | 'depth') =>
+    cab === null
+      ? undefined
+      : (x: number, y: number) =>
+          void Queries.properties(cab)
+            .then((p) => setEdit({ key, x, y, value: Number(p.groups.flatMap((g) => g.fields).find((f) => f.key === key)?.value ?? 0) }))
+            .catch(() => undefined);
   if (!showDimensions || selection.length === 0) return null;
   const ids = expandSubtrees(tree, selection);
   const box = engine.boxOf(ids);
@@ -78,10 +96,37 @@ export function DimensionOverlay({ engine }: { engine: ViewportEngine }) {
   const { min, max } = box;
   const size = box.getSize(new THREE.Vector3());
   const out: JSX.Element[] = [
-    <DimLine key="w" a={s(min.x, min.y, max.z)} b={s(max.x, min.y, max.z)} label={`${fmt(size.x)}`} offset={28} />,
-    <DimLine key="h" a={s(max.x, min.y, max.z)} b={s(max.x, max.y, max.z)} label={`${fmt(size.y)}`} offset={-28} />,
-    <DimLine key="d" a={s(max.x, min.y, max.z)} b={s(max.x, min.y, min.z)} label={`${fmt(size.z)}`} offset={-28} />,
+    <DimLine key="w" a={s(min.x, min.y, max.z)} b={s(max.x, min.y, max.z)} label={`${fmt(size.x)}`} offset={28} onPick={pick('width')} />,
+    <DimLine key="h" a={s(max.x, min.y, max.z)} b={s(max.x, max.y, max.z)} label={`${fmt(size.y)}`} offset={-28} onPick={pick('height')} />,
+    <DimLine key="d" a={s(max.x, min.y, max.z)} b={s(max.x, min.y, min.z)} label={`${fmt(size.z)}`} offset={-28} onPick={pick('depth')} />,
   ];
+  if (edit && cab !== null) {
+    let closed = false;
+    const done = (txt: string | null) => {
+      if (closed) return;
+      closed = true;
+      setEdit(null);
+      const v = txt === null ? NaN : Number(txt.replace(',', '.'));
+      if (Number.isFinite(v) && v > 0 && v !== edit.value) void Commands.resizeCabinet(cab, edit.key, v, stretchMode).catch(() => undefined);
+    };
+    out.push(
+      <foreignObject key="edit" x={edit.x - 50} y={edit.y - 14} width={100} height={28} style={{ pointerEvents: 'all' }}>
+        <input
+          className="dim-input"
+          autoFocus
+          defaultValue={String(edit.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') done(e.currentTarget.value);
+            if (e.key === 'Escape') done(null);
+          }}
+          onBlur={(e) => done(e.currentTarget.value)}
+        />
+      </foreignObject>,
+    );
+  }
   // Distance between two selected objects (gap along the most separated axis).
   if (selection.length === 2) {
     const a = engine.boxOf(expandSubtrees(tree, [selection[0]]));
@@ -276,7 +321,7 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       setDrag(null);
-      if (value !== start) void Commands.setParameter(id, key, String(value)).catch(() => undefined);
+      if (value !== start) void Commands.resizeCabinet(id, key, value, useUi.getState().stretchMode, 'END').catch(() => undefined);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);

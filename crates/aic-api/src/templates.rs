@@ -42,7 +42,7 @@ impl Engine {
     }
 
     /// SAVE_TEMPLATE: store the cabinet's logical model under `name` (replaces same name).
-    pub(crate) fn save_template(&mut self, cab: ObjectId, name: &str) -> Result<Value, CoreError> {
+    pub(crate) fn save_template(&mut self, cab: ObjectId, name: &str, to_library: bool) -> Result<Value, CoreError> {
         let name = name.trim();
         if name.is_empty() {
             return Err(bad("template", "name required"));
@@ -53,8 +53,12 @@ impl Engine {
         let mut names: Vec<&str> = vec!["width", "height", "depth"];
         names.extend(RULE_PARAMS);
         let t = CabinetTemplate { name: name.into(), kind: def.kind, params: self.cabinet_params(cab, &names), cabinet: def };
-        self.exec_cmd(Command::SetTemplate { name: name.into(), template: Some(Box::new(t)) })?;
-        Ok(json!({ "name": name }))
+        if to_library {
+            self.library_add_template(t)?;
+        } else {
+            self.exec_cmd(Command::SetTemplate { name: name.into(), template: Some(Box::new(t)) })?;
+        }
+        Ok(json!({ "name": name, "library": to_library }))
     }
 
     /// INSERT_TEMPLATE: new cabinet from a template, re-solved for W/H/D. One undo step;
@@ -69,7 +73,15 @@ impl Engine {
         floor: Option<String>,
         after: Option<ObjectId>,
     ) -> Result<Value, CoreError> {
-        let t = self.doc.settings.templates.iter().find(|t| t.name == name).cloned().ok_or_else(|| bad("template", "unknown template"))?;
+        let t = self
+            .doc
+            .settings
+            .templates
+            .iter()
+            .chain(self.library.templates.iter())
+            .find(|t| t.name == name)
+            .cloned()
+            .ok_or_else(|| bad("template", "unknown template"))?;
         let mark = self.history.mark();
         let run = |e: &mut Engine| -> Result<ObjectId, CoreError> {
             let created = e.handle(Request::CreateCabinet {
@@ -118,10 +130,13 @@ impl Engine {
     }
 
     pub(crate) fn delete_template(&mut self, name: &str) -> Result<(), CoreError> {
-        self.exec_cmd(Command::SetTemplate { name: name.into(), template: None })
+        if self.doc.settings.templates.iter().any(|t| t.name == name) {
+            return self.exec_cmd(Command::SetTemplate { name: name.into(), template: None });
+        }
+        self.library_remove("template", name).map(|_| ())
     }
 
-    pub(crate) fn save_rule_preset(&mut self, cab: ObjectId, name: &str) -> Result<(), CoreError> {
+    pub(crate) fn save_rule_preset(&mut self, cab: ObjectId, name: &str, to_library: bool) -> Result<(), CoreError> {
         let name = name.trim();
         if name.is_empty() || builtin_presets().iter().any(|p| p.name == name) {
             return Err(bad("preset", "name required and not a built-in preset"));
@@ -134,11 +149,17 @@ impl Engine {
             bottom_style: Some(def.bottom_style),
             edge_rule: Some(def.edge_rule.clone()),
         };
+        if to_library {
+            return self.library_add_preset(p);
+        }
         self.exec_cmd(Command::SetRulePreset { name: name.into(), preset: Some(p) })
     }
 
     pub(crate) fn delete_rule_preset(&mut self, name: &str) -> Result<(), CoreError> {
-        self.exec_cmd(Command::SetRulePreset { name: name.into(), preset: None })
+        if self.doc.settings.presets.iter().any(|t| t.name == name) {
+            return self.exec_cmd(Command::SetRulePreset { name: name.into(), preset: None });
+        }
+        self.library_remove("preset", name).map(|_| ())
     }
 
     /// APPLY_RULE_PRESET on cabinets: one undo step, all or nothing.
@@ -146,6 +167,7 @@ impl Engine {
         let p = builtin_presets()
             .into_iter()
             .chain(self.doc.settings.presets.iter().cloned())
+            .chain(self.library.presets.iter().cloned())
             .find(|p| p.name == name)
             .ok_or_else(|| bad("preset", "unknown preset"))?;
         let mark = self.history.mark();
@@ -189,19 +211,28 @@ impl Engine {
             .settings
             .templates
             .iter()
-            .map(|t| {
+            .map(|t| (t, "project"))
+            .chain(self.library.templates.iter().map(|t| (t, "library")))
+            .map(|(t, src)| {
                 let g = |k: &str| t.params.get(k).copied().unwrap_or(0.0);
                 json!({ "name": t.name, "kind": t.kind, "frame": t.kind.frame_name(), "size": [g("width"), g("height"), g("depth")],
-                        "zones": t.cabinet.zones.zones().len() })
+                        "zones": t.cabinet.zones.zones().len(), "source": src })
             })
             .collect();
         let presets: Vec<Value> = builtin_presets()
             .into_iter()
-            .map(|p| (p, true))
-            .chain(self.doc.settings.presets.iter().cloned().map(|p| (p, false)))
-            .map(|(p, b)| json!({ "name": p.name, "builtin": b, "values": p.values, "top_style": p.top_style, "bottom_style": p.bottom_style }))
+            .map(|p| (p, "builtin"))
+            .chain(self.doc.settings.presets.iter().cloned().map(|p| (p, "project")))
+            .chain(self.library.presets.iter().cloned().map(|p| (p, "library")))
+            .map(|(p, src)| json!({ "name": p.name, "builtin": src == "builtin", "source": src, "values": p.values, "top_style": p.top_style, "bottom_style": p.bottom_style }))
             .collect();
-        json!({ "templates": templates, "presets": presets })
+        let mut v = json!({ "templates": templates, "presets": presets });
+        if let (Some(o), Value::Object(lib)) = (v.as_object_mut(), self.library_info()) {
+            for (k, x) in lib {
+                o.insert(k, x);
+            }
+        }
+        v
     }
 
     /// Array a split panel: `count` more of the same kind in its split, all bays equal.

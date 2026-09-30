@@ -196,6 +196,39 @@ kích thước mới (Shift: bước 10 mm), thả chuột để lưu. Nút trê
 ngang (theo cao)**. Với mặt cắt, kéo thanh trượt để chọn vị trí cắt (số mm hiện bên cạnh); tấm bị cắt tô gạch chéo,
 phần phía trước mặt cắt được bỏ đi.
 
+## 4e. Sửa kích thước, chế độ dãn khoang
+![Sửa kích thước 3D](screenshots/14-sua-kich-thuoc-3d.png)
+
+- Chọn 1 tủ: bấm vào **số kích thước trong 3D** (rộng / cao / sâu) hoặc số W/H màu cam trên 2D, nhập số, Enter.
+  Kéo chấm tròn cam trong 3D cũng được.
+- Ô **Dãn** trên thanh công cụ 3D quyết định phần thêm/bớt chia vào khoang thế nào:
+  - **Dãn đều tất cả khoang**: mọi khoang giữ tỷ lệ cũ (600 | 948 → rộng thêm 200 thì cả hai cùng tăng theo tỷ lệ).
+  - **Chỉ khoang sát cạnh kéo**: chỉ khoang ở phía đang kéo tăng/giảm, các khoang khác giữ nguyên mm.
+  - **Giữ KHÓA/%/AUTO**: theo chế độ từng khoang đã đặt.
+  Kệ, cánh, ngăn kéo (cả chiều cao từng ngăn khi đổi chiều cao) tự dãn theo khoang — không phải chỉnh tay.
+- Tủ đứng liền trong cùng dãy tự dịch theo.
+
+## 4f. Thuộc tính kết cấu và mẫu dùng lại
+![Hậu](screenshots/12-thuoc-tinh-hau.png) ![Thanh giằng](screenshots/13-thuoc-tinh-giang.png)
+
+Chuột phải tủ → **Thuộc tính kết cấu**. Các tab:
+
+| Tab | Tùy chọn |
+|---|---|
+| Thông số chung | Rộng, cao, sâu, dày ván |
+| Liên kết | Nóc phủ / lọt / thanh giằng, đáy phủ / lọt, có tấm hậu |
+| Hậu | Độ sâu rãnh (C), dày hậu (B), lùi hậu (I), khe hở (hậu vào rãnh = C − khe), hở trái/phải/trên/dưới, chia dọc + công thức chia (`600` = mỗi tấm ≤ 600 mm, `3x` = chia 3), nóc trùm hậu, đáy trùm hậu |
+| Thanh giằng (trên) | Phía trước: số thanh, kích thước, ngang/đứng, âm mặt · Phía sau: số thanh, kích thước, ngang/đứng, cách hậu · Bổ sung: số lượng, kích thước, ngang (chia đều ở giữa). Dùng khi Nóc = Thanh giằng |
+| Len chân | Cao chân, chân giật vào |
+| Lùi đợt | Kệ di động lùi trước |
+
+**Lưu mẫu**: mỗi tab có ô chọn mẫu + nút **Lưu mẫu** / **Áp** (chọn nhiều tủ rồi Áp để áp cho cả nhóm).
+Mẫu lưu vào **thư viện dùng chung mọi dự án** (file `~/.aic-cad/library.json`, đổi bằng biến `AIC_LIBRARY`).
+
+Cũng lưu vào thư viện: **template tủ** (chuột phải tủ → Lưu làm template), **rule preset** (Cài đặt), và
+**mẫu vùng** — chuột phải một vùng → *Lưu vùng này làm mẫu…*; ở tủ khác chuột phải vùng → mục *Mẫu vùng* → chọn
+mẫu để dựng lại toàn bộ kệ, vách, cánh, ngăn kéo, thanh treo của vùng đó (tự co theo kích thước vùng mới).
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 

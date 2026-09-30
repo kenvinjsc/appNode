@@ -515,6 +515,24 @@ fn visit<'a>(z: &'a Zone, f: &mut impl FnMut(&'a Zone)) {
 }
 
 impl ZoneTree {
+    /// Mẫu vùng: replace the content of `zone_id` (split, front, links) by a copy of
+    /// `content`, with fresh uids from this tree.
+    pub fn graft(&mut self, zone_id: Uid, content: &Zone) -> Result<(), String> {
+        let mut c = content.clone();
+        let mut next = self.next_uid;
+        c.renumber(&mut || {
+            let u = next;
+            next += 1;
+            u
+        });
+        self.next_uid = next;
+        let z = self.zone_mut(zone_id).ok_or("zone not found")?;
+        z.split = c.split;
+        z.front = c.front;
+        z.links = c.links;
+        Ok(())
+    }
+
     pub fn alloc(&mut self) -> Uid {
         let u = self.next_uid;
         self.next_uid += 1;
@@ -744,6 +762,27 @@ mod tests {
 }
 
 impl Zone {
+    /// Give every zone / panel / front / link a fresh uid (copying zone content).
+    pub fn renumber(&mut self, alloc: &mut impl FnMut() -> Uid) {
+        self.id = alloc();
+        if let Some(s) = &mut self.split {
+            for p in &mut s.panels {
+                p.uid = alloc();
+            }
+            for c in &mut s.children {
+                c.renumber(alloc);
+            }
+        }
+        match &mut self.front {
+            Some(Front::Doors(d)) => d.uid = alloc(),
+            Some(Front::Drawers(d)) => d.uid = alloc(),
+            None => {}
+        }
+        for l in &mut self.links {
+            l.uid = alloc();
+        }
+    }
+
     /// Lật gương theo chiều rộng: splits along X reverse, hinges swap sides.
     pub fn mirror_x(&mut self) {
         if let Some(s) = &mut self.split {

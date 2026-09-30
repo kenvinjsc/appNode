@@ -8,6 +8,7 @@ pub mod error;
 pub mod feature;
 pub mod ids;
 pub mod layout;
+pub mod structure;
 pub mod material;
 pub mod object;
 pub mod panel;

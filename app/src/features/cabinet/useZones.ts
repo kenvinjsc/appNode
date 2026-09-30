@@ -18,7 +18,8 @@ export function cabinetOf(tree: SceneTree | null, id: ObjectId | null): ObjectId
 
 export function useCurrentCabinet(): ObjectId | null {
   const { pinned, tree, active } = useUi();
-  return pinned.cabinet ?? cabinetOf(tree, active);
+  // The selected cabinet wins over a zone pinned earlier in another cabinet.
+  return cabinetOf(tree, active) ?? pinned.cabinet;
 }
 
 export function useZones(cabinet: ObjectId | null): ZonesInfo | null {

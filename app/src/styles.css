@@ -554,3 +554,23 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .cut-slider input { width: 90px; accent-color: #e8590c; }
 .drawing .panel-header { flex-wrap: nowrap; overflow-x: auto; }
 .drawing .panel-header select { max-width: 150px; }
+
+/* Thuộc tính kết cấu */
+.struct-dlg { position: fixed; right: 360px; top: 150px; width: 330px; max-height: 70vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #ced4da; border-radius: 8px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18); z-index: 150; font-size: 12.5px; }
+.struct-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #e9ecef; }
+.struct-head .spacer { flex: 1; }
+.struct-tabs { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 6px 10px; }
+.struct-tabs button { border: 0; background: none; padding: 2px 0; color: #343a40; cursor: pointer; font-size: 12.5px; }
+.struct-tabs button.on { color: #1c7ed6; border-bottom: 2px solid #1c7ed6; }
+.struct-presets { display: flex; gap: 4px; align-items: center; padding: 4px 10px 8px; border-bottom: 1px solid #e9ecef; }
+.struct-presets select { flex: 1; min-width: 0; }
+.struct-body { overflow: auto; padding: 6px 12px 12px; }
+.struct-row { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 8px; margin: 4px 0; }
+.struct-row span { text-align: right; color: #343a40; }
+.struct-row input[type='checkbox'] { justify-self: start; accent-color: #1c7ed6; width: 16px; height: 16px; }
+.struct-section { margin: 10px 0 2px; text-align: right; font-weight: 600; color: #343a40; font-size: 12.5px; }
+.warn { color: #e8590c; padding: 0 10px; }
+.zm-empty { padding: 2px 10px; }
+
+.dim-edit:hover .dim-bg { stroke: #e8590c; fill: #fff4e6; }
+.dim-input { width: 100%; height: 100%; box-sizing: border-box; border: 2px solid #e8590c; border-radius: 4px; text-align: center; font-weight: 600; font-size: 13px; outline: none; }

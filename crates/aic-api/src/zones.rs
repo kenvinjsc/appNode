@@ -423,6 +423,49 @@ impl Engine {
                     c.room = value.trim().to_string();
                     Ok(())
                 }).map(|_| true),
+                k if k.starts_with("back_") && !matches!(k, "back_groove" | "back_thickness" | "back_offset" | "back_panel" | "back_material")
+                    || k.starts_with("rt_")
+                    || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback") =>
+                {
+                    let (k, v) = (k.to_string(), value.trim().to_string());
+                    let on = matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes");
+                    self.edit_cabinet_checked(id, "Thuộc tính kết cấu", move |c| {
+                        let r = &mut c.rules;
+                        let n = |x: &str| num(&k, x);
+                        match k.as_str() {
+                            "back_clearance" => r.back.clearance = n(&v)?.max(0.0),
+                            "back_gap_left" => r.back.gaps[0] = n(&v)?.max(0.0),
+                            "back_gap_right" => r.back.gaps[1] = n(&v)?.max(0.0),
+                            "back_gap_top" => r.back.gaps[2] = n(&v)?.max(0.0),
+                            "back_gap_bottom" => r.back.gaps[3] = n(&v)?.max(0.0),
+                            "back_split" => r.back.split = on,
+                            "back_split_formula" => r.back.split_formula = v.clone(),
+                            "top_covers_back" => r.back.top_covers = Some(on),
+                            "bottom_covers_back" => r.back.bottom_covers = Some(on),
+                            "plinth_setback" => r.plinth_setback = n(&v)?,
+                            _ => {
+                                // rt_{front|back|extra}_{count|size|horizontal|offset}
+                                let mut it = k.splitn(3, '_').skip(1);
+                                let (set, field) = (it.next().unwrap_or(""), it.next().unwrap_or(""));
+                                let rs = match set {
+                                    "front" => &mut r.top_rails.front,
+                                    "back" => &mut r.top_rails.back,
+                                    "extra" => &mut r.top_rails.extra,
+                                    _ => return Err(bad(&k, "unknown rail set")),
+                                };
+                                match field {
+                                    "count" => rs.count = n(&v)?.clamp(0.0, 20.0) as u32,
+                                    "size" => rs.size = n(&v)?.max(1.0),
+                                    "horizontal" => rs.horizontal = on,
+                                    "offset" => rs.offset = n(&v)?,
+                                    _ => return Err(bad(&k, "unknown rail field")),
+                                }
+                            }
+                        }
+                        Ok(())
+                    })
+                    .map(|_| true)
+                }
                 "anchor_w" | "anchor_h" | "anchor_d" => self.edit_cabinet(id, "Neo kích thước", |c| {
                     let a = match value.trim().to_ascii_uppercase().as_str() {
                         "START" | "LEFT" | "BOTTOM" | "BACK" => aic_domain::Anchor::Start,

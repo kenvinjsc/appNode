@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -56,6 +56,16 @@ export const Commands = {
   /** Multi-edit: one undo step, all or nothing. */
   setParameterMulti: (ids: ObjectId[], name: string, value: string) => command({ cmd: 'set_parameter_multi', ids, name, value }),
   setBay: (cabinet: ObjectId, zone: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_bay', cabinet, zone, index, mode, value }),
+  /** Kéo kích thước tủ với chế độ dãn khoang (KEEP / PROPORTIONAL / EDGE). */
+  resizeCabinet: (id: ObjectId, name: 'width' | 'height' | 'depth', value: number, stretch: 'KEEP' | 'PROPORTIONAL' | 'EDGE', edge?: 'START' | 'END') =>
+    command({ cmd: 'resize_cabinet', id, name, value, stretch, edge }),
+  getStructure: (cabinet: ObjectId) => command<StructureInfo>({ cmd: 'get_structure', cabinet }),
+  saveGroupPreset: (cabinet: ObjectId, group: string, name: string) => command({ cmd: 'save_group_preset', cabinet, group, name }),
+  applyGroupPreset: (ids: ObjectId[], group: string, name: string) => command({ cmd: 'apply_group_preset', ids, group, name }),
+  deleteGroupPreset: (group: string, name: string) => command({ cmd: 'delete_group_preset', group, name }),
+  saveZonePreset: (cabinet: ObjectId, zone: number, name: string) => command({ cmd: 'save_zone_preset', cabinet, zone, name }),
+  applyZonePreset: (cabinet: ObjectId, zones: number[], name: string) => command({ cmd: 'apply_zone_preset', cabinet, zones, name }),
+  deleteZonePreset: (name: string) => command({ cmd: 'delete_zone_preset', name }),
   setDrawerHeight: (cabinet: ObjectId, uid: number, index: number, mode?: BayMode, value?: number) => command({ cmd: 'set_drawer_height', cabinet, uid, index, mode, value }),
   moveDrawerDivider: (cabinet: ObjectId, uid: number, index: number, before: number) => command({ cmd: 'move_drawer_divider', cabinet, uid, index, before }),
   equalizeSplit: (cabinet: ObjectId, zone: number) => command({ cmd: 'equalize_split', cabinet, zone }),

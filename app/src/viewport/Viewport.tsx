@@ -474,7 +474,7 @@ function AxisGizmo({ engine }: { engine: ViewportEngine }) {
 }
 
 function ViewToolbar() {
-  const { projection, selection, tree, set } = useUi();
+  const { projection, selection, tree, set, stretchMode } = useUi();
   return (
     <div className="view-toolbar">
       <button title="Phóng vừa (Shift+F)" onClick={() => View.fitAll()}>
@@ -495,6 +495,15 @@ function ViewToolbar() {
       <button title="Phối cảnh (0)" onClick={() => View.set('iso', selection, tree)}>
         <Icon name="view" />
       </button>
+      <select
+        title="Khi kéo / nhập kích thước tủ, phần thêm bớt chia vào khoang thế nào"
+        value={stretchMode}
+        onChange={(e) => set({ stretchMode: e.target.value as 'KEEP' | 'PROPORTIONAL' | 'EDGE' })}
+      >
+        <option value="PROPORTIONAL">Dãn: đều tất cả khoang</option>
+        <option value="EDGE">Dãn: chỉ khoang sát cạnh kéo</option>
+        <option value="KEEP">Dãn: giữ KHÓA/%/AUTO</option>
+      </select>
       <select value={projection} onChange={(e) => set({ projection: e.target.value as 'perspective' | 'orthographic' })}>
         <option value="perspective">Phối cảnh</option>
         <option value="orthographic">Trực giao</option>

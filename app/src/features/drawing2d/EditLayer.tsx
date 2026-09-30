@@ -91,7 +91,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
     const v = Number(pct ? txt.slice(0, -1) : txt);
     if (!Number.isFinite(v)) return;
     if (e.kind === 'cab') {
-      await Commands.setParameter(info.cabinet, e.name, String(v)).catch(() => undefined);
+      await Commands.resizeCabinet(info.cabinet, e.name, v, useUi.getState().stretchMode).catch(() => undefined);
       return;
     }
     if (e.kind === 'front') {

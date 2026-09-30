@@ -54,6 +54,9 @@ pub struct Cabinet {
     /// Resize anchors (giữ trái/giữa/phải, dưới/giữa/trên, sau/giữa/trước).
     #[serde(default)]
     pub anchors: Anchors,
+    /// Thuộc tính kết cấu (hậu, thanh giằng, len chân …).
+    #[serde(default)]
+    pub rules: crate::structure::StructureRules,
 }
 
 fn yes() -> bool {
@@ -178,6 +181,7 @@ impl Cabinet {
             edge_rule: s.edge_rule.clone().unwrap_or_default(),
             zones_ready: true,
             anchors: Anchors::default(),
+            rules: crate::structure::StructureRules::default(),
         }
     }
 }

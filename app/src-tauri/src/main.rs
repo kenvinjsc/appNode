@@ -17,7 +17,11 @@ async fn dispatch(state: tauri::State<'_, Core>, request: String) -> Result<Stri
 
 fn main() {
     tauri::Builder::default()
-        .manage(Core(Mutex::new(Engine::new())))
+        .manage(Core(Mutex::new({
+            let mut e = Engine::new();
+            e.set_library_path(aic_api::library::default_library_path());
+            e
+        })))
         .invoke_handler(tauri::generate_handler![dispatch])
         .run(tauri::generate_context!())
         .expect("error while running AIC CAD");

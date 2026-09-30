@@ -454,7 +454,14 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     } else {
         bt
     };
-    let horiz_start = if groove || !cab.back_panel { 0.0 } else { bt };
+    let rules = &cab.rules;
+    // Where the top / bottom start in depth: behind them sits a lapped back unless
+    // they cover it (nóc / đáy trùm hậu).
+    let (top_start, bottom_start) = if groove || !cab.back_panel {
+        (0.0, 0.0)
+    } else {
+        (if rules.back.top_covers == Some(true) { 0.0 } else { bt }, if rules.back.bottom_covers == Some(true) { 0.0 } else { bt })
+    };
     let side_y = if bottom_overlay { p + t } else { 0.0 };
     let side_h = h - side_y - if top_overlay { t } else { 0.0 };
 
@@ -466,23 +473,24 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     let top_x = if top_overlay { 0.0 } else { t };
     let bottom_w = if bottom_overlay { w } else { inner_w };
     let bottom_x = if bottom_overlay { 0.0 } else { t };
-    let hdepth = d - horiz_start;
+    let top_depth = d - top_start;
+    let bottom_depth = d - bottom_start;
     let mut top_idx = None;
     if rails {
-        let rw = v.rail_width.min(hdepth / 2.0);
-        cx.panel("c:rail_front".into(), "GiằngTrước".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, rw, t], [t, h - t, d], ROT_HORIZONTAL);
-        cx.panel("c:rail_back".into(), "GiằngSau".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, rw, t], [t, h - t, horiz_start + rw], ROT_HORIZONTAL);
+        top_rails(cx, &rules.top_rails, inner_w, top_depth, top_start);
     } else {
-        top_idx = Some(cx.panel("c:top".into(), "Nóc".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [top_w, hdepth, t], [top_x, h - t, d], ROT_HORIZONTAL));
+        top_idx = Some(cx.panel("c:top".into(), "Nóc".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [top_w, top_depth, t], [top_x, h - t, d], ROT_HORIZONTAL));
     }
-    let b = cx.panel("c:bottom".into(), "Đáy".into(), PanelRole::Bottom, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bottom_w, hdepth, t], [bottom_x, p, d], ROT_HORIZONTAL);
+    let b = cx.panel("c:bottom".into(), "Đáy".into(), PanelRole::Bottom, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bottom_w, bottom_depth, t], [bottom_x, p, d], ROT_HORIZONTAL);
 
     if cab.back_panel {
+        let [gl, gr, gt, gb] = rules.back.gaps;
         if groove {
-            let g = v.back_groove;
+            // Rãnh sâu C (= back_groove); the back enters C − khe hở.
+            let g = (v.back_groove - rules.back.clearance).max(0.0);
             let bw = inner_w + 2.0 * g;
             let bh = h - p - 2.0 * t + 2.0 * g;
-            cx.panel("c:back".into(), "Hậu".into(), PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [bw, bh, bt], [t - g, p + t - g, v.back_offset], [0.0; 3]);
+            back_pieces(cx, &rules.back, t - g + gl, bw - gl - gr, p + t - g + gb, bh - gb - gt, bt, v.back_offset);
             let tol = 0.5;
             let gw = bt + tol;
             // Groove across the inner faces: sides (along height), top/bottom (along width).
@@ -490,7 +498,7 @@ fn carcass(cx: &mut Ctx) -> ZBox {
             let gx = d - v.back_offset - bt - tol / 2.0;
             let sy0 = p + t - g - side_y;
             let side_len = bh;
-            let depth = g.min(t - 4.0).max(1.0);
+            let depth = v.back_groove.min(t - 4.0).max(1.0);
             cx.add_features(l, vec![MachiningFeature::Groove(GrooveFeature { x: gx, y: sy0, length: side_len, width: gw, depth, direction: Axis2::Y, side: FaceSide::A })]);
             cx.add_features(r, vec![MachiningFeature::Groove(GrooveFeature { x: gx, y: sy0, length: side_len, width: gw, depth, direction: Axis2::Y, side: FaceSide::B })]);
             let hy = d - v.back_offset - bt - tol / 2.0;
@@ -501,12 +509,16 @@ fn carcass(cx: &mut Ctx) -> ZBox {
             let gx_bot = (t - g) - bottom_x;
             cx.add_features(b, vec![MachiningFeature::Groove(GrooveFeature { x: gx_bot, y: hy, length: bw, width: gw, depth, direction: Axis2::X, side: FaceSide::A })]);
         } else {
-            cx.panel("c:back".into(), "Hậu".into(), PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [inner_w, h - t - p, bt], [t, p, 0.0], [0.0; 3]);
+            // Lapped back: from the bottom (or on it when the bottom covers the back)
+            // to under the top (or to the top edge when the top does not cover it).
+            let y0 = if rules.back.bottom_covers == Some(true) { p + t } else { p };
+            let y1 = if rules.back.top_covers == Some(false) { h } else { h - t };
+            back_pieces(cx, &rules.back, t + gl, inner_w - gl - gr, y0 + gb, y1 - y0 - gb - gt, bt, 0.0);
         }
     }
 
     if matches!(cab.kind, CabinetKind::Wardrobe | CabinetKind::Drawer | CabinetKind::Base) && p > 1.0 {
-        cx.panel("c:plinth".into(), "ChânTủ".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, p, t], [t, 0.0, d - 50.0 - t], [0.0; 3]);
+        cx.panel("c:plinth".into(), "ChânTủ".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, p, t], [t, 0.0, d - rules.plinth_setback - t], [0.0; 3]);
     }
 
     let outer = |part| Neighbor { t, outer: true, part };
@@ -514,6 +526,61 @@ fn carcass(cx: &mut Ctx) -> ZBox {
         min: [t, p + t, back_front],
         size: [inner_w, h - p - 2.0 * t, d - back_front],
         nb: [outer(Some(l)), outer(Some(r)), outer(Some(b)), outer(top_idx)],
+    }
+}
+
+/// Back board(s): one panel, or vertical pieces when "Chia dọc" is on.
+#[allow(clippy::too_many_arguments)]
+fn back_pieces(cx: &mut Ctx, rule: &crate::structure::BackRule, x: f64, w: f64, y: f64, h: f64, bt: f64, z: f64) {
+    let mut at = x;
+    for (i, pw) in rule.pieces(w.max(1.0)).into_iter().enumerate() {
+        let (key, name) = if i == 0 { ("c:back".to_string(), "Hậu".to_string()) } else { (format!("c:back:{}", i + 1), format!("Hậu_{}", i + 1)) };
+        cx.panel(key, name, PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [pw, h.max(1.0), bt], [at, y, z], [0.0; 3]);
+        at += pw;
+    }
+}
+
+/// Thanh giằng (trên): front / back / extra rail sets, flat or on edge.
+fn top_rails(cx: &mut Ctx, r: &crate::structure::TopRails, inner_w: f64, depth: f64, start: f64) {
+    let (t, h, d) = (cx.v.thickness, cx.v.height, cx.v.depth);
+    let rw = cx.v.rail_width;
+    let size = |s: f64| if s > 0.0 { s } else { rw.min(depth / 2.0) };
+    let step = |rs: &crate::structure::RailSet| if rs.horizontal { size(rs.size) } else { t };
+    // `z_face` = front face of the rail.
+    let put = |cx: &mut Ctx, key: String, name: String, rs: &crate::structure::RailSet, z_face: f64| {
+        let s = size(rs.size);
+        if rs.horizontal {
+            cx.panel(key, name, PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, s, t], [t, h - t, z_face], ROT_HORIZONTAL);
+        } else {
+            cx.panel(key, name, PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, s, t], [t, h - s, z_face - t], [0.0; 3]);
+        }
+    };
+    let f0 = d + r.front.offset;
+    for i in 0..r.front.count {
+        let key = if i == 0 { "c:rail_front".to_string() } else { format!("c:rail_front{}", i + 1) };
+        let name = if i == 0 { "GiằngTrước".to_string() } else { format!("GiằngTrước_{}", i + 1) };
+        put(cx, key, name, &r.front, f0 - i as f64 * step(&r.front));
+    }
+    let b0 = start + r.back.offset;
+    for i in 0..r.back.count {
+        let key = if i == 0 { "c:rail_back".to_string() } else { format!("c:rail_back{}", i + 1) };
+        let name = if i == 0 { "GiằngSau".to_string() } else { format!("GiằngSau_{}", i + 1) };
+        put(cx, key, name, &r.back, b0 + (i + 1) as f64 * step(&r.back));
+    }
+    // Extra rails, evenly spread in the free depth between both sets.
+    let n = r.extra.count;
+    if n > 0 {
+        let front_end = f0 - r.front.count as f64 * step(&r.front);
+        let back_end = b0 + r.back.count as f64 * step(&r.back);
+        let se = step(&r.extra);
+        let free = front_end - back_end - n as f64 * se;
+        if free > 0.0 {
+            let gap = free / (n + 1) as f64;
+            for k in 0..n {
+                let z_face = back_end + (k + 1) as f64 * (gap + se);
+                put(cx, format!("c:rail_mid{}", k + 1), format!("GiằngGiữa_{}", k + 1), &r.extra, z_face);
+            }
+        }
     }
 }
 

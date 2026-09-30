@@ -179,6 +179,13 @@ export function Jobs() {
 /** Quick build menu for a zone: common parts in one click, with sensible options. */
 export function ZoneMenu() {
   const { zoneMenu, set } = useUi();
+  const [zoneLib, setZoneLib] = useState<{ name: string; summary: string }[]>([]);
+  useEffect(() => {
+    if (zoneMenu)
+      Queries.templates()
+        .then((t) => setZoneLib(t.zones))
+        .catch(() => setZoneLib([]));
+  }, [zoneMenu]);
   useEffect(() => {
     if (!zoneMenu) return;
     const close = () => set({ zoneMenu: null });
@@ -187,6 +194,7 @@ export function ZoneMenu() {
   }, [zoneMenu, set]);
   if (!zoneMenu) return null;
   const { cabinet, zone } = zoneMenu;
+  const zonePresets = zoneLib;
   const zones = [zone];
   const run = (p: Promise<unknown>) => {
     set({ zoneMenu: null });
@@ -248,6 +256,27 @@ export function ZoneMenu() {
           <Item label="Ngăn kéo × 2 (lọt lòng)" fn={() => drawers(2, 'INSET')} />
           <h5>Liên kết</h5>
           <Item label="Thanh treo oval" fn={() => Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL')} />
+          <h5>Mẫu vùng (thư viện)</h5>
+          {zonePresets.map((p) => (
+            <Item key={p.name} label={`${p.name} · ${p.summary}`} fn={() => Commands.applyZonePreset(cabinet, zones, p.name)} />
+          ))}
+          {zonePresets.length === 0 && <div className="muted small zm-empty">Chưa có mẫu.</div>}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() =>
+              set({
+                zoneMenu: null,
+                prompt: {
+                  title: 'Lưu nội dung vùng làm mẫu',
+                  label: 'Tên mẫu (kệ, vách, cánh, ngăn kéo, thanh treo trong vùng này)',
+                  value: '',
+                  ok: (v) => void Commands.saveZonePreset(cabinet, zone, v).then(() => useUi.getState().toast({ kind: 'success', title: `Đã lưu mẫu vùng “${v}”` })).catch(() => undefined),
+                },
+              })
+            }
+          >
+            <span>Lưu vùng này làm mẫu…</span>
+          </button>
         </div>
       </div>
       <hr />
@@ -381,6 +410,7 @@ export function ContextMenu() {
         <>
           {item('shelf', 'Dựng chi tiết (Tạo tấm)…', () => set({ designerTab: 'create' }))}
           {item('edit', 'Sửa kích thước…', () => set({ designerTab: 'edit' }))}
+          {item('settings', 'Thuộc tính kết cấu (hậu, giằng, len chân…)', () => set({ structureOf: id }))}
           {item('mirror', 'Lật gương trái ↔ phải', () => void Commands.mirrorCabinet(id).catch(() => undefined))}
           {item('duplicate', 'Nhân dãy tủ sang phải…', () =>
             set({ prompt: { title: 'Nhân dãy tủ', label: 'Số tủ thêm (đặt liền bên phải)', value: '1', ok: (v) => void Commands.arrayCabinet(id, Math.max(1, Math.round(Number(v)) || 1), 0, 0).catch(() => undefined) } }),

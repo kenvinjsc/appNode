@@ -50,10 +50,6 @@ fn one() -> u32 {
     1
 }
 
-fn yes() -> bool {
-    true
-}
-
 fn sixty() -> f64 {
     60.0
 }
@@ -202,7 +198,8 @@ pub enum Request {
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },
     // template / preset / array / mirror
-    SaveTemplate { cabinet: ObjectId, name: String },
+    /// `to_library` (default true): save in the shared library (all projects), else in the project.
+    SaveTemplate { cabinet: ObjectId, name: String, #[serde(default = "yes")] to_library: bool },
     InsertTemplate {
         name: String,
         #[serde(default)]
@@ -221,8 +218,17 @@ pub enum Request {
         after: Option<ObjectId>,
     },
     DeleteTemplate { name: String },
+    /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
+    GetStructure { cabinet: ObjectId },
+    SaveGroupPreset { cabinet: ObjectId, group: String, name: String },
+    ApplyGroupPreset { ids: Vec<ObjectId>, group: String, name: String },
+    DeleteGroupPreset { group: String, name: String },
+    /// Mẫu vùng (thư viện): save the content of a zone / apply it to pinned zones.
+    SaveZonePreset { cabinet: ObjectId, zone: aic_domain::zone::Uid, name: String },
+    ApplyZonePreset { cabinet: ObjectId, zones: Vec<aic_domain::zone::Uid>, name: String },
+    DeleteZonePreset { name: String },
     GetTemplates,
-    SaveRulePreset { cabinet: ObjectId, name: String },
+    SaveRulePreset { cabinet: ObjectId, name: String, #[serde(default = "yes")] to_library: bool },
     DeleteRulePreset { name: String },
     ApplyRulePreset { ids: Vec<ObjectId>, name: String },
     /// Nhân tấm: `count` more shelves / dividers like this one, bays equal.
@@ -248,6 +254,18 @@ pub enum Request {
     SetRelation { a: ObjectId, b: ObjectId, kind: crate::relations_edit::RelationKind, #[serde(default)] gap: f64 },
     /// Kéo cạnh tấm (handle 2D): side in the cabinet frame, `delta` > 0 grows.
     ResizePanelSide { id: ObjectId, side: crate::relations_edit::Side, delta: f64, #[serde(default)] constrained: bool },
+    /// Kéo kích thước tủ với chế độ dãn khoang: KEEP (giữ chế độ khoang), PROPORTIONAL
+    /// (mọi khoang theo tỷ lệ cũ), EDGE (chỉ khoang sát cạnh kéo). `edge` = cạnh đang kéo
+    /// (START = trái/dưới/sau, END = phải/trên/trước); None = theo neo của tủ.
+    ResizeCabinet {
+        id: ObjectId,
+        name: String,
+        value: f64,
+        #[serde(default)]
+        stretch: Stretch,
+        #[serde(default)]
+        edge: Option<aic_domain::Anchor>,
+    },
     /// Cao từng ngăn kéo (0 = dưới cùng): LOCK mm / PERCENT / AUTO.
     SetDrawerHeight {
         cabinet: ObjectId,
@@ -357,4 +375,18 @@ where
     T: Deserialize<'de>,
 {
     Option::<T>::deserialize(d).map(Some)
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// Chế độ dãn khoang khi đổi kích thước tủ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Stretch {
+    #[default]
+    Keep,
+    Proportional,
+    Edge,
 }

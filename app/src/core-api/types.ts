@@ -451,6 +451,26 @@ export interface PartModPatch {
 }
 
 export interface TemplatesInfo {
-  templates: { name: string; kind: CabinetKind; frame: string; size: [number, number, number]; zones: number }[];
-  presets: { name: string; builtin: boolean; values: Record<string, number>; top_style: string | null; bottom_style: string | null }[];
+  templates: { name: string; kind: CabinetKind; frame: string; size: [number, number, number]; zones: number; source: 'project' | 'library' }[];
+  presets: { name: string; builtin: boolean; source: string; values: Record<string, number>; top_style: string | null; bottom_style: string | null }[];
+  /** Mẫu vùng (thư viện). */
+  zones: { name: string; size: [number, number, number]; summary: string }[];
+  /** Library file on this machine (null = session only). */
+  path: string | null;
+}
+
+export interface StructureField {
+  key: string;
+  label: string;
+  kind: 'number' | 'bool' | 'text' | 'select' | 'section';
+  value?: number | boolean | string;
+  options?: { value: string; label: string }[];
+  hint?: string;
+}
+
+export interface StructureInfo {
+  cabinet: ObjectId;
+  name: string;
+  rails_active: boolean;
+  tabs: { key: string; title: string; fields: StructureField[]; presets: string[] }[];
 }

@@ -69,6 +69,10 @@ interface UiState {
   prompt: { title: string; label: string; value: string; ok: (v: string) => void } | null;
   /** 2D edge handles: keep constraints (anchored edges change their gap) or free. */
   resizeMode: 'free' | 'constrained';
+  /** Chế độ dãn khoang khi kéo kích thước tủ. */
+  stretchMode: 'KEEP' | 'PROPORTIONAL' | 'EDGE';
+  /** Bảng Thuộc tính kết cấu đang mở cho tủ này. */
+  structureOf: ObjectId | null;
   renaming: ObjectId | null;
   cursor: [number, number, number] | null;
   mfgPanel: ObjectId | null;
@@ -136,6 +140,8 @@ export const useUi = create<UiState>((set, get) => ({
   zoneMenu: null,
   prompt: null,
   resizeMode: 'constrained',
+  stretchMode: 'PROPORTIONAL',
+  structureOf: null,
   renaming: null,
   cursor: null,
   mfgPanel: null,
