@@ -26,7 +26,7 @@ Tài liệu này gom toàn bộ kịch bản kiểm thử theo module: dùng cho
 | D-MAU | Tệp → Dự án mẫu | hầu hết kịch bản |
 | D-BEP | 3 tủ bếp dưới 800 + 600 + 900, cao chân 100, 1 tủ trên 1600 | dãy tủ, báo giá mét dài |
 | D-TUAO | Tủ áo 1800 × 2400 × 600, 3 khoang, 4 kệ di động, 4 cánh | chốt 32, m² mặt đứng |
-| D-LON | Nhân dãy 60 tủ (chuột phải → Nhân dãy tủ sang phải) | hiệu năng |
+| D-LON | Nhân dãy 60 tủ (chuột phải → Nhân dãy tủ…) | hiệu năng |
 
 ## 3. Ma trận phủ
 
