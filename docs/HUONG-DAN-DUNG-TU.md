@@ -62,6 +62,13 @@ hoặc **Tên phòng** ở tab *Chỉnh tấm* khi đang chọn tủ đó.
 
 Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 
+### 2.x Giường (và sản phẩm ngoài tủ hộp)
+- **Tủ ▾ → Sản phẩm khác → Giường 1600 × 2000 / Giường hộc kéo 1600**.
+- Rộng × Sâu của giường là **lọt nệm**; Cao là cao đầu giường. Đổi các số này ở Khung / 2D như tủ thường.
+- Chuột phải → Thuộc tính kết cấu → tab **Giường**: cao mặt dát, kiểu đầu giường (phẳng / bọc nệm / nan), cao vai, dát nan
+  hoặc dát tấm, số nan, đà giữa (rộng ≥ 1400), 4 / 6 chân, hộc kéo (2 bên / đuôi / nâng hơi), số hộc mỗi bên.
+- Báo giá: giường tính **theo chiếc** (đổi được trong Báo cáo).
+
 ## 3. Dựng chi tiết bên trong (tab Tạo tấm)
 
 ### 3.1 Ghim vùng

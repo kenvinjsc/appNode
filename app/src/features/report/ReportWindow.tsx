@@ -249,7 +249,7 @@ function GroupTable({ groups, onPick }: { groups: CutGroup[]; onPick: (ids: numb
   );
 }
 
-const MODE_LABEL: Record<PricingMode, string> = { AUTO: 'Theo loại tủ', DETAIL: 'Bóc chi tiết', LINEAR_M: 'Mét dài', FACADE_M2: 'm² mặt đứng' };
+const MODE_LABEL: Record<PricingMode, string> = { AUTO: 'Theo loại tủ', DETAIL: 'Bóc chi tiết', LINEAR_M: 'Mét dài', FACADE_M2: 'm² mặt đứng', PIECE: 'Theo chiếc' };
 
 function SettingInput({ k, value, suffix }: { k: string; value: number; suffix: string }) {
   const [v, setV] = useState(String(value));

@@ -359,6 +359,8 @@ pub enum PricingMode {
     LinearM,
     /// m² mặt đứng (rộng × cao).
     FacadeM2,
+    /// Theo chiếc (giường, bàn …).
+    Piece,
 }
 
 /// Tủ góc chéo: hai cạnh áp tường dài = rộng tủ, sâu tay = sâu tủ, mặt cánh xiên 45°.
@@ -412,6 +414,9 @@ pub struct StructureRules {
     /// Phào & ốp (D13).
     #[serde(default)]
     pub trim: TrimRules,
+    /// Sản phẩm ngoài tủ hộp (giường, bàn, vách ốp …); None = tủ hộp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product: Option<crate::product::Product>,
 }
 
 /// Mặt có phào nóc.
@@ -493,7 +498,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default(), trim: TrimRules::default() }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default(), trim: TrimRules::default(), product: None }
     }
 }
 

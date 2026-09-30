@@ -516,6 +516,7 @@ impl Engine {
         // Cabinet-level options.
         if let Some(DomainObject::Cabinet(_)) = self.doc.objects.get(&id) {
             return match name {
+                k if k.starts_with("bed_") => self.set_product_property(id, k, value).map(|_| true),
                 "room" => self.edit_cabinet(id, "Tên phòng", |c| {
                     c.room = value.trim().to_string();
                     Ok(())
@@ -575,7 +576,8 @@ impl Engine {
                                     "DETAIL" => P::Detail,
                                     "LINEAR_M" => P::LinearM,
                                     "FACADE_M2" => P::FacadeM2,
-                                    _ => return Err(bad(&k, "AUTO | DETAIL | LINEAR_M | FACADE_M2")),
+                                    "PIECE" => P::Piece,
+                                    _ => return Err(bad(&k, "AUTO | DETAIL | LINEAR_M | FACADE_M2 | PIECE")),
                                 }
                             }
                             "base_type" => {

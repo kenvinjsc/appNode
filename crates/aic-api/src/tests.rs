@@ -1615,3 +1615,47 @@ fn cornice_end_panels_and_scribe_follow_the_cabinet() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(part(&e, "c:scribe_l").is_none());
 }
+
+#[test]
+fn bed_generator_frame_slats_beam_and_side_drawers() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_furniture", "kind": "BED", "width": 1600, "depth": 2000, "height": 1000}));
+    assert!(r.ok, "{:?}", r.error);
+    let bed: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let t = e.doc.param_value(bed, "thickness").unwrap();
+    let l = e.doc.cabinet_layout(bed).unwrap();
+    let part = |k: &str| l.parts.iter().find(|p| p.key == k).unwrap_or_else(|| panic!("{k}"));
+    // Lọt nệm 1600 × 2000: đầu / đuôi rộng 1600, vai dài 2000 + 2t.
+    assert!((part("b:head").size[0] - 1600.0).abs() < 1e-6);
+    assert!((part("b:rail_l").size[0] - (2000.0 + 2.0 * t)).abs() < 1e-6);
+    let rail_gap = part("b:rail_r").translation[0] - (part("b:rail_l").translation[0] + t);
+    assert!((rail_gap - 1600.0).abs() < 1e-6, "mattress fits between the rails");
+    assert!(l.parts.iter().any(|p| p.key == "b:beam"), "center beam for W ≥ 1400");
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("NanDát")).count(), 14);
+    assert_eq!(l.fittings.legs, 6);
+    let slat = part("b:slat0");
+    assert!((slat.translation[1] + slat.size[2] - 400.0).abs() < 1e-6, "slat top at frame_h");
+    // Hộc kéo 2 bên × 2 → 4 hộc, ray theo sâu hộc, chân chỉ ở 4 góc.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": bed, "name": "bed_storage", "value": "DRAWERS_2_SIDES"}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(bed).unwrap();
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("MặtHộcGiường")).count(), 4);
+    assert_eq!(l.fittings.slides.values().sum::<u32>(), 4);
+    assert!(l.fittings.slides.keys().all(|k| *k as f64 <= 800.0 - 40.0));
+    assert_eq!(l.fittings.legs, 4);
+    // Đổi rộng → mọi chi tiết giải lại; bảng thuộc tính có tab Giường; báo giá theo chiếc.
+    call(&mut e, json!({"cmd": "set_parameter", "id": bed, "name": "width", "value": "1800"}));
+    let l = e.doc.cabinet_layout(bed).unwrap();
+    assert!((l.parts.iter().find(|p| p.key == "b:head").unwrap().size[0] - 1800.0).abs() < 1e-6);
+    let s = call(&mut e, json!({"cmd": "get_structure", "cabinet": bed}));
+    assert_eq!(s.result["tabs"][0]["key"], "bed");
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(c.result.to_string().contains("\"unit\":\"chiếc\""), "{}", c.result["quote"]);
+    // Rộng nệm ngoài [800, 2200] bị từ chối.
+    assert!(!call(&mut e, json!({"cmd": "create_furniture", "kind": "BED", "width": 3000})).ok);
+    // Một undo bỏ hẳn giường.
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(e.doc.objects.get(&bed).is_none());
+}

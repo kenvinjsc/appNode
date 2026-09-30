@@ -444,7 +444,7 @@ export interface CutGroup {
   ids: ObjectId[];
 }
 
-export type PricingMode = 'AUTO' | 'DETAIL' | 'LINEAR_M' | 'FACADE_M2';
+export type PricingMode = 'AUTO' | 'DETAIL' | 'LINEAR_M' | 'FACADE_M2' | 'PIECE';
 
 export interface Quote {
   rows: { id: ObjectId; floor: string; room: string; name: string; mode: PricingMode; qty: number; unit: string; price: number; price_key: string; amount: number; material_cost: number }[];

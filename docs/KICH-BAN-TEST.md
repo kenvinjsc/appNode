@@ -75,6 +75,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.6 Mẫu bếp dựng sẵn** (E2E 11, Rust `kitchen_products_insert_with_one_undo`). Tủ ▾ → Tủ lò 600 kịch trần cạnh BếpDưới03 →
   600 × 2300 × 580, phòng Bếp · Tầng 1, 2 ngăn kéo + khoang lò 600 + cánh lật; bếp dưới 800 có 6 chân, vật liệu MFC lõi xanh;
   bếp trên có ke treo, tay nắm nửa dưới; một undo.
+- **TC-02.7 Giường** (E2E 18, Rust `bed_generator_frame_slats_beam_and_side_drawers`). Tủ ▾ → Giường 1600 × 2000 → đầu /
+  đuôi rộng 1600, vai dài 2000 + 2 × dày ván, 14 nan dát, đà giữa, 6 chân. Thuộc tính kết cấu → Giường → Hộc kéo 2 bên → 4 hộc,
+  ray ≤ nửa rộng giường, chân còn 4 góc. Đổi rộng 1800 → mọi chi tiết giải lại. Báo giá: "Theo chiếc". Rộng nệm 3000 → báo lỗi.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

@@ -39,6 +39,9 @@ export const Commands = {
   createCorner: (hand: 'LEFT' | 'RIGHT', after?: ObjectId, width?: number, door_width?: number) => command<{ id: ObjectId }>({ cmd: 'create_corner', hand, after, width, door_width }),
   /** Tủ góc chéo (mặt cánh xiên 45°), bếp dưới hoặc bếp trên. */
   createDiagonalCorner: (wall: boolean, after?: ObjectId) => command<{ id: ObjectId }>({ cmd: 'create_corner', kind: 'DIAGONAL', hand: 'LEFT', wall, after }),
+  /** Sản phẩm ngoài tủ hộp (giường …): W × D × H theo sản phẩm, tuỳ chọn như set_parameter; một undo. */
+  createFurniture: (kind: string, size: { width?: number; height?: number; depth?: number }, options: Record<string, string> = {}, room?: string) =>
+    command<{ id: ObjectId }>({ cmd: 'create_furniture', kind, ...size, options, room }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */

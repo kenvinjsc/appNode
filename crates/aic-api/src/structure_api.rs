@@ -9,19 +9,19 @@ use aic_domain::ObjectId;
 use aic_project::CoreError;
 use serde_json::{json, Map, Value};
 
-fn num(key: &str, label: &str, v: f64) -> Value {
+pub(crate) fn num(key: &str, label: &str, v: f64) -> Value {
     json!({ "key": key, "label": label, "kind": "number", "value": v })
 }
-fn flag(key: &str, label: &str, v: bool) -> Value {
+pub(crate) fn flag(key: &str, label: &str, v: bool) -> Value {
     json!({ "key": key, "label": label, "kind": "bool", "value": v })
 }
 fn text(key: &str, label: &str, v: &str, hint: &str) -> Value {
     json!({ "key": key, "label": label, "kind": "text", "value": v, "hint": hint })
 }
-fn section(label: &str) -> Value {
+pub(crate) fn section(label: &str) -> Value {
     json!({ "key": "", "label": label, "kind": "section" })
 }
-fn select(key: &str, label: &str, v: &str, opts: &[(&str, &str)]) -> Value {
+pub(crate) fn select(key: &str, label: &str, v: &str, opts: &[(&str, &str)]) -> Value {
     json!({ "key": key, "label": label, "kind": "select", "value": v, "options": opts.iter().map(|(v, l)| json!({ "value": v, "label": l })).collect::<Vec<_>>() })
 }
 
@@ -95,6 +95,9 @@ impl Engine {
             aic_domain::structure::SlideType::Tandem => "TANDEM",
         };
         let mut extra = Vec::new();
+        if let Some(prod) = &r.product {
+            extra.extend(Engine::product_tabs(prod));
+        }
         if let Some(dg) = &r.diagonal {
             extra.push((
                 "diagonal".to_string(),

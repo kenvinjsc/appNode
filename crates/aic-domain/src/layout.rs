@@ -15,6 +15,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod products;
+
 /// Numeric cabinet parameters (read from the parameter graph).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CabinetValues {
@@ -386,6 +388,9 @@ pub struct Fittings {
     /// Vít bắt hậu ốp.
     #[serde(default)]
     pub back_screws: u32,
+    /// Ben hơi (giường nâng).
+    #[serde(default)]
+    pub gas_lifts: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -525,6 +530,11 @@ pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default(), back: None };
     if let Some(dg) = cab.rules.diagonal.clone() {
         diagonal_corner(&mut cx, &dg);
+        apply_mods(&mut cx.out, &cab.mods);
+        return cx.out;
+    }
+    if let Some(p) = cab.rules.product.clone() {
+        products::build(&mut cx, &p);
         apply_mods(&mut cx.out, &cab.mods);
         return cx.out;
     }

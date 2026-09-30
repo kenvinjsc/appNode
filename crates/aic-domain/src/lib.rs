@@ -13,6 +13,7 @@ pub mod structure;
 pub mod material;
 pub mod object;
 pub mod panel;
+pub mod product;
 pub mod scene;
 pub mod zone;
 

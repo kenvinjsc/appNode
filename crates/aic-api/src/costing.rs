@@ -286,6 +286,9 @@ impl Engine {
             if f.hangers > 0 {
                 add("hanger".into(), "Ke treo tủ".into(), f.hangers as f64, "Cái");
             }
+            if f.gas_lifts > 0 {
+                add("gas_lift".into(), "Ben hơi nâng giường".into(), f.gas_lifts as f64, "Cái");
+            }
             if f.back_screws > 0 {
                 add("back_screw".into(), "Vít bắt hậu 3.5×16".into(), f.back_screws as f64, "Cái");
             }
@@ -378,7 +381,8 @@ impl Engine {
                 "size": [v("width"), v("height"), v("depth")],
                 "panels": rows.len(),
                 "amount": sum(&p) + sum(&e) + sum(&f),
-                "kind": format!("{:?}", c.kind),
+                "kind": c.rules.product.as_ref().map(|p| p.code().to_string()).unwrap_or_else(|| format!("{:?}", c.kind)),
+                "product": c.rules.product.is_some(),
                 "pricing": c.rules.pricing,
             }));
         }
@@ -455,7 +459,9 @@ impl Engine {
             let mode: PricingMode = serde_json::from_value(c["pricing"].clone()).unwrap_or_default();
             let mode = match mode {
                 PricingMode::Auto => {
-                    if matches!(kind, "Base" | "Wall" | "Drawer") {
+                    if c["product"].as_bool() == Some(true) {
+                        PricingMode::Piece
+                    } else if matches!(kind, "Base" | "Wall" | "Drawer") {
                         PricingMode::LinearM
                     } else {
                         PricingMode::FacadeM2
@@ -478,6 +484,12 @@ impl Engine {
                 PricingMode::FacadeM2 => {
                     let key = format!("quote:facade:{}", kind.to_ascii_uppercase());
                     (w * h, "m²", self.setting(&key, 3_200_000.0), key)
+                }
+                PricingMode::Piece => {
+                    // Theo chiếc: giá đặt riêng (quote:piece:<LOẠI>), mặc định = bóc chi tiết × (1 + hao hụt) × (1 + công).
+                    let key = format!("quote:piece:{}", kind.to_ascii_uppercase());
+                    let def = material * (1.0 + waste) * (1.0 + labor);
+                    (1.0, "chiếc", self.setting(&key, def), key)
                 }
                 _ => (1.0, "bộ", material * (1.0 + waste) * (1.0 + labor), String::new()),
             };

@@ -86,6 +86,22 @@ function CabinetMenu() {
               <Icon name="cabinet" size={16} /> Tủ góc chéo ({wall ? 'bếp trên' : 'bếp dưới'})
             </button>
           ))}
+          <div className="menu-sep">Sản phẩm khác</div>
+          {FURNITURE.map((f) => (
+            <button
+              key={f.label}
+              onClick={() => {
+                setOpen(false);
+                const s = useUi.getState();
+                const sel = s.selection.map((id) => findNode(s.tree, id)?.node).find((n) => n?.kind === 'CABINET');
+                void Commands.createFurniture(f.kind, f.size, f.options, sel?.room ?? undefined)
+                  .then((r) => s.select([r.id]))
+                  .catch(() => undefined);
+              }}
+            >
+              <Icon name="cabinet" size={16} /> {f.label}
+            </button>
+          ))}
           {products.length > 0 && <div className="menu-sep">Mẫu bếp dựng sẵn</div>}
           {products.map((p) => (
             <button
@@ -106,6 +122,12 @@ function CabinetMenu() {
     </div>
   );
 }
+
+/** Sản phẩm ngoài tủ hộp (core dựng theo `create_furniture`). */
+const FURNITURE: { label: string; kind: string; size: { width?: number; height?: number; depth?: number }; options?: Record<string, string> }[] = [
+  { label: 'Giường 1600 × 2000', kind: 'BED', size: { width: 1600, depth: 2000, height: 1000 } },
+  { label: 'Giường hộc kéo 1600', kind: 'BED', size: { width: 1600, depth: 2000, height: 1000 }, options: { bed_frame_h: '450', bed_storage: 'DRAWERS_2_SIDES' } },
+];
 
 export function Ribbon() {
   const { ribbonTab, set, tool, setTool, canUndo, canRedo, selection, selectionMode, showRelations, showDimensions, snap, projection, section, panels, tree, drawer } = useUi();

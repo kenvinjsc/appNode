@@ -33,6 +33,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D25 | Request `preview` (chạy thử, không undo / revision / sự kiện); kéo vách / kệ 2D hiện số core tính | chưa: preview khi kéo cạnh tấm, kéo kích thước tủ 3D |
 | D03 | Số đo sửa trực tiếp trên 2D do core tính: sâu, lùi kệ (Bên / Phải), cao chân, dày ván, khe cánh, tay nắm cách đầu cánh (Trước) | chưa: thanh treo, khe tấm lấp, tổng dãy |
 | D27 | Căn trái / phải / trên / dưới / trước, chia đều, xoay ±90°, sát tường (tab Chỉnh sửa) | chưa: phím tắt riêng |
+| D19 | Khung sản phẩm (`rules.product`, `create_furniture`) + giường: đầu (phẳng/bọc/nan), vai, đuôi, dát nan/tấm, đà giữa, 4/6 chân, hộc kéo 2 bên/đuôi, nâng hơi; báo giá theo chiếc | chưa: sửa lọt nệm trực tiếp trên 2D Trên |
 | D13 | Phào nóc 1–3 mặt + phào chân, ốp hông (chạm sàn / nhô trước), nẹp che khe; tab "Phào & ốp" + lưu mẫu tab | chưa: phào theo cả dãy tủ (D09), vát 45° thành contour CNC |
 | D15 | Khoét hậu (ổ điện / ống / thoát nhiệt, neo theo lòng tủ, CNC cắt trong), hậu ốp bắt vít (+ vít vào báo giá), hậu chia theo kệ cố định | chưa: vẽ / kéo lỗ trên 2D |
 | D14 | Kệ nghiêng thật (xoay quanh trục X, dài theo cos θ, thanh chặn gót khi ≥ 5°, bỏ chốt kệ), vách lửng (`extent`), menu "Kệ giày nghiêng 15° × 4" | chưa: kệ góc L trong tủ góc mù |

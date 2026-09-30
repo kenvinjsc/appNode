@@ -298,6 +298,27 @@ pub enum Request {
     },
     /// Tool gia công theo tham số cho nhiều tấm (khấu góc, khấu bề mặt, rãnh LED / V-bit).
     ToolFeature { ids: Vec<ObjectId>, #[serde(default)] tool: String, feature: aic_domain::ParamFeature },
+    /// Sản phẩm ngoài tủ hộp (D19+): `BED` (W × D = lọt nệm, H = cao đầu giường).
+    CreateFurniture {
+        kind: String,
+        #[serde(default)]
+        width: Option<f64>,
+        #[serde(default)]
+        height: Option<f64>,
+        #[serde(default)]
+        depth: Option<f64>,
+        #[serde(default)]
+        position: Option<[f64; 3]>,
+        #[serde(default)]
+        name: Option<String>,
+        #[serde(default)]
+        room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
+        /// Tuỳ chọn ban đầu `{key: value}` như `set_parameter` (vd. `{"bed_storage": "DRAWERS_2_SIDES"}`).
+        #[serde(default)]
+        options: std::collections::BTreeMap<String, String>,
+    },
     /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
     SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.
