@@ -221,6 +221,17 @@ export function Ribbon() {
               <Btn icon="boxSelect" label="Quét chọn" title="Giữ Shift và kéo trong khung nhìn" onClick={() => useUi.getState().toast({ kind: 'info', title: 'Quét chọn', detail: 'Giữ Shift và kéo chuột trong khung nhìn 3D.' })} />
             </Group>
             {toolsGroup}
+            <Group label="Căn chỉnh">
+              <Btn icon="align" label="Trái" disabled={selection.length < 2} title="Căn mép trái" onClick={() => void Commands.alignObjects(selection, 'LEFT').catch(() => undefined)} />
+              <Btn icon="align" label="Phải" disabled={selection.length < 2} title="Căn mép phải" onClick={() => void Commands.alignObjects(selection, 'RIGHT').catch(() => undefined)} />
+              <Btn icon="align" label="Trên" disabled={selection.length < 2} title="Căn đỉnh (tủ trên)" onClick={() => void Commands.alignObjects(selection, 'TOP').catch(() => undefined)} />
+              <Btn icon="align" label="Dưới" disabled={selection.length < 2} title="Căn đáy" onClick={() => void Commands.alignObjects(selection, 'BOTTOM').catch(() => undefined)} />
+              <Btn icon="align" label="Căn trước" disabled={selection.length < 2} title="Căn mặt trước" onClick={() => void Commands.alignObjects(selection, 'FRONT').catch(() => undefined)} />
+              <Btn icon="dimension" label="Chia đều" disabled={selection.length < 3} title="Phân bố đều theo chiều ngang" onClick={() => void Commands.distributeObjects(selection, 'X').catch(() => undefined)} />
+              <Btn icon="rotate" label="Xoay 90°" disabled={!has} title="Xoay 90° quanh tâm" onClick={() => void Commands.rotateObjects(selection, 90).catch(() => undefined)} />
+              <Btn icon="rotate" label="−90°" disabled={!has} title="Xoay −90° quanh tâm" onClick={() => void Commands.rotateObjects(selection, -90).catch(() => undefined)} />
+              <Btn icon="room" label="Sát tường" disabled={!has} title="Đặt sát tường gần nhất" onClick={() => void Commands.snapToWall(selection).catch(() => undefined)} />
+            </Group>
             <Group label="Trạng thái">
               <Btn icon="eyeOff" label="Ẩn/hiện" disabled={!has} onClick={() => void Actions.toggleHidden()} />
               <Btn icon="lock" label="Khóa" disabled={!has} onClick={() => void Actions.toggleLocked()} />

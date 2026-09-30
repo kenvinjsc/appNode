@@ -88,6 +88,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-03.5 Bắt dính khi co kéo** (tay). Kéo handle rộng tủ trên tới gần mép tủ bên cạnh / tường → dừng đúng mép, có đường gạch cam;
   giữ Alt → kéo tự do.
 - **TC-03.6 Kích thước sửa được trên 3D** (tay). Chọn 1 tủ → bấm số kích thước trên 3D → nhập → tủ đổi, tủ dãy bên phải bị đẩy.
+- **TC-03.8 Căn chỉnh** (E2E 14, Rust `align_distribute_rotate_and_snap_to_wall`). 3 tủ lệch mặt trước → Căn trước → cùng mặt trước,
+  một undo; Chia đều → khe bằng nhau; Xoay 90° → rộng / sâu đổi chỗ; Sát tường khe 5 → cách tường sau 5.
 - **TC-03.7 Đổi rộng tủ trong dãy** (Rust `row_of_cabinets_follows_a_width_change`). Tủ giữa dãy 600 → 700 → các tủ bên phải dịch
   100, không chồng nhau.
 

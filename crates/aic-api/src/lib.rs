@@ -17,6 +17,7 @@ mod templates;
 pub mod library;
 mod structure_api;
 mod runs;
+mod arrange;
 mod products;
 pub mod relations_edit;
 
@@ -509,6 +510,10 @@ impl Engine {
                 ok(json!({}))
             }
             GetRuns => ok(self.get_runs()),
+            AlignObjects { ids, mode } => ok(json!({ "moved": self.align_objects(ids, &mode)? })),
+            DistributeObjects { ids, axis } => ok(json!({ "moved": self.distribute_objects(ids, &axis)? })),
+            RotateObjects { ids, deg, pivot } => ok(json!({ "moved": self.rotate_objects(ids, deg, &pivot)? })),
+            SnapToWall { ids, gap } => ok(json!({ "moved": self.snap_to_wall(ids, gap)? })),
             Preview { cabinet, request } => ok(self.preview(cabinet, *request)?),
             GetProducts => ok(self.products_info()),
             InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
@@ -665,7 +670,7 @@ impl Engine {
     }
 
     /// Drop ids whose ancestor is also selected (they go with it).
-    fn top_level_only(&self, ids: Vec<ObjectId>) -> Vec<ObjectId> {
+    pub(crate) fn top_level_only(&self, ids: Vec<ObjectId>) -> Vec<ObjectId> {
         let set: std::collections::BTreeSet<ObjectId> = ids.iter().copied().collect();
         let mut out: Vec<ObjectId> = ids
             .into_iter()
@@ -902,7 +907,7 @@ impl Engine {
     }
 
     /// SetTransform that moves an object by a world-space vector.
-    fn shift_world(&self, id: ObjectId, v: [f64; 3]) -> Result<Command, CoreError> {
+    pub(crate) fn shift_world(&self, id: ObjectId, v: [f64; 3]) -> Result<Command, CoreError> {
         let mut t = self.doc.scene.node(id).map_err(CoreError::from)?.local_transform;
         let local = match self.doc.scene.parent(id) {
             Some(p) => self.doc.scene.world(p).inverse().transform_vector(v),

@@ -1448,3 +1448,38 @@ fn edit_dims_are_computed_by_core_and_editable() {
     call(&mut e, json!({"cmd": "undo"}));
     assert_eq!(e.doc.param_value(cab, "depth"), Some(600.0));
 }
+
+#[test]
+fn align_distribute_rotate_and_snap_to_wall() {
+    let mut e = Engine::new();
+    call(&mut e, json!({"cmd": "create_room", "width": 4000, "depth": 3000, "height": 2700}));
+    let mut ids = Vec::new();
+    for (x, y, z, h) in [(0.0, 0.0, 300.0, 700.0), (1000.0, 150.0, 100.0, 850.0), (2600.0, 400.0, 250.0, 600.0)] {
+        let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "position": [x, y, z], "overrides": {"width": 600, "height": h}}));
+        ids.push(serde_json::from_value::<ObjectId>(r.result["id"].clone()).unwrap());
+    }
+    let bb = |e: &Engine, i: ObjectId| e.doc.world_aabb(i);
+    // Căn trên: cùng đỉnh, một undo.
+    let r = call(&mut e, json!({"cmd": "align_objects", "ids": ids, "mode": "TOP"}));
+    assert!(r.ok, "{:?}", r.error);
+    let top = bb(&e, ids[0]).max[1];
+    assert!(ids.iter().all(|i| (bb(&e, *i).max[1] - top).abs() < 1e-6));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!((bb(&e, ids[0]).max[1] - top).abs() > 1.0, "one undo restores all");
+    // Phân bố đều theo X: khe bằng nhau.
+    call(&mut e, json!({"cmd": "distribute_objects", "ids": ids, "axis": "X"}));
+    let g1 = bb(&e, ids[1]).min[0] - bb(&e, ids[0]).max[0];
+    let g2 = bb(&e, ids[2]).min[0] - bb(&e, ids[1]).max[0];
+    assert!((g1 - g2).abs() < 1e-6, "{g1} {g2}");
+    // Xoay 90°: rộng / sâu đổi chỗ trên hộp bao.
+    let b0 = bb(&e, ids[0]);
+    call(&mut e, json!({"cmd": "rotate_objects", "ids": [ids[0]], "deg": 90, "pivot": "CENTER"}));
+    let b1 = bb(&e, ids[0]);
+    assert!(((b1.max[0] - b1.min[0]) - (b0.max[2] - b0.min[2])).abs() < 1e-3);
+    // Đặt sát tường: tủ 1 (z = 100) về tường sau với khe 5.
+    let r = call(&mut e, json!({"cmd": "snap_to_wall", "ids": [ids[1]], "gap": 5}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!((bb(&e, ids[1]).min[2] - 5.0).abs() < 1e-6, "{:?}", bb(&e, ids[1]));
+    let r = call(&mut e, json!({"cmd": "align_objects", "ids": [ids[0]], "mode": "TOP"}));
+    assert!(!r.ok, "needs two objects");
+}

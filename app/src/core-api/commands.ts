@@ -52,6 +52,10 @@ export const Commands = {
   /** Chạy thử một thao tác (không undo, không đổi dự án): khoang / vị trí tấm chia kết quả. */
   preview: (cabinet: ObjectId, request: Record<string, unknown>) =>
     command<{ ok: boolean; error?: string; bays?: BayInfo[]; positions?: PanelPosition[]; problems?: number[] }>({ cmd: 'preview', cabinet, request }),
+  alignObjects: (ids: ObjectId[], mode: 'LEFT' | 'RIGHT' | 'TOP' | 'BOTTOM' | 'BACK' | 'FRONT' | 'CENTER_X' | 'CENTER_Y' | 'CENTER_Z') => command<{ moved: number }>({ cmd: 'align_objects', ids, mode }),
+  distributeObjects: (ids: ObjectId[], axis: 'X' | 'Y' | 'Z') => command<{ moved: number }>({ cmd: 'distribute_objects', ids, axis }),
+  rotateObjects: (ids: ObjectId[], deg: number, pivot: 'CENTER' | 'LEFT_BACK' | 'RIGHT_BACK' = 'CENTER') => command<{ moved: number }>({ cmd: 'rotate_objects', ids, deg, pivot }),
+  snapToWall: (ids: ObjectId[], gap = 0) => command<{ moved: number }>({ cmd: 'snap_to_wall', ids, gap }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),

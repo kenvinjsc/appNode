@@ -242,6 +242,9 @@ mẫu để dựng lại toàn bộ kệ, vách, cánh, ngăn kéo, thanh treo c
 
 ## 4g. Di chuyển khối, bắt dính khi co kéo
 
+- **Căn chỉnh** (tab Chỉnh sửa): chọn ≥ 2 tủ → *Trái / Phải / Trên / Dưới / Căn trước*; ≥ 3 tủ → *Chia đều* (khe ngang bằng nhau);
+  *Xoay 90° / −90°* quanh tâm; *Sát tường* (tường sau / trái / phải gần nhất của phòng). Mỗi lệnh một bước undo.
+
 - **Kéo trực tiếp**: chọn tủ (hoặc nhiều tủ), bấm giữ lên thân tủ trong 3D và kéo — tủ trượt trên mặt sàn, tự bắt dính
   vào tủ/tường gần. Đang kéo gõ số (mm) + **Enter** để dời đúng khoảng đó theo trục đang kéo (X hoặc Z). **Esc** hủy.
   Thả chuột là một bước undo.
