@@ -15,6 +15,7 @@ import { Icon } from '../shared/icons';
 import { Viewport } from '../viewport/Viewport';
 import { Actions } from './actions';
 import { StructureDialog } from '../features/cabinet/StructureDialog';
+import { SplitDialog } from '../features/cabinet/SplitDialog';
 import { ContextMenu, Jobs, PromptDialog, StatusBar, TitleBar, Toasts, WorkspaceRail, ZoneMenu } from './Chrome';
 import { Ribbon } from './Ribbon';
 import { ShortcutSheet, useShortcutLayer } from './Shortcuts';
@@ -88,6 +89,7 @@ export function App() {
       <ZoneMenu />
       <PromptDialog />
       <StructureDialog />
+      <SplitDialog />
       <Toasts />
       <Jobs />
     </div>

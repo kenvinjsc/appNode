@@ -285,7 +285,7 @@ export interface SnapResult {
 }
 
 // ---- Zone model (Tạo tấm / Chỉnh tấm) ----
-export type SplitKind = 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' | 'DIVIDER' | 'BACK_SUB';
+export type SplitKind = 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' | 'DIVIDER' | 'BACK_SUB' | 'VIRTUAL_H' | 'VIRTUAL_V';
 export type Lock = 'EVEN' | 'RATIO' | 'FROM_START' | 'FROM_END';
 export type Mount = 'OVERLAY' | 'INSET';
 export type DoorKind = 'SINGLE' | 'DOUBLE' | 'SLIDING';

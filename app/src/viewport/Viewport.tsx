@@ -8,6 +8,7 @@ import { Queries } from '../core-api/queries';
 import type { CabinetKind, ObjectId, SnapHint, Vec3 } from '../core-api/types';
 import { Icon } from '../shared/icons';
 import { CABINET_KINDS, fmt } from '../shared/i18n';
+import { applySplit } from '../features/cabinet/SplitDialog';
 import { listenTyped, typedNumber } from '../shared/typedValue';
 import { ViewportEngine } from './renderer/ViewportEngine';
 import { TransformGizmo } from './gizmo/TransformGizmo';
@@ -61,7 +62,7 @@ export function Viewport() {
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [hoverZone, setHoverZone] = useState<number | null>(null);
   const zoneCabinet = useCurrentCabinet();
-  const zoneMode = ui.designerTab === 'create' && ui.showZones && ui.workspace === 'design';
+  const zoneMode = (ui.splitTool !== null || (ui.designerTab === 'create' && ui.showZones)) && ui.workspace === 'design';
   const zones = useZones(zoneMode ? zoneCabinet : null);
 
   useEffect(() => {
@@ -403,6 +404,10 @@ export function Viewport() {
     if (zoneMode && zoneCabinet !== null && zones) {
       const zid = engine.pickZone(e.clientX, e.clientY);
       const cabSelected = s.selection.some((id) => cabinetOf(s.tree, id) === zoneCabinet);
+      if (zid !== null && cabSelected && s.splitTool) {
+        void applySplit(zoneCabinet, zid);
+        return;
+      }
       if (zid !== null && cabSelected) {
         const cur = s.pinned.cabinet === zoneCabinet ? s.pinned.zones : [];
         const next = e.ctrlKey || e.metaKey ? (cur.includes(zid) ? cur.filter((z) => z !== zid) : [...cur, zid]) : cur.length === 1 && cur[0] === zid ? [] : [zid];

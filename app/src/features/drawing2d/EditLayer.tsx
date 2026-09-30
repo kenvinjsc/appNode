@@ -8,6 +8,7 @@ import { Commands } from '../../core-api/commands';
 import type { BayInfo, BayMode, FrontBay, ObjectId, PanelSide, Vec3, ZonesInfo } from '../../core-api/types';
 import { fmt } from '../../shared/i18n';
 import { listenTyped, typedNumber, ValueBox } from '../../shared/typedValue';
+import { applySplit } from '../cabinet/SplitDialog';
 import type { Item } from './Drawing2D';
 
 interface Rect {
@@ -51,7 +52,7 @@ interface Drag {
 }
 
 export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: Item[]; unit: number; svg: SVGSVGElement | null }) {
-  const { pinned, set, select, selection, tree, resizeMode } = useUi();
+  const { pinned, set, select, selection, tree, resizeMode, splitTool } = useUi();
   type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number; size0: number; guide?: number };
   // Bắt dính 2D: edges of every other drawn part are stops (within ~0.9 unit; Alt = free).
   const stopsX = items.flatMap((i) => [i.x0, i.x1]);
@@ -501,6 +502,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
             onMouseEnter={() => setHover(z.id)}
             onMouseLeave={() => setHover(null)}
             onClick={(e) => {
+              if (useUi.getState().splitTool) return void applySplit(info.cabinet, z.id);
               const cur = useUi.getState().pinned;
               const same = cur.cabinet === info.cabinet;
               const zones = e.ctrlKey || e.metaKey ? (same ? (cur.zones.includes(z.id) ? cur.zones.filter((x) => x !== z.id) : [...cur.zones, z.id]) : [z.id]) : [z.id];
@@ -512,7 +514,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               set({ pinned: { cabinet: info.cabinet, zones: [z.id] }, zoneMenu: { x: e.clientX, y: e.clientY, cabinet: info.cabinet, zone: z.id }, contextMenu: null });
             }}
           >
-            <title>{`Vùng #${z.id} · ${fmt(z.size[0], 1)} × ${fmt(z.size[1], 1)} — click ghim, chuột phải: dựng nhanh`}</title>
+            <title>{splitTool ? `Bấm để chia khoang ${fmt(z.size[0], 1)} × ${fmt(z.size[1], 1)}` : `Vùng #${z.id} · ${fmt(z.size[0], 1)} × ${fmt(z.size[1], 1)} — click ghim, chuột phải: dựng nhanh`}</title>
           </rect>
         );
       })}

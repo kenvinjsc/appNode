@@ -56,6 +56,9 @@ export function describeError(e: ApiError, action = 'Không thể thực hiện 
     case 'DEPENDENCY_CYCLE':
       return { title: 'Công thức không hợp lệ.', detail: 'Công thức tạo ra vòng phụ thuộc (tham số tham chiếu chính nó).' };
     case 'INVALID_PARAMETER':
+      if (d.name === 'formula') return { title: 'Công thức chia không hợp lệ.', detail: `${String(d.reason ?? '')}. Ví dụ: 500 · 500,300 · 30%,* · 3*400 · /3.` };
+      if (d.name === 'zone' && String(d.reason ?? '').includes('already split'))
+        return { title: 'Khoang này đã được chia.', detail: 'Bấm vào một khoang con (ô trống), hoặc chuột phải → Gộp khoang để bỏ chia.' };
       if (d.name === 'zone')
         return { title: 'Không thể thêm tấm vào vùng này.', detail: 'Vùng đã được chia theo hướng khác — hãy click ghim một vùng con (ô trống) rồi bấm [TAB].' };
       if (d.name === 'shape' || d.name === 'merge') return { title: 'Không áp được tool.', detail: SHAPE_REASON(String(d.reason ?? '')) };

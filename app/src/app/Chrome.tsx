@@ -6,6 +6,7 @@ import { Icon } from '../shared/icons';
 import { CONTACT_LABEL, fmt } from '../shared/i18n';
 import { View } from '../viewport/viewportBus';
 import { Actions } from './actions';
+import { openSplitTool } from '../features/cabinet/SplitDialog';
 import type { ObjectId } from '../core-api/types';
 import { findNode, useUi, type Workspace } from './uiStore';
 
@@ -226,12 +227,29 @@ export function ZoneMenu() {
           <Item label="Chia 3 khoang" fn={() => dividers(2)} />
           <Item label="Hậu phụ" fn={() => Commands.zoneAddPanels({ cabinet, zones, kind: 'BACK_SUB', count: 1, lock: 'FROM_START', value: 0 })} />
           <h5>Chia khoang</h5>
+          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => openSplitTool('H')}>
+            <span>Chia ngang theo công thức… (K)</span>
+          </button>
+          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => openSplitTool('V')}>
+            <span>Chia dọc theo công thức…</span>
+          </button>
           {[2, 3, 4].map((n) => (
             <Item key={`h${n}`} label={`Chia ngang ${n} khoang (vách)`} fn={() => dividers(n - 1)} />
           ))}
           {[2, 3, 4].map((n) => (
             <Item key={`v${n}`} label={`Chia dọc ${n} tầng (kệ cố định)`} fn={() => shelves(n - 1, 'SHELF_FIXED')} />
           ))}
+          <Item
+            label="Gộp với khoang kế bên (bỏ chia)"
+            fn={async () => {
+              const info = await Queries.zones(cabinet);
+              const bay = info.bays.find((b) => b.child === zone);
+              if (!bay) return;
+              const uids = info.positions.filter((p) => p.zone === bay.zone).map((p) => p.uid);
+              const uid = uids[Math.min(bay.index, uids.length - 1)];
+              if (uid !== undefined) await Commands.zoneRemove(cabinet, uid);
+            }}
+          />
           <Item
             label="Chia đều lại khoang cha"
             fn={async () => {

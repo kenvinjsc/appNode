@@ -20,14 +20,18 @@ pub enum SplitKind {
     Divider,
     /// Hậu phụ: sub-back parallel to the back.
     BackSub,
+    /// Chia ảo ngang (không tạo tấm): chia khoang trên / dưới để gắn cánh, ngăn kéo.
+    VirtualH,
+    /// Chia ảo dọc (không tạo tấm): chia khoang trái / phải.
+    VirtualV,
 }
 
 impl SplitKind {
     /// 0 = X (splits width), 1 = Y (splits height), 2 = Z (splits depth).
     pub fn axis(&self) -> usize {
         match self {
-            SplitKind::ShelfAdjustable | SplitKind::ShelfFixed => 1,
-            SplitKind::Divider => 0,
+            SplitKind::ShelfAdjustable | SplitKind::ShelfFixed | SplitKind::VirtualH => 1,
+            SplitKind::Divider | SplitKind::VirtualV => 0,
             SplitKind::BackSub => 2,
         }
     }
@@ -38,8 +42,71 @@ impl SplitKind {
             SplitKind::ShelfFixed => "KệCốĐịnh",
             SplitKind::Divider => "HôngGiữa",
             SplitKind::BackSub => "HậuPhụ",
+            SplitKind::VirtualH | SplitKind::VirtualV => "ChiaẢo",
         }
     }
+
+    /// No part is generated (thickness 0): the split only makes sub-zones.
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, SplitKind::VirtualH | SplitKind::VirtualV)
+    }
+}
+
+/// Công thức chia khoang, theo thứ tự dọc trục (đầu → cuối):
+/// `500` = KHÓA 500 mm · `30%` = % · `*` / `a` / `auto` = AUTO ·
+/// `3*400` = 3 khoang 400 · `3*` = 3 khoang AUTO · `/3` = chia đều 3.
+/// Ngăn cách bằng `,` `;` `+` hoặc khoảng trắng. Không có khoang AUTO thì thêm
+/// một khoang AUTO cuối cho phần còn lại (bỏ nếu các % cộng đủ 100).
+pub fn parse_split_formula(f: &str) -> Result<Vec<Bay>, String> {
+    let num = |t: &str| -> Result<f64, String> {
+        let v: f64 = t.trim().replace(',', ".").parse().map_err(|_| format!("không hiểu “{t}”"))?;
+        if v.is_finite() && v > 0.0 { Ok(v) } else { Err(format!("giá trị phải > 0: “{t}”")) }
+    };
+    let one = |t: &str| -> Result<Bay, String> {
+        let t = t.trim().to_lowercase();
+        if matches!(t.as_str(), "*" | "a" | "auto" | "x") {
+            Ok(Bay::auto())
+        } else if let Some(p) = t.strip_suffix('%') {
+            Ok(Bay::percent(num(p)?))
+        } else {
+            Ok(Bay::lock(num(&t)?))
+        }
+    };
+    let mut bays = Vec::new();
+    for tok in f.split(|c: char| c == ',' || c == ';' || c == '+' || c.is_whitespace()).filter(|t| !t.is_empty()) {
+        if let Some(n) = tok.strip_prefix('/') {
+            let n = num(n)? as usize;
+            if !(1..=50).contains(&n) {
+                return Err("số khoang 1..50".into());
+            }
+            bays.extend(std::iter::repeat_n(Bay::auto(), n));
+        } else if let Some((n, v)) = tok.split_once('*') {
+            let n = num(n)? as usize;
+            if !(1..=50).contains(&n) {
+                return Err("số khoang 1..50".into());
+            }
+            let b = if v.is_empty() { Bay::auto() } else { one(v)? };
+            bays.extend(std::iter::repeat_n(b, n));
+        } else {
+            bays.push(one(tok)?);
+        }
+    }
+    if bays.is_empty() {
+        return Err("công thức trống".into());
+    }
+    let pct: f64 = bays.iter().filter(|b| b.mode == BayMode::Percent).map(|b| b.value).sum();
+    let all_pct = bays.iter().all(|b| b.mode == BayMode::Percent);
+    let has_auto = bays.iter().any(|b| b.mode == BayMode::Auto);
+    if !(has_auto || all_pct && (pct - 100.0).abs() < 0.01) {
+        bays.push(Bay::auto());
+    }
+    if bays.len() < 2 {
+        return Err("cần ít nhất 2 khoang".into());
+    }
+    if bays.len() > 51 {
+        return Err("tối đa 50 tấm chia".into());
+    }
+    Ok(bays)
 }
 
 /// Which of the three position values is locked; the other two follow.
@@ -608,6 +675,29 @@ impl ZoneTree {
                 zone.split = Some(Box::new(Split { axis: kind.axis(), panels: uids.iter().map(|u| make(*u)).collect(), children, bays: Vec::new() }));
             }
         }
+        Ok(uids)
+    }
+
+    /// Chia khoang theo công thức: tách vùng `zone_id` (chưa chia) thành
+    /// `bays.len()` khoang con, giữa là tấm `kind` (thickness 0 nếu chia ảo).
+    pub fn split_with_bays(&mut self, zone_id: Uid, kind: SplitKind, thickness: f64, bays: Vec<Bay>) -> Result<Vec<Uid>, String> {
+        let t = if kind.is_virtual() { 0.0 } else { thickness };
+        if !kind.is_virtual() && (t.is_nan() || t <= 0.0) {
+            return Err("thickness must be > 0".into());
+        }
+        if bays.len() < 2 {
+            return Err("need at least 2 bays".into());
+        }
+        if self.zone(zone_id).ok_or("zone not found")?.split.is_some() {
+            return Err("zone already split; pick a sub-zone".into());
+        }
+        let uids: Vec<Uid> = (1..bays.len()).map(|_| self.alloc()).collect();
+        let child_ids: Vec<Uid> = (0..bays.len()).map(|_| self.alloc()).collect();
+        let zone = self.zone_mut(zone_id).unwrap();
+        let mut children: Vec<Zone> = child_ids.iter().map(|c| Zone::new(*c)).collect();
+        children[0].links = std::mem::take(&mut zone.links);
+        let panels = uids.iter().map(|&uid| SplitPanel { uid, kind, thickness: t, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] }).collect();
+        zone.split = Some(Box::new(Split { axis: kind.axis(), panels, children, bays }));
         Ok(uids)
     }
 

@@ -701,11 +701,11 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
             cb.size[a] = (end - cursor).max(1.0);
             if a < 2 {
                 let (lo, hi) = if a == 0 { (0, 1) } else { (2, 3) };
-                if i > 0 {
-                    cb.nb[lo] = Neighbor { t: s.panels[i - 1].thickness, outer: false, part: Some(part_idx[i - 1]) };
+                if i > 0 && part_idx[i - 1].is_some() {
+                    cb.nb[lo] = Neighbor { t: s.panels[i - 1].thickness, outer: false, part: part_idx[i - 1] };
                 }
-                if i < s.panels.len() {
-                    cb.nb[hi] = Neighbor { t: s.panels[i].thickness, outer: false, part: Some(part_idx[i]) };
+                if i < s.panels.len() && part_idx[i].is_some() {
+                    cb.nb[hi] = Neighbor { t: s.panels[i].thickness, outer: false, part: part_idx[i] };
                 }
             }
             zone(cx, c, cb, level + 1);
@@ -725,7 +725,10 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
     }
 }
 
-fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> usize {
+fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> Option<usize> {
+    if p.kind.is_virtual() {
+        return None;
+    }
     let [x, y, z] = b.min;
     let [w, h, d] = b.size;
     let t = p.thickness;
@@ -733,7 +736,7 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> usize {
     let name = format!("{}_{:02}", p.kind.base_name(), n);
     let key = format!("p:{}", p.uid);
     let front = z + d;
-    match p.kind {
+    Some(match p.kind {
         SplitKind::ShelfAdjustable => {
             let sb = cx.v.shelf_setback.min(d / 2.0);
             let idx = cx.panel(key, name, PanelRole::Shelf, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w - 1.0, d - sb, t], [x + 0.5, y + st, front - sb], ROT_HORIZONTAL);
@@ -756,10 +759,11 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> usize {
             }
             idx
         }
+        SplitKind::VirtualH | SplitKind::VirtualV => unreachable!(),
         SplitKind::ShelfFixed => cx.panel(key, name, PanelRole::ShelfFixed, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, d, t], [x, y + st, front], ROT_HORIZONTAL),
         SplitKind::Divider => cx.panel(key, name, PanelRole::Divider, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, h, t], [x + st, y, front], ROT_SIDE),
         SplitKind::BackSub => cx.panel(key, name, PanelRole::BackSub, MaterialSlot::Back, GrainDirection::AlongHeight, [w, h, t], [x, y, z + st], [0.0; 3]),
-    }
+    })
 }
 
 fn hinge_count(h: f64) -> u32 {

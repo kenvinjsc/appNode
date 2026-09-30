@@ -27,6 +27,22 @@ pub struct CabinetOverrides {
     pub back_groove: Option<f64>,
 }
 
+/// Chia khoang theo công thức (hộp thoại Chia ngang / Chia dọc).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SplitZone {
+    pub cabinet: ObjectId,
+    pub zone: Uid,
+    /// Tấm chia (SHELF_* / DIVIDER) hoặc VIRTUAL_H / VIRTUAL_V (không tạo tấm).
+    pub kind: SplitKind,
+    /// `500`, `500,300`, `30%,*`, `3*400`, `/3` … (xem `aic_domain::parse_split_formula`).
+    pub formula: String,
+    /// Công thức tính từ trên xuống (ngang) / phải sang trái (dọc).
+    #[serde(default)]
+    pub from_end: bool,
+    #[serde(default)]
+    pub thickness: Option<f64>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ZoneAddPanels {
     pub cabinet: ObjectId,
@@ -158,6 +174,7 @@ pub enum Request {
     // zones (Tạo tấm / Chỉnh tấm)
     GetZones { cabinet: ObjectId },
     ZoneAddPanels(ZoneAddPanels),
+    SplitZone(SplitZone),
     ZoneAddDoors {
         cabinet: ObjectId,
         zones: Vec<Uid>,

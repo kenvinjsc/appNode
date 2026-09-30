@@ -582,3 +582,8 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .snap-guide line { stroke: #e8590c; stroke-width: 1.5; stroke-dasharray: 6 4; }
 .snap-guide circle { fill: #fff; stroke: #e8590c; stroke-width: 2; }
 .d2e .d2e-guide { stroke: #e8590c; stroke-width: 1.2; stroke-dasharray: 8 5; vector-effect: non-scaling-stroke; pointer-events: none; }
+
+.split-dlg { left: 350px; right: auto; top: 200px; width: 300px; border-color: #e8590c; }
+.split-dlg .struct-row { grid-template-columns: 1fr 130px; }
+.split-help { margin-top: 8px; color: #495057; line-height: 1.5; font-size: 12px; }
+.split-help code { background: #fff4e6; color: #d9480f; padding: 0 3px; border-radius: 3px; }

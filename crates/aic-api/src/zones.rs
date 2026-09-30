@@ -2,7 +2,7 @@
 //! cabinet definition, changes it with pure domain functions and applies it
 //! with a single undoable `Command::SetCabinet`.
 
-use crate::protocol::{PartModPatch, ZoneAddPanels};
+use crate::protocol::{PartModPatch, SplitZone, ZoneAddPanels};
 use crate::Engine;
 use aic_domain::zone::{BayMode, DoorKind, DoorSpec, DrawerSpec, Front, HingeSide, LinkKind, Lock, Mount, SplitKind, StopRail, StopRailSpec, Uid};
 use crate::shape::SHAPE_TOOLS;
@@ -255,6 +255,20 @@ impl Engine {
                 Ok(())
             })?;
         }
+        Ok(json!({ "uids": created }))
+    }
+
+    pub(crate) fn split_zone(&mut self, r: SplitZone) -> Result<Value, CoreError> {
+        let mut bays = aic_domain::zone::parse_split_formula(&r.formula).map_err(|e| bad("formula", e))?;
+        if r.from_end {
+            bays.reverse();
+        }
+        let t = r.thickness.unwrap_or_else(|| self.doc.param_value(r.cabinet, "thickness").unwrap_or(17.2));
+        let mut created = Vec::new();
+        self.edit_cabinet_checked(r.cabinet, "Chia khoang", |c| {
+            created = c.zones.split_with_bays(r.zone, r.kind, t, bays).map_err(|e| bad("zone", e))?;
+            Ok(())
+        })?;
         Ok(json!({ "uids": created }))
     }
 

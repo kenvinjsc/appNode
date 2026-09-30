@@ -3,6 +3,19 @@
 import { create } from 'zustand';
 import type { CabinetKind, ContactType, Material, ObjectId, SceneTree } from '../core-api/types';
 
+/** Hộp thoại Chia khoang (giống Chia ngang / Chia dọc của plugin). */
+export interface SplitToolState {
+  /** H = chia ngang (tầng trên / dưới), V = chia dọc (khoang trái / phải). */
+  dir: 'H' | 'V';
+  formula: string;
+  /** Tính từ trên xuống (ngang) / từ phải sang trái (dọc). */
+  fromEnd: boolean;
+  /** Tạo tấm: kệ / vách; No = chỉ chia khoang (gắn cánh, ngăn kéo từng phần). */
+  panel: boolean;
+  /** Đợt di động (chia ngang). */
+  adjustable: boolean;
+}
+
 export type Workspace = 'design' | 'manufacturing' | 'nesting' | 'cnc';
 export type Tool =
   | { type: 'select' }
@@ -65,6 +78,8 @@ interface UiState {
   contextMenu: { x: number; y: number; id: ObjectId } | null;
   /** Quick build menu on a zone (right-click in "Tạo tấm"). */
   zoneMenu: { x: number; y: number; cabinet: ObjectId; zone: number } | null;
+  /** Công cụ Chia khoang: đang mở thì bấm vào khoang (3D / 2D) để chia theo công thức. */
+  splitTool: SplitToolState | null;
   /** Small input dialog (tên template, số lượng…). */
   prompt: { title: string; label: string; value: string; ok: (v: string) => void } | null;
   /** 2D edge handles: keep constraints (anchored edges change their gap) or free. */
@@ -139,6 +154,7 @@ export const useUi = create<UiState>((set, get) => ({
   contextMenu: null,
   zoneMenu: null,
   prompt: null,
+  splitTool: null,
   resizeMode: 'constrained',
   stretchMode: 'PROPORTIONAL',
   structureOf: null,

@@ -244,6 +244,16 @@ mẫu để dựng lại toàn bộ kệ, vách, cánh, ngăn kéo, thanh treo c
 - **Bắt dính khi co kéo**: kéo tay nắm kích thước tủ (3D) hoặc cạnh tấm (2D) sẽ dừng ở cạnh hộp của tủ/chi tiết
   khác trong khoảng 10 px, có đường gạch cam chỉ điểm bắt. Giữ **Alt** để kéo tự do.
 
+## 4h. Chia khoang theo công thức (giống Chia ngang / Chia dọc của plugin)
+
+- Mở: nút **Chia khoang** (Trang đầu → Thành phần), phím **K**, hoặc chuột phải khoang → *Chia ngang/dọc theo công thức…*
+- Chọn tủ, rồi **bấm vào khoang** trong 3D hoặc trên bản vẽ 2D. Hộp thoại giữ nguyên để chia tiếp; **Esc** đóng.
+- **Công thức chia**: `500` = khoang 500 (KHÓA) + phần còn lại (AUTO) · `500,300` · `30%,*` · `3*400` · `/3` chia đều 3.
+- **Trên xuống dưới** (ngang) / **Phải sang trái** (dọc): tính công thức từ phía nào.
+- **Tạo tấm = Không**: chỉ tách khoang (đường nét đứt trên 2D), không sinh tấm — để gắn cánh / ngăn kéo cho từng phần.
+- **Đợt di động**: kệ di động (có chốt) thay vì kệ cố định.
+- Bỏ chia: chuột phải khoang → **Gộp với khoang kế bên**. Mỗi lần chia là một bước undo.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 

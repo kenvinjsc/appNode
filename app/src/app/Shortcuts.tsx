@@ -1,4 +1,5 @@
 // Keyboard shortcut layer + configurable shortcut sheet.
+import { openSplitTool } from '../features/cabinet/SplitDialog';
 import { useEffect, useState } from 'react';
 import { ACTION_LABEL, chordOf, loadShortcuts, matchAction, saveShortcut, type ActionId } from '../shared/shortcuts';
 import { Icon } from '../shared/icons';
@@ -49,6 +50,8 @@ export function useShortcutLayer() {
         case 'redo':
         case 'redoAlt':
           return void Actions.redo();
+        case 'splitZone':
+          return s.splitTool ? s.set({ splitTool: null }) : openSplitTool();
         case 'move':
           return s.setTool({ type: 'move' });
         case 'rotate':

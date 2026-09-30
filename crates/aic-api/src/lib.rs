@@ -296,6 +296,7 @@ impl Engine {
             }
             GetZones { cabinet } => ok(self.zones_info(cabinet)?),
             ZoneAddPanels(r) => ok(self.zone_add_panels(r)?),
+            SplitZone(r) => ok(self.split_zone(r)?),
             ZoneAddDoors { cabinet, zones, kind, cols, rows, mount, hinge, thickness, stop } => {
                 self.zone_set_front(cabinet, zones, Some(zones::default_door(kind, cols, rows, mount, hinge, thickness, stop)))?;
                 ok(json!({}))

@@ -830,3 +830,44 @@ fn move_objects_by_vector_one_undo() {
     call(&mut e, json!({"cmd": "undo"}));
     assert_eq!((e.doc.param_value(a, "x"), e.doc.param_value(b, "x")), (Some(0.0), Some(1000.0)));
 }
+
+#[test]
+fn split_zone_by_formula_top_down_and_virtual() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"doors": 0, "shelves": 0, "width": 1000, "height": 2000}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = z.result["zones"][0]["id"].as_u64().unwrap();
+    let before = e.doc.cabinet_layout(cab).unwrap().parts.len();
+    // Chia ngang 500 từ trên xuống, tạo kệ cố định.
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": root, "kind": "SHELF_FIXED", "formula": "500", "from_end": true}));
+    assert!(r.ok, "{:?}", r.error);
+    let b = bays(&mut e, cab, root);
+    assert_eq!(b.len(), 2);
+    assert!((b[1].0 - 500.0).abs() < 1e-6, "top bay locked 500: {b:?}");
+    assert_eq!(e.doc.cabinet_layout(cab).unwrap().parts.len(), before + 1);
+    // Chia ảo khoang dưới thành 3 cột, không tạo tấm.
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let lower = z.result["bays"].as_array().unwrap().iter().find(|x| x["zone"] == root && x["index"] == 0).unwrap()["child"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": lower, "kind": "VIRTUAL_V", "formula": "/3"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.cabinet_layout(cab).unwrap().parts.len(), before + 1, "virtual split makes no part");
+    let b = bays(&mut e, cab, lower);
+    assert_eq!(b.len(), 3);
+    assert!((b[0].0 - b[2].0).abs() < 1e-6);
+    // Không đủ chỗ → từ chối; công thức sai → lỗi formula.
+    let c0 = b_child(&mut e, cab, lower, 0);
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": c0, "kind": "SHELF_FIXED", "formula": "5000"}));
+    assert!(!r.ok);
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": c0, "kind": "SHELF_FIXED", "formula": "abc"}));
+    assert!(!r.ok);
+    // Một bước undo cho mỗi lần chia.
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.cabinet_layout(cab).unwrap().parts.len(), before);
+}
+
+fn b_child(e: &mut Engine, cab: ObjectId, zone: u64, index: u64) -> u64 {
+    let z = call(e, json!({"cmd": "get_zones", "cabinet": cab}));
+    z.result["bays"].as_array().unwrap().iter().find(|x| x["zone"] == zone && x["index"] == index).unwrap()["child"].as_u64().unwrap()
+}

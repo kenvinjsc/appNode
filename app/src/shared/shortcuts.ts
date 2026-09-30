@@ -4,7 +4,7 @@
 export type ActionId =
   | 'delete' | 'duplicate' | 'undo' | 'redo' | 'redoAlt' | 'move' | 'rotate' | 'select' | 'fitSelection' | 'fitAll'
   | 'viewFront' | 'viewBack' | 'viewLeft' | 'viewRight' | 'viewTop' | 'viewPerspective' | 'save' | 'open'
-  | 'escape' | 'hide' | 'rename' | 'relations' | 'dimensions' | 'selectAll' | 'shortcuts';
+  | 'escape' | 'hide' | 'rename' | 'relations' | 'dimensions' | 'selectAll' | 'shortcuts' | 'splitZone';
 
 export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   delete: 'Delete',
@@ -32,6 +32,7 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   dimensions: 'Shift+D',
   selectAll: 'Ctrl+A',
   shortcuts: '?',
+  splitZone: 'K',
 };
 
 export const ACTION_LABEL: Record<ActionId, string> = {
@@ -60,6 +61,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   dimensions: 'Kích thước',
   selectAll: 'Chọn tất cả',
   shortcuts: 'Bảng phím tắt',
+  splitZone: 'Chia khoang',
 };
 
 const KEY = 'aic.shortcuts';

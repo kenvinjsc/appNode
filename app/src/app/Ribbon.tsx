@@ -4,6 +4,7 @@ import { CABINET_KINDS } from '../shared/i18n';
 import { Icon } from '../shared/icons';
 import { View } from '../viewport/viewportBus';
 import { Actions } from './actions';
+import { openSplitTool } from '../features/cabinet/SplitDialog';
 import { useUi, type RibbonTab } from './uiStore';
 
 function Btn({ icon, label, onClick, active, disabled, title, accent }: { icon: string; label: string; onClick?: () => void; active?: boolean; disabled?: boolean; title?: string; accent?: boolean }) {
@@ -83,6 +84,7 @@ export function Ribbon() {
       <Btn icon="door" label="Cánh" onClick={() => void Actions.bumpCabinet('doors', 1)} title="Thêm cánh" />
       <Btn icon="drawer" label="Ngăn kéo" onClick={() => void Actions.bumpCabinet('drawers', 1)} title="Thêm ngăn kéo" />
       <Btn icon="divider" label="Vách ngăn" onClick={() => void Actions.addDivider()} />
+      <Btn icon="grid" label="Chia khoang" active={useUi.getState().splitTool !== null} onClick={() => openSplitTool()} title="Chia khoang theo công thức: bấm vào khoang trong 3D / 2D (K)" />
     </Group>
   );
   const toolsGroup = (

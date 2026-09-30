@@ -34,6 +34,8 @@ export const Commands = {
   createRoom: (width: number, depth: number, height: number) => command<{ id: ObjectId }>({ cmd: 'create_room', width, depth, height }),
   createCabinet: (kind: CabinetKind, position: Vec3 | null, overrides: Record<string, unknown> = {}, extra: { parent?: ObjectId; name?: string; room?: string; floor?: string; after?: ObjectId } = {}) =>
     command<{ id: ObjectId }>({ cmd: 'create_cabinet', kind, position: position ?? undefined, overrides, ...extra }),
+  /** Chia khoang theo công thức (`500`, `500,300`, `30%,*`, `3*400`, `/3`). */
+  splitZone: (p: { cabinet: ObjectId; zone: number; kind: SplitKind; formula: string; from_end: boolean }) => command<{ uids: number[] }>({ cmd: 'split_zone', ...p }),
   zoneAddPanels: (p: { cabinet: ObjectId; zones: number[]; kind: SplitKind; count: number; thickness?: number; lock: Lock; value: number; tilt_deg?: [number, number] }) =>
     command<{ uids: number[] }>({ cmd: 'zone_add_panels', ...p }),
   zoneAddDoors: (p: { cabinet: ObjectId; zones: number[]; kind: DoorKind; cols: number; rows: number; mount: Mount; hinge: HingeSide; thickness?: number; stop?: StopRailSpec }) =>
