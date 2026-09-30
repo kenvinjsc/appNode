@@ -28,6 +28,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | bộ vật liệu (dựng sẵn + tự lưu, áp cả phòng), vật liệu VN (MFC, MFC lõi xanh, Acrylic, Laminate, Veneer) |
 | D11 | Mã tấm, danh sách cắt gộp, in nhãn 60×40, CSV | chưa: QR, profile CSV cấu hình |
 | D24 | Tool 03 / 08 / 16 / 18 gửi ý định, core tính theo kích thước tấm (khấu góc theo góc khi tủ đổi cỡ), nhiều tấm một undo | |
+| D30 (bếp) | Mẫu bếp dựng sẵn: bếp dưới 800, bếp trên 800, góc L 1100, tủ lò 600 kịch trần | chưa: mẫu tủ áo / giường / bàn (§7 #4–#14) |
 | D12 | Báo giá mét dài / m² mặt đứng / bóc chi tiết theo phòng, hao hụt, công, lợi nhuận, VAT | in báo giá A4 / PDF có tổng bằng chữ |
 
 ### UI

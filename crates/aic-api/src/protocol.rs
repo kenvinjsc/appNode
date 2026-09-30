@@ -275,6 +275,19 @@ pub enum Request {
     DeleteTemplate { name: String },
     /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
     GetStructure { cabinet: ObjectId },
+    /// Mẫu sản phẩm dựng sẵn (tủ bếp dưới / trên / góc L / tủ lò…).
+    GetProducts,
+    InsertProduct {
+        key: String,
+        #[serde(default)]
+        position: Option<[f64; 3]>,
+        #[serde(default)]
+        room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
+        #[serde(default)]
+        after: Option<ObjectId>,
+    },
     /// Tool gia công theo tham số cho nhiều tấm (khấu góc, khấu bề mặt, rãnh LED / V-bit).
     ToolFeature { ids: Vec<ObjectId>, #[serde(default)] tool: String, feature: aic_domain::ParamFeature },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.

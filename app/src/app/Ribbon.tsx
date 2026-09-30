@@ -1,5 +1,5 @@
 // Contextual ribbon: tabs group tools so they are never all shown at once.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CABINET_KINDS } from '../shared/i18n';
 import { Icon } from '../shared/icons';
 import { View } from '../viewport/viewportBus';
@@ -29,6 +29,17 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 function CabinetMenu() {
   const [open, setOpen] = useState(false);
   const { tool, setTool } = useUi();
+  const [products, setProducts] = useState<{ key: string; name: string; summary: string }[]>([]);
+  useEffect(() => {
+    if (open && !products.length)
+      Commands.getProducts()
+        .then((r) => setProducts(r.products))
+        .catch(() => undefined);
+  }, [open, products.length]);
+  const after = () => {
+    const s = useUi.getState();
+    return s.selection.find((id) => findNode(s.tree, id)?.node.kind === 'CABINET');
+  };
   return (
     <div className="rb-drop" onMouseLeave={() => setOpen(false)}>
       <Btn icon="cabinet" label="Tủ ▾" accent active={tool.type === 'place-cabinet'} onClick={() => setOpen(!open)} title="Tạo tủ: chọn loại rồi nhấp vào vị trí" />
@@ -73,6 +84,21 @@ function CabinetMenu() {
               }}
             >
               <Icon name="cabinet" size={16} /> Tủ góc chéo ({wall ? 'bếp trên' : 'bếp dưới'})
+            </button>
+          ))}
+          {products.length > 0 && <div className="menu-sep">Mẫu bếp dựng sẵn</div>}
+          {products.map((p) => (
+            <button
+              key={p.key}
+              title={p.summary}
+              onClick={() => {
+                setOpen(false);
+                void Commands.insertProduct(p.key, after())
+                  .then((r) => useUi.getState().select([r.id]))
+                  .catch(() => undefined);
+              }}
+            >
+              <Icon name="sample" size={16} /> {p.name}
             </button>
           ))}
         </div>

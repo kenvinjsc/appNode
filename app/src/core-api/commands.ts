@@ -46,6 +46,9 @@ export const Commands = {
   deleteMaterialSet: (name: string) => command({ cmd: 'delete_material_set', name }),
   /** Tool gia công theo tham số cho nhiều tấm (một undo). */
   toolFeature: (ids: ObjectId[], tool: string, feature: ParamFeature) => command<{ panels: number }>({ cmd: 'tool_feature', ids, tool, feature }),
+  getProducts: () => command<{ products: { key: string; name: string; room: string; summary: string }[] }>({ cmd: 'get_products' }),
+  /** Chèn mẫu sản phẩm dựng sẵn (một undo), cạnh tủ `after` nếu có. */
+  insertProduct: (key: string, after?: ObjectId) => command<{ id: ObjectId }>({ cmd: 'insert_product', key, after }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),

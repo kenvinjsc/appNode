@@ -17,6 +17,7 @@ mod templates;
 pub mod library;
 mod structure_api;
 mod runs;
+mod products;
 pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
@@ -472,6 +473,8 @@ impl Engine {
                 ok(json!({}))
             }
             GetRuns => ok(self.get_runs()),
+            GetProducts => ok(self.products_info()),
+            InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
             ToolFeature { ids, tool, feature } => ok(json!({ "panels": self.tool_feature(&ids, &tool, feature)? })),
             GetMaterialSets => ok(self.material_sets_info()),
             SaveMaterialSet { cabinet, name } => {

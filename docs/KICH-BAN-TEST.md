@@ -33,7 +33,7 @@ Tài liệu này gom toàn bộ kịch bản kiểm thử theo module: dùng cho
 | Module | Kịch bản | Tự động | Tay |
 |---|---|---|---|
 | 01 Dự án, tầng / phòng, lưu / mở, undo | TC-01.1–01.6 | E2E 01, Rust `save_load_identical`, `floors_and_rooms_…` | 01.5, 01.6 |
-| 02 Tạo tủ, template, dãy liền nhau | TC-02.1–02.5 | Rust `row_of_cabinets_…`, `parametric_f_…`, E2E 06.4 | 02.1, 02.2 |
+| 02 Tạo tủ, template, dãy liền nhau, mẫu dựng sẵn | TC-02.1–02.6 | Rust `row_of_cabinets_…`, `parametric_f_…`, E2E 06.4 | 02.1, 02.2 |
 | 03 Thao tác 3D (chọn, kéo khối, handle, bắt dính) | TC-03.1–03.7 | Rust `move_objects_…`, `resize_stretch_…`, E2E 06.2–06.3 | 03.1–03.7 |
 | 04 Sửa trực tiếp 2D | TC-04.1–04.7 | Rust `parametric_a/b/c/…`, E2E 06.1 | 04.2–04.7 |
 | 05 Khoang & tấm (Tạo tấm, Dựng nhanh, Chia khoang) | TC-05.1–05.6 | Rust `zone_workflow_…`, `split_zone_…`, E2E 02 | 05.1, 05.4 |
@@ -72,6 +72,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.3 Nhân dãy** (Rust `parametric_f_…`). Chuột phải tủ → Nhân dãy tủ sang phải 3 → 3 tủ liền nhau, một undo.
 - **TC-02.4 Template** (E2E 06.4). Lưu tủ áo làm template → chèn 1200 × 2200 × 580 → khoang giữ chế độ KHÓA / AUTO / %, cánh,
   kệ tính lại theo kích thước mới.
+- **TC-02.6 Mẫu bếp dựng sẵn** (E2E 11, Rust `kitchen_products_insert_with_one_undo`). Tủ ▾ → Tủ lò 600 kịch trần cạnh BếpDưới03 →
+  600 × 2300 × 580, phòng Bếp · Tầng 1, 2 ngăn kéo + khoang lò 600 + cánh lật; bếp dưới 800 có 6 chân, vật liệu MFC lõi xanh;
+  bếp trên có ke treo, tay nắm nửa dưới; một undo.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

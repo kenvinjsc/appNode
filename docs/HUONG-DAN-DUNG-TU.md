@@ -303,6 +303,10 @@ trên lỗ gần nhất (lệch tối đa nửa bước lỗ), nên kích thư�
 - **Tủ góc chéo**: Tủ ▾ → **Tủ góc chéo (bếp dưới / bếp trên)**. Hai cạnh áp tường dài = Rộng (900 / 600), sâu tay = Sâu
   (580 / 320); đáy, nóc, kệ là tấm 5 cạnh (có đường bao trong danh sách cắt, CNC), 2 hậu áp tường, cánh xiên 45° rộng
   √2 × (Rộng − Sâu). Bảng kết cấu có tab **Tủ góc chéo**: số kệ, kệ lùi sau cánh, bản lề trái / phải.
+- **Mẫu bếp dựng sẵn** (Tủ ▾, phần cuối): *Tủ bếp dưới 2 cánh 800* (800 × 810 × 560, chân nhựa + len, 1 kệ, cánh đôi),
+  *Tủ bếp trên 800* (treo, thanh treo tường, tay nắm dưới), *Tủ bếp góc L 1100* (tấm mù + cánh 450), *Tủ lò 600 kịch trần*
+  (2 ngăn kéo dưới 720, khoang lò 600, cánh lật trên). Đều dùng bộ vật liệu *Bếp chống ẩm*, liên kết cam; chèn cạnh tủ đang
+  chọn, cùng phòng / tầng; một undo.
 - Chuột phải tủ → **Dãy tủ của tủ này…** để mở lại bảng; **Xóa dãy** bỏ các tấm dãy và trả lại len chân riêng.
 
 ## 5. Tool (tab Tool bên trái)

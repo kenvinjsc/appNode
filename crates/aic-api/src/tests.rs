@@ -1312,3 +1312,47 @@ fn tool_features_are_parametric_and_one_undo() {
     let r = call(&mut e, json!({"cmd": "tool_feature", "ids": [l], "tool": "16. LED", "feature": {"type": "GROOVE_LINE", "direction": "Y", "offset": 50, "from_end": true, "width": 10, "depth": 8, "side": "A"}}));
     assert!(r.ok, "{:?}", r.error);
 }
+
+#[test]
+fn kitchen_products_insert_with_one_undo() {
+    let mut e = Engine::new();
+    let info = call(&mut e, json!({"cmd": "get_products"}));
+    assert_eq!(info.result["products"].as_array().unwrap().len(), 4);
+    let mut ids = Vec::new();
+    for key in ["KITCHEN_BASE_800", "KITCHEN_WALL_800", "KITCHEN_CORNER_L", "KITCHEN_OVEN_TALL"] {
+        let r = call(&mut e, json!({"cmd": "insert_product", "key": key}));
+        assert!(r.ok, "{key}: {:?}", r.error);
+        ids.push(serde_json::from_value::<ObjectId>(r.result["id"].clone()).unwrap());
+    }
+    let names = |e: &Engine, c: ObjectId| e.doc.cabinet_layout(c).unwrap().parts.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+    let size = |e: &Engine, c: ObjectId| ["width", "height", "depth"].map(|n| e.doc.param_value(c, n).unwrap());
+    // Bếp dưới: 800 × 810 × 560, kệ, cánh đôi, chân nhựa 6, vật liệu chống ẩm.
+    assert_eq!(size(&e, ids[0]), [800.0, 810.0, 560.0]);
+    let l = e.doc.cabinet_layout(ids[0]).unwrap();
+    assert_eq!(l.fittings.legs, 6);
+    assert_eq!(names(&e, ids[0]).iter().filter(|n| n.starts_with("CửaĐôi")).count(), 2);
+    assert!(names(&e, ids[0]).iter().any(|n| n.starts_with("KệDiĐộng")));
+    let cab0 = e.doc.objects.get(&ids[0]).unwrap().as_cabinet().unwrap().clone();
+    assert_eq!(cab0.carcass_material.0, "MFCMR18-WHITE");
+    assert_eq!(cab0.room, "Bếp");
+    // Bếp trên: treo, tay nắm nửa dưới cánh.
+    let l = e.doc.cabinet_layout(ids[1]).unwrap();
+    assert_eq!(l.fittings.hangers, 2);
+    let door = l.parts.iter().find(|p| p.name.starts_with("CửaĐôi")).unwrap();
+    let handle = l.parts.iter().find(|p| p.name.starts_with("TayNắm")).unwrap();
+    assert!(handle.translation[1] < door.translation[1] + door.size[1] / 2.0);
+    // Góc L: tấm mù + cánh + kệ.
+    assert!(names(&e, ids[2]).iter().any(|n| n.starts_with("TấmMù")));
+    assert!(names(&e, ids[2]).iter().any(|n| n.starts_with("KệDiĐộng")));
+    // Tủ lò: 2 ngăn kéo dưới, khoang lò 600, cánh lật trên.
+    let n3 = names(&e, ids[3]);
+    assert_eq!(n3.iter().filter(|n| n.starts_with("MặtNgăn")).count(), 2);
+    assert!(n3.iter().any(|n| n.starts_with("CửaĐơn")));
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": ids[3]}));
+    assert!(z.result["bays"].as_array().unwrap().iter().any(|b| (b["size"].as_f64().unwrap() - 600.0).abs() < 1e-6), "oven bay 600");
+    // Một undo gỡ tủ lò vừa chèn.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(!e.doc.objects.contains_key(&ids[3]));
+    let r = call(&mut e, json!({"cmd": "insert_product", "key": "KHONG_CO"}));
+    assert!(!r.ok);
+}
