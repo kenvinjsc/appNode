@@ -286,6 +286,12 @@ impl Engine {
             if f.hangers > 0 {
                 add("hanger".into(), "Ke treo tủ".into(), f.hangers as f64, "Cái");
             }
+            if f.alu_profile_mm > 0.0 {
+                add("alu_profile".into(), "Profile nhôm cánh".into(), (f.alu_profile_mm / 10.0).round() / 100.0, "m");
+            }
+            if f.glass_mm2 > 0.0 {
+                add("glass".into(), "Kính / gương cánh".into(), (f.glass_mm2 / 1e4).round() / 100.0, "m²");
+            }
             if f.gas_lifts > 0 {
                 add("gas_lift".into(), "Ben hơi nâng giường".into(), f.gas_lifts as f64, "Cái");
             }

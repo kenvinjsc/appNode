@@ -157,6 +157,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-06.9 Mặt giả tủ chậu** (E2E 08). Chuột phải khoang → Mặt giả → chỉ MặtGiả, không hộc / ray / tay nắm.
 - **TC-06.10 Tủ góc chéo** (E2E 04, Rust `diagonal_corner_…`). Tủ ▾ → Tủ góc chéo (bếp dưới) → đáy / nóc / kệ 5 cạnh, 2 hậu,
   cánh xiên 45° rộng √2 × (900 − 580) − 2 khe; tab Tủ góc chéo đổi số kệ; sâu tay ≥ rộng − 150 → từ chối.
+- **TC-06.11 Cánh lùa theo hệ ray** (E2E 21, Rust `sliding_doors_follow_the_track_system_with_alu_frame_and_glass`). Tủ 2400,
+  3 cánh lùa, chồng 35 → mỗi cánh (rộng ray + 2 × 35) / 3, xen kẽ 2 ray. Chỉnh tấm cánh → Khung = Nhôm bản 45 → 4 thanh khung / cánh;
+  Ô nhét = Gương → 3 tấm gương (phụ kiện, không vào xếp tấm); báo giá có profile nhôm (m) và kính (m²). Chọn thanh khung vẫn sửa
+  được hệ ray.
 - **TC-06.7 Cánh rộng sai** (Rust `blind_corner_…`). Tủ góc 600 với cánh 500 → từ chối, thông báo tiếng Việt.
 
 ### 07. Quan hệ tấm, ràng buộc, offset

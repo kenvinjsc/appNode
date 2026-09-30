@@ -440,6 +440,65 @@ pub struct DoorSpec {
     /// Tấm mù cố định (tủ góc L): không bản lề, không tay nắm.
     #[serde(default)]
     pub fixed: bool,
+    /// Hệ ray cánh lùa (None = chồng theo chuẩn xưởng, 2 ray, cánh ván).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sliding: Option<SlidingSpec>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SlideFrame {
+    /// Cánh ván trơn.
+    #[default]
+    None,
+    /// Khung nhôm bản 20.
+    AluThin,
+    /// Khung nhôm bản 45.
+    AluWide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Infill {
+    #[default]
+    Board,
+    Glass,
+    Mirror,
+}
+
+/// Hệ ray cánh lùa (catalog): số ray, độ chồng, trừ kích thước theo bánh xe, khung nhôm.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SlidingSpec {
+    pub system_code: String,
+    /// 2 / 3 ray.
+    pub tracks: u32,
+    /// Độ chồng giữa 2 cánh (20–50).
+    pub overlap: f64,
+    /// Trừ cao cánh trên / dưới (ray, bánh xe).
+    pub deduct_top: f64,
+    pub deduct_bottom: f64,
+    pub frame: SlideFrame,
+    pub infill: Infill,
+    /// Nẹp ngang chia cánh (0–3).
+    pub rails_h: u32,
+}
+
+impl Default for SlidingSpec {
+    fn default() -> Self {
+        Self { system_code: "SLIDE-2T".into(), tracks: 2, overlap: 35.0, deduct_top: 10.0, deduct_bottom: 15.0, frame: SlideFrame::None, infill: Infill::Board, rails_h: 0 }
+    }
+}
+
+impl SlidingSpec {
+    /// Bản rộng profile khung nhôm.
+    pub fn profile_w(&self) -> f64 {
+        match self.frame {
+            SlideFrame::None => 0.0,
+            SlideFrame::AluThin => 20.0,
+            SlideFrame::AluWide => 45.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

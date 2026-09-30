@@ -136,6 +136,11 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
 - Chọn một kệ → Chỉnh tấm → **Nghiêng trước-sau (°)** (−45..45, 0 = kệ phẳng).
 - Chọn một vách ngăn → **Vách lửng: cao**: số dương = cao từ đáy, số âm = treo từ nóc, 0 = suốt chiều cao.
 
+### 3.5 Cánh lùa theo hệ ray
+- Tạo cánh kiểu **Lùa** (Tạo tấm → Cánh, số cánh ngang 2–6). Chọn một cánh → **Chỉnh tấm**: số ray (2 / 3), chồng cánh, trừ cao
+  trên / dưới (bánh xe, ray), khung (ván trơn / nhôm bản 20 / nhôm bản 45), ô nhét (ván / kính / gương), nẹp ngang 0–3.
+- Khung nhôm và kính / gương là phụ kiện: báo giá theo mét (profile) và m² (kính), không vào xếp tấm ván.
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 

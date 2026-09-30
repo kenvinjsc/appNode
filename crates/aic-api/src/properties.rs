@@ -188,6 +188,18 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                 for (i, (k, l)) in [("door_gap_left", "Khe trái"), ("door_gap_right", "Khe phải"), ("door_gap_bottom", "Khe dưới"), ("door_gap_top", "Khe trên")].iter().enumerate() {
                     fields.push(numf(k, l, sg[i], editable));
                 }
+                if d.kind == aic_domain::zone::DoorKind::Sliding {
+                    // Hệ ray cánh lùa (mặc định khi chưa chọn).
+                    let sp = d.sliding.clone().unwrap_or_default();
+                    let es = |v: serde_json::Value| v.as_str().unwrap_or("").to_string();
+                    fields.push(sel("door_slide_tracks", "Số ray", &sp.tracks.to_string(), &[("2", "2 ray"), ("3", "3 ray")], editable));
+                    fields.push(numf("door_slide_overlap", "Chồng cánh", sp.overlap, editable));
+                    fields.push(numf("door_slide_deduct_top", "Trừ cao trên", sp.deduct_top, editable));
+                    fields.push(numf("door_slide_deduct_bottom", "Trừ cao dưới", sp.deduct_bottom, editable));
+                    fields.push(sel("door_slide_frame", "Khung", &es(json!(sp.frame)), &[("NONE", "Ván trơn"), ("ALU_THIN", "Nhôm bản 20"), ("ALU_WIDE", "Nhôm bản 45")], editable));
+                    fields.push(sel("door_slide_infill", "Ô nhét", &es(json!(sp.infill)), &[("BOARD", "Ván"), ("GLASS", "Kính"), ("MIRROR", "Gương")], editable));
+                    fields.push(numf("door_slide_rails_h", "Nẹp ngang (0–3)", sp.rails_h as f64, editable));
+                }
                 if d.stop.kind != aic_domain::zone::StopRail::None {
                     fields.push(numf("door_stop_height", "Cao vùng", d.stop.height, editable));
                     fields.push(numf("door_stop_cover", "Cửa phủ lên", d.stop.cover_up, editable));

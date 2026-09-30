@@ -106,7 +106,7 @@ fn zone_editing_through_set_cabinet() {
     let left = def.zones.root.split.as_ref().unwrap().children[0].id;
     let uid = def.zones.alloc();
     def.zones
-        .set_front(left, Some(Front::Doors(DoorSpec { uid, kind: DoorKind::Single, cols: 1, rows: 1, mount: Mount::Inset, hinge: HingeSide::Right, thickness: None, gap: None, side_gaps: None, stop: StopRailSpec::default(), fixed: false })))
+        .set_front(left, Some(Front::Doors(DoorSpec { uid, kind: DoorKind::Single, cols: 1, rows: 1, mount: Mount::Inset, hinge: HingeSide::Right, thickness: None, gap: None, side_gaps: None, stop: StopRailSpec::default(), fixed: false, sliding: None })))
         .unwrap();
     h.execute(&mut doc, Command::SetCabinet { id: cab, cabinet: Box::new(def), label: "Zone".into() }).unwrap();
     assert_eq!(count(&doc, PanelRole::Divider), 1);

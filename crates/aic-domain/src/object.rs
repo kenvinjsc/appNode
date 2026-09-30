@@ -224,6 +224,10 @@ pub enum HardwareKind {
     Rail,
     Leg,
     Slide,
+    /// Kính / gương (theo m², không vào xếp tấm ván).
+    Glass,
+    /// Thanh profile nhôm (khung cánh, theo mét).
+    Profile,
 }
 
 impl HardwareKind {
@@ -234,6 +238,8 @@ impl HardwareKind {
             HardwareKind::Rail => "Rail",
             HardwareKind::Leg => "Leg",
             HardwareKind::Slide => "Slide",
+            HardwareKind::Glass => "Glass",
+            HardwareKind::Profile => "Profile",
         }
     }
 }

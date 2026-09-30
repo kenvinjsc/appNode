@@ -906,6 +906,13 @@ impl Engine {
                         "door_stop_cover" => d.stop.cover_up = num(&n, &v)?,
                         "door_stop_leg" => d.stop.leg_depth = num(&n, &v)?,
                         "door_stop_setback" => d.stop.setback = num(&n, &v)?,
+                        k if k.starts_with("door_slide_") => {
+                            let sp = d.sliding.get_or_insert_with(Default::default);
+                            crate::furniture::set_json_field(sp, &n, &k["door_slide_".len()..], &v)?;
+                            sp.tracks = sp.tracks.clamp(2, 3);
+                            sp.overlap = sp.overlap.clamp(0.0, 80.0);
+                            sp.rails_h = sp.rails_h.min(3);
+                        }
                         _ => return Err(bad(&n, "unknown door property")),
                     }
                     Ok(())
@@ -959,7 +966,7 @@ impl Engine {
 
 /// Default door spec used by the "Tạo cánh" panel.
 pub(crate) fn default_door(kind: DoorKind, cols: u32, rows: u32, mount: Mount, hinge: HingeSide, thickness: Option<f64>, stop: Option<StopRailSpec>) -> Front {
-    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default(), fixed: false })
+    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default(), fixed: false, sliding: None })
 }
 
 pub(crate) fn default_drawers(count: u32, cols: u32, mount: Mount, thickness: Option<f64>, with_box: bool) -> Front {

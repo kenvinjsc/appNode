@@ -391,6 +391,12 @@ pub struct Fittings {
     /// Ben hơi (giường nâng).
     #[serde(default)]
     pub gas_lifts: u32,
+    /// Profile nhôm cánh lùa / cánh kính (mm dài).
+    #[serde(default)]
+    pub alu_profile_mm: f64,
+    /// Kính / gương (mm²).
+    #[serde(default)]
+    pub glass_mm2: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -1260,6 +1266,73 @@ fn to_edge(h: HingeSide) -> EdgeSide {
     }
 }
 
+/// Cánh lùa theo hệ ray: n cánh chồng `overlap`, cánh xen kẽ các ray, trừ cao theo bánh xe;
+/// khung nhôm (4 thanh + nẹp ngang) và kính / gương là phụ kiện (không vào xếp tấm ván).
+fn sliding_doors(cx: &mut Ctx, spec: &DoorSpec, rect: [f64; 5], t: f64) {
+    let [x0, y0, x1, y1, z] = rect;
+    let sp = spec.sliding.clone();
+    let n = spec.cols.max(2);
+    let overlap = sp.as_ref().map(|s| s.overlap).unwrap_or(cx.cab.rules.shop.slide_overlap).max(0.0);
+    let tracks = sp.as_ref().map(|s| s.tracks.clamp(2, 3)).unwrap_or(2);
+    let (dt, db) = sp.as_ref().map(|s| (s.deduct_top.max(0.0), s.deduct_bottom.max(0.0))).unwrap_or((0.0, 0.0));
+    let total = x1 - x0;
+    let lw = (total + (n - 1) as f64 * overlap) / n as f64;
+    let hgt = (y1 - y0 - dt - db).max(50.0);
+    let y = y0 + db;
+    let pw = sp.as_ref().map(|s| s.profile_w()).unwrap_or(0.0);
+    let infill = sp.as_ref().map(|s| s.infill).unwrap_or_default();
+    let rails = sp.as_ref().map(|s| s.rails_h.min(3)).unwrap_or(0);
+    for i in 0..n {
+        let k = cx.next("CửaLùa");
+        let lx = x0 + i as f64 * (lw - overlap);
+        // Ray ngoài cùng (trước) cho cánh chẵn; 3 ray: xoay vòng.
+        let track = (i % tracks) as f64;
+        let lz = z + (tracks as f64 - 1.0 - track) * (t + 4.0);
+        let key = format!("d:{}:0:{i}", spec.uid);
+        if pw <= 0.0 && infill == Infill::Board {
+            cx.panel(key, format!("CửaLùa_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [lw, hgt, t], [lx, y, lz], [0.0; 3]);
+            continue;
+        }
+        // Khung nhôm: 2 thanh đứng + 2 thanh ngang + nẹp ngang; ô nhét chia đều theo nẹp.
+        let bars = [
+            ("l", [pw, hgt, t], [lx, y, lz]),
+            ("r", [pw, hgt, t], [lx + lw - pw, y, lz]),
+            ("b", [lw - 2.0 * pw, pw, t], [lx + pw, y, lz]),
+            ("t", [lw - 2.0 * pw, pw, t], [lx + pw, y + hgt - pw, lz]),
+        ];
+        if pw > 0.0 {
+            for (s, size, at) in bars {
+                cx.hardware(format!("{key}:alu_{s}"), format!("KhungNhôm_{k:02}{s}"), HardwareKind::Profile, "ALU-SLIDE", size, at);
+            }
+            cx.out.fittings.alu_profile_mm += 2.0 * (lw + hgt) + rails as f64 * (lw - 2.0 * pw);
+        }
+        let cells = rails + 1;
+        let ih = (hgt - 2.0 * pw - rails as f64 * pw) / cells as f64;
+        for c in 0..cells {
+            let cy = y + pw + c as f64 * (ih + pw);
+            if c > 0 && pw > 0.0 {
+                cx.hardware(format!("{key}:alu_m{c}"), format!("NẹpNgang_{k:02}_{c}"), HardwareKind::Profile, "ALU-SLIDE", [lw - 2.0 * pw, pw, t], [lx + pw, cy - pw, lz]);
+            }
+            let size = [lw - 2.0 * pw, ih, if infill == Infill::Board { t.min(10.0) } else { 5.0 }];
+            let at = [lx + pw, cy, lz + (t - size[2]) / 2.0];
+            match infill {
+                Infill::Board => {
+                    cx.panel(format!("{key}:in{c}"), format!("ÔNhétCửaLùa_{k:02}_{}", c + 1), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, size, at, [0.0; 3]);
+                }
+                Infill::Glass | Infill::Mirror => {
+                    let (name, code) = if infill == Infill::Glass { ("Kính", "GLASS-5") } else { ("Gương", "MIRROR-5") };
+                    cx.hardware(format!("{key}:in{c}"), format!("{name}CửaLùa_{k:02}_{}", c + 1), HardwareKind::Glass, code, size, at);
+                    cx.out.fittings.glass_mm2 += size[0] * size[1];
+                }
+            }
+        }
+    }
+    let depth = tracks as f64 * (t + 4.0);
+    cx.hardware(format!("t:{}:top", spec.uid), "RayLùaTrên".into(), HardwareKind::Rail, "TRACK-SLIDE", [total, 20.0, depth], [x0, y1, z]);
+    cx.hardware(format!("t:{}:bot", spec.uid), "RayLùaDưới".into(), HardwareKind::Rail, "TRACK-SLIDE", [total, 10.0, depth], [x0, y0 - 10.0, z]);
+    cx.out.fittings.sliding_tracks += 1;
+}
+
 fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     let gap = spec.gap.unwrap_or(cx.v.door_gap);
     let t = spec.thickness.unwrap_or(cx.v.door_thickness);
@@ -1285,20 +1358,7 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     let cols = spec.cols.max(1);
     let rows = spec.rows.max(1);
     if spec.kind == DoorKind::Sliding {
-        let n = cols.max(2);
-        let overlap = cx.cab.rules.shop.slide_overlap.max(0.0);
-        let total = x1 - x0;
-        let lw = (total + (n - 1) as f64 * overlap) / n as f64;
-        let hgt = y1 - y0;
-        for i in 0..n {
-            let k = cx.next("CửaLùa");
-            let lx = x0 + i as f64 * (lw - overlap);
-            let lz = if i % 2 == 0 { z + t + 4.0 } else { z };
-            cx.panel(format!("d:{}:0:{i}", spec.uid), format!("CửaLùa_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [lw, hgt, t], [lx, y0, lz], [0.0; 3]);
-        }
-        cx.hardware(format!("t:{}:top", spec.uid), "RayLùaTrên".into(), HardwareKind::Rail, "TRACK-SLIDE", [total, 20.0, 2.0 * t + 8.0], [x0, y1, z]);
-        cx.hardware(format!("t:{}:bot", spec.uid), "RayLùaDưới".into(), HardwareKind::Rail, "TRACK-SLIDE", [total, 10.0, 2.0 * t + 8.0], [x0, y0 - 10.0, z]);
-        cx.out.fittings.sliding_tracks += 1;
+        sliding_doors(cx, spec, [x0, y0, x1, y1, z], t);
         return;
     }
     // Hinged doors: grid of leaves.
@@ -1730,6 +1790,7 @@ pub fn set_legacy_front(t: &mut ZoneTree, doors: u32, drawers: u32) {
             side_gaps: None,
             stop: StopRailSpec::default(),
             fixed: false,
+            sliding: None,
         }))
     } else {
         None

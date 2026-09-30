@@ -1717,3 +1717,43 @@ fn wall_cladding_modules_follow_width_and_battens() {
     let lams = e.doc.cabinet_layout(w).unwrap().parts.iter().filter(|p| p.name.starts_with("Lam_")).count();
     assert_eq!(lams, ((3200.0 + 25.0) / 65.0_f64).floor() as usize);
 }
+
+#[test]
+fn sliding_doors_follow_the_track_system_with_alu_frame_and_glass() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 2400, "height": 2600, "depth": 650}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    // Tủ áo có sẵn cánh ở khoang con; bỏ, rồi đặt 3 cánh lùa cho cả tủ.
+    let r = call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": cab, "zones": [root], "kind": "SLIDING", "cols": 3, "mount": "OVERLAY"}));
+    assert!(r.ok, "{:?}", r.error);
+    let leaves = |e: &Engine| e.doc.cabinet_layout(cab).unwrap().parts.into_iter().filter(|p| p.name.starts_with("CửaLùa_")).collect::<Vec<_>>();
+    let door = leaves(&e)[0].clone();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
+    let did: ObjectId = serde_json::from_value(all.iter().find(|k| k["name"] == door.name.as_str()).unwrap()["id"].clone()).unwrap();
+    for (k, v) in [("door_slide_overlap", "35"), ("door_slide_deduct_top", "0"), ("door_slide_deduct_bottom", "0")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": did, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    let l = leaves(&e);
+    assert_eq!(l.len(), 3);
+    let track = e.doc.cabinet_layout(cab).unwrap().parts.into_iter().find(|p| p.name == "RayLùaTrên").unwrap();
+    let total = track.size[0];
+    assert!((l[0].size[0] - (total + 2.0 * 35.0) / 3.0).abs() < 1e-6, "leaf = (W + 2 × overlap) / 3");
+    // Khung nhôm bản 20 + kính → 3 tấm kính, profile theo mét, không còn cánh ván.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": did, "name": "door_slide_frame", "value": "ALU_THIN"}));
+    assert!(r.ok, "{:?}", r.error);
+    // Cánh giờ là khung nhôm + ô nhét: chọn thanh khung vẫn sửa được hệ ray của cánh.
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
+    let bar: ObjectId = serde_json::from_value(all.iter().find(|k| k["name"].as_str().is_some_and(|n| n.starts_with("KhungNhôm"))).unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": bar, "name": "door_slide_infill", "value": "GLASS"}));
+    assert!(r.ok, "{:?}", r.error);
+    let lay = e.doc.cabinet_layout(cab).unwrap();
+    assert_eq!(lay.parts.iter().filter(|p| p.name.starts_with("KínhCửaLùa")).count(), 3);
+    assert!(lay.fittings.alu_profile_mm > 3.0 * 2.0 * 2500.0);
+    assert!(lay.fittings.glass_mm2 > 0.0);
+    let c = call(&mut e, json!({"cmd": "get_costing"})).result.to_string();
+    assert!(c.contains("Profile nhôm cánh") && c.contains("Kính / gương cánh"));
+}
