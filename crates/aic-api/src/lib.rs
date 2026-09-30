@@ -529,17 +529,82 @@ impl Engine {
         }
         let anchor = [def.anchors.width, def.anchors.height, def.anchors.depth][axis];
         let f = anchor.factor();
-        if f == 0.0 || (new - old).abs() < 1e-9 {
+        let delta = new - old;
+        if delta.abs() < 1e-9 {
             return self.exec(set);
         }
+        let mut cmds = vec![set];
+        if f != 0.0 {
+            let mut t = self.doc.scene.node(id).map_err(CoreError::from)?.local_transform;
+            let mut off = [0.0; 3];
+            off[axis] = -delta * f;
+            t.translation = t.transform_point(off);
+            cmds.push(Command::SetTransform { id, transform: t });
+        }
+        // Dãy tủ: cabinets standing flush in the same row follow a width change — the
+        // ones on the growing side are pushed / pulled so the row stays closed.
+        if axis == 0 {
+            let dir = self.doc.scene.world(id).transform_vector([1.0, 0.0, 0.0]);
+            for (chain, amount) in [(self.row_chain(id, true), delta * (1.0 - f)), (self.row_chain(id, false), -delta * f)] {
+                if amount.abs() < 1e-9 {
+                    continue;
+                }
+                for c in chain {
+                    cmds.push(self.shift_world(c, [dir[0] * amount, dir[1] * amount, dir[2] * amount])?);
+                }
+            }
+        }
+        self.exec(Command::Batch { label: "Đổi kích thước tủ".into(), commands: cmds })
+    }
+
+    /// Cabinets touching `id` in a row (same rotation, same height level and depth
+    /// line), walking to the right (`right`) or the left, neighbour after neighbour.
+    fn row_chain(&self, id: ObjectId, right: bool) -> Vec<ObjectId> {
+        let near = |a: [f64; 3], b: [f64; 3]| (0..3).all(|k| (a[k] - b[k]).abs() < 2.0);
+        let cabs: Vec<ObjectId> = self.doc.objects.iter().filter(|(_, o)| o.as_cabinet().is_some()).map(|(k, _)| *k).collect();
+        let width = |c: ObjectId| self.doc.param_value(c, "width").unwrap_or(0.0);
+        let x_of = |c: ObjectId| self.doc.scene.world(c).transform_vector([1.0, 0.0, 0.0]);
+        let x0 = x_of(id);
+        let mut out = Vec::new();
+        let mut cur = id;
+        loop {
+            let w = self.doc.scene.world(cur);
+            let next = cabs.iter().copied().find(|&c| {
+                if c == id || out.contains(&c) {
+                    return false;
+                }
+                let xc = x_of(c);
+                if xc[0] * x0[0] + xc[1] * x0[1] + xc[2] * x0[2] < 0.999 {
+                    return false;
+                }
+                let wc = self.doc.scene.world(c);
+                if right {
+                    near(wc.translation, w.transform_point([width(cur), 0.0, 0.0]))
+                } else {
+                    near(wc.transform_point([width(c), 0.0, 0.0]), w.translation)
+                }
+            });
+            match next {
+                Some(c) => {
+                    out.push(c);
+                    cur = c;
+                }
+                None => return out,
+            }
+        }
+    }
+
+    /// SetTransform that moves an object by a world-space vector.
+    fn shift_world(&self, id: ObjectId, v: [f64; 3]) -> Result<Command, CoreError> {
         let mut t = self.doc.scene.node(id).map_err(CoreError::from)?.local_transform;
-        let mut off = [0.0; 3];
-        off[axis] = -(new - old) * f;
-        t.translation = t.transform_point(off);
-        self.exec(Command::Batch {
-            label: "Đổi kích thước tủ".into(),
-            commands: vec![set, Command::SetTransform { id, transform: t }],
-        })
+        let local = match self.doc.scene.parent(id) {
+            Some(p) => self.doc.scene.world(p).inverse().transform_vector(v),
+            None => v,
+        };
+        for k in 0..3 {
+            t.translation[k] += local[k];
+        }
+        Ok(Command::SetTransform { id, transform: t })
     }
 
     /// Edge band on/off: generated parts store a manual override in the cabinet's part mods.

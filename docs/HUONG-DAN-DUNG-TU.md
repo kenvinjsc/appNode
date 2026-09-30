@@ -148,7 +148,7 @@ Chọn một tủ. Ở **Mặt đứng (Trước)**, bản vẽ 2D trở thành 
 
 | Thao tác | Kết quả |
 |---|---|
-| Bấm số **W / H** màu cam | Nhập kích thước tủ mới (Enter). Tủ giữ vị trí theo **Neo** (Chỉnh tấm → Neo rộng: Giữ trái / giữa / phải). |
+| Bấm số **W / H** màu cam | Nhập kích thước tủ mới (Enter). Tủ giữ vị trí theo **Neo** (Chỉnh tấm → Neo rộng: Giữ trái / giữa / phải). Các tủ **đứng liền trong cùng dãy** (cùng cao độ, cùng hướng) tự dịch theo để dãy luôn khít; tủ trên, tủ đặt cách khe không bị ảnh hưởng. |
 | Bấm số kích thước khoang | Nhập mm → khoang thành **KHÓA**; nhập `40%` → khoang thành **%**. |
 | Bấm nhãn **KHÓA / % / AUTO** trên số | Đổi chế độ khoang: **KHÓA** giữ mm · **%** giữ tỉ lệ · **AUTO** chia phần còn lại. Ví dụ `600 KHÓA · AUTO · 400 KHÓA`: tủ 1600 → 1800 thì chỉ khoang giữa tăng 200. |
 | Kéo vách / kệ | Xem trước số đo 2 khoang kề khi kéo; thả chuột mới lưu. Tự bắt điểm chia đều; giữ **Shift** để bước 10 mm. Chỉ 2 khoang kề thay đổi. |

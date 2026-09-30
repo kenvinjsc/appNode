@@ -663,3 +663,37 @@ fn contour_arc_and_free_polygon_on_a_part() {
     assert!(f.ok, "{:?}", f.error);
     assert!(f.result["inner"].as_array().is_some_and(|v| !v.is_empty()), "hole in the flat pattern");
 }
+
+#[test]
+fn row_of_cabinets_follows_a_width_change() {
+    let mut e = Engine::new();
+    let id = |r: &Response| -> ObjectId { serde_json::from_value(r.result["id"].clone()).unwrap() };
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "position": [1000, 0, 0]}));
+    let a = id(&r);
+    let b = id(&call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "after": a})));
+    let c = id(&call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "after": b})));
+    // A wall cabinet above A and a loose cabinet with a gap: not part of the row.
+    let wall = id(&call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "position": [1000, 1450, 0]})));
+    let loose = id(&call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "position": [3500, 0, 0]})));
+    let x = |e: &Engine, i: ObjectId| e.doc.param_value(i, "x").unwrap();
+    let (xb, xc, xw, xl) = (x(&e, b), x(&e, c), x(&e, wall), x(&e, loose));
+
+    // Keep left: A grows 200 → B and C pushed right, the others stay.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": a, "name": "width", "value": "1000"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!((x(&e, b), x(&e, c)), (xb + 200.0, xc + 200.0));
+    assert_eq!((x(&e, wall), x(&e, loose)), (xw, xl));
+    // One undo puts everything back.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!((x(&e, b), x(&e, c)), (xb, xc));
+
+    // Keep right on B: B grows 100 to the left → A pulled left, C stays.
+    call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "anchor_w", "value": "END"}));
+    let xa = x(&e, a);
+    call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "width", "value": "900"}));
+    assert_eq!((x(&e, a), x(&e, b), x(&e, c)), (xa - 100.0, xb - 100.0, xc));
+    // Shrinking closes the row the same way (C follows when anchored left).
+    call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "anchor_w", "value": "START"}));
+    call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "width", "value": "600"}));
+    assert_eq!(x(&e, c), xc - 300.0);
+}
