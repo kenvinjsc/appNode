@@ -1063,6 +1063,11 @@ fn run_countertop_follows_cabinets_one_undo() {
     call(&mut e, json!({"cmd": "undo"}));
     assert_eq!(part(&e, "MặtĐá").map(|p| p.0), Some(2350.0));
     assert_eq!(e.doc.param_value(ids[1], "width"), Some(600.0));
+    // Khoét chậu trên mặt đá: một đường bao trong, theo mặt đá khi dãy đổi.
+    let r = call(&mut e, json!({"cmd": "update_run", "name": "Dãy 1", "rules": {"countertop": true, "continuous_plinth": true, "filler_right": 50, "cutouts": [{"kind": "SINK", "x": 900, "width": 780, "depth": 430, "from_front": 80, "radius": 10}]}}));
+    assert!(r.ok, "{:?}", r.error);
+    let top = e.doc.objects.values().filter_map(|o| o.as_panel()).find(|p| p.name == "MặtĐá").unwrap();
+    assert_eq!(top.features.iter().filter(|f| matches!(f, aic_domain::MachiningFeature::Contour(c) if c.inner)).count(), 1);
     // Sửa luật: bỏ mặt đá; xóa dãy trả lại len riêng.
     let r = call(&mut e, json!({"cmd": "update_run", "name": "Dãy 1", "rules": {"countertop": false, "continuous_plinth": true}}));
     assert!(r.ok, "{:?}", r.error);

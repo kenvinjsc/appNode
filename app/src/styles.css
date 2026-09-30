@@ -597,3 +597,5 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .quote-setting { display: inline-flex; align-items: center; gap: 3px; }
 .quote-setting .price { width: 90px; }
 .grand-total.small-lines { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; }
+.run-dlg .row-btns { display: flex; gap: 6px; justify-content: flex-end; margin: 6px 0; }
+.run-dlg { max-height: 78vh; }

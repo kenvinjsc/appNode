@@ -60,6 +60,9 @@ impl Engine {
                     transform: self.local_of(parent, r.compose(&Transform3D::new(part.translation, part.rotation_deg))),
                     parent,
                 })?;
+                for feature in part.features {
+                    self.exec_cmd(Command::AddFeature { id, feature, index: None })?;
+                }
                 run.parts.push(id);
             }
         }

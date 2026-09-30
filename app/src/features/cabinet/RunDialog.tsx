@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { RunDef, RunRules } from '../../core-api/types';
+import type { Cutout, RunDef, RunRules } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 
 export function RunDialog() {
@@ -57,6 +57,32 @@ export function RunDialog() {
             <Num k="overhang_front" label="Nhô trước" />
             <Num k="overhang_left" label="Nhô trái" />
             <Num k="overhang_right" label="Nhô phải" />
+            {(r.cutouts ?? []).map((c, i) => {
+              const upd = (p: Partial<Cutout>) => patch({ cutouts: r.cutouts.map((x, j) => (j === i ? { ...x, ...p } : x)) });
+              return (
+                <div key={i} className="cutout">
+                  <h5 className="struct-section">
+                    {c.kind === 'SINK' ? 'Khoét chậu' : 'Khoét bếp'} #{i + 1}{' '}
+                    <button className="icon-btn danger" title="Bỏ lỗ khoét" onClick={() => patch({ cutouts: r.cutouts.filter((_, j) => j !== i) })}>
+                      <Icon name="x" size={12} />
+                    </button>
+                  </h5>
+                  <NumRow label="Cách mép trái mặt đá" value={c.x} onCommit={(v) => upd({ x: v })} />
+                  <NumRow label="Rộng" value={c.width} onCommit={(v) => upd({ width: v })} />
+                  <NumRow label="Sâu" value={c.depth} onCommit={(v) => upd({ depth: v })} />
+                  <NumRow label="Cách mép trước" value={c.from_front} onCommit={(v) => upd({ from_front: v })} />
+                  <NumRow label="Bo góc" value={c.radius} onCommit={(v) => upd({ radius: v })} />
+                </div>
+              );
+            })}
+            <div className="row-btns">
+              <button className="btn tiny" onClick={() => patch({ cutouts: [...(r.cutouts ?? []), { kind: 'SINK', x: 200, width: 780, depth: 430, from_front: 80, radius: 10 }] })}>
+                + Khoét chậu
+              </button>
+              <button className="btn tiny" onClick={() => patch({ cutouts: [...(r.cutouts ?? []), { kind: 'HOB', x: 1200, width: 560, depth: 490, from_front: 60, radius: 0 }] })}>
+                + Khoét bếp
+              </button>
+            </div>
           </>
         )}
         <h5 className="struct-section">Len chân</h5>

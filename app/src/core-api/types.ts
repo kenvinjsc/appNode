@@ -521,6 +521,16 @@ export interface RunRules {
   filler_left: number;
   filler_right: number;
   ceiling: number;
+  cutouts: Cutout[];
+}
+
+export interface Cutout {
+  kind: 'SINK' | 'HOB';
+  x: number;
+  width: number;
+  depth: number;
+  from_front: number;
+  radius: number;
 }
 
 export interface RunDef {
