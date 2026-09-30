@@ -102,6 +102,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-04.5 Kéo 4 cạnh tấm** (tay; Rust `relations_…_edge_drag`). Chọn tấm → kéo handle cạnh → bắt dính cạnh chi tiết khác; chế độ
   "Giữ ràng buộc" giữ quan hệ.
 - **TC-04.6 View Trái / Mặt cắt** (tay). Đổi view → kích thước sâu đúng; mặt cắt kéo thanh vị trí cắt.
+- **TC-04.8 Xem trước do core** (E2E 12, Rust `preview_is_a_dry_run_without_history_or_revision`). Bật hàng lỗ 32 → kéo kệ trên 2D →
+  số đang kéo là vị trí đã bắt lỗ (bội 32 + 69), revision không đổi khi đang kéo, redo còn nguyên; thả mới lưu; kéo quá khoang → tay nắm đỏ.
 - **TC-04.7 Khoang quá nhỏ** (tay; Rust `percent_keeps_ratio_and_conflict_is_reported`). Nhập khoang lớn hơn tủ → từ chối, thông báo
   tiếng Việt, tủ giữ nguyên.
 

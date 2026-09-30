@@ -1387,3 +1387,36 @@ fn zones_changed_events_only_for_touched_cabinets() {
     let r = call(&mut e, json!({"cmd": "undo"}));
     assert_eq!(zones_of(&r), Some(vec![a]));
 }
+
+#[test]
+fn preview_is_a_dry_run_without_history_or_revision() {
+    let mut e = Engine::new();
+    let cab = created_cabinet(&mut e);
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let divider: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"] == "HôngGiữa_01").unwrap()["id"].clone()).unwrap();
+    // Tạo một redo để chắc chạy thử không xóa redo.
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "1700"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    let before = bays(&mut e, cab, root);
+    let r0 = call(&mut e, json!({"cmd": "get_status"}));
+    let r = call(&mut e, json!({"cmd": "preview", "cabinet": cab, "request": {"cmd": "move_split_panel", "id": divider, "before": 500}}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.result["ok"], true);
+    assert!(r.events.is_empty(), "preview emits no events");
+    let pb: Vec<f64> = r.result["bays"].as_array().unwrap().iter().filter(|b| b["zone"].as_u64() == Some(root)).map(|b| b["size"].as_f64().unwrap()).collect();
+    assert!((pb[0] - 500.0).abs() < 1e-6, "{pb:?}");
+    // Không đổi gì thật.
+    assert_eq!(bays(&mut e, cab, root), before);
+    assert_eq!(r.revision, r0.revision);
+    assert!(r.can_redo, "redo kept");
+    // Chạy thử lỗi → trả ok=false, vẫn không đổi.
+    let r = call(&mut e, json!({"cmd": "preview", "cabinet": cab, "request": {"cmd": "move_split_panel", "id": divider, "before": 99999}}));
+    assert_eq!(r.result["ok"], false);
+    assert_eq!(bays(&mut e, cab, root), before);
+    // Hàng lỗ 32: preview trả vị trí đã bắt lỗ (UI không tự đoán).
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_pin_row", "value": "ROW_32"}));
+    let r = call(&mut e, json!({"cmd": "preview", "cabinet": cab, "request": {"cmd": "create_project", "name": "x"}}));
+    assert!(!r.ok, "only edit requests can be previewed");
+}

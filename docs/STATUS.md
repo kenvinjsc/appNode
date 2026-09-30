@@ -30,6 +30,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D24 | Tool 03 / 08 / 16 / 18 gửi ý định, core tính theo kích thước tấm (khấu góc theo góc khi tủ đổi cỡ), nhiều tấm một undo | |
 | D30 (bếp) | Mẫu bếp dựng sẵn: bếp dưới 800, bếp trên 800, góc L 1100, tủ lò 600 kịch trần | chưa: mẫu tủ áo / giường / bàn (§7 #4–#14) |
 | D20 | Sự kiện `ZonesChanged` theo tủ; 2D / Tạo tấm chỉ tải lại khoang của tủ bị đổi; tấm 2D vẽ bằng `React.memo` | chưa: patch khoang trong sự kiện (vẫn gọi `get_zones` cho tủ đó) |
+| D25 | Request `preview` (chạy thử, không undo / revision / sự kiện); kéo vách / kệ 2D hiện số core tính | chưa: preview khi kéo cạnh tấm, kéo kích thước tủ 3D |
 | D12 | Báo giá mét dài / m² mặt đứng / bóc chi tiết theo phòng, hao hụt, công, lợi nhuận, VAT | in báo giá A4 / PDF có tổng bằng chữ |
 
 ### UI

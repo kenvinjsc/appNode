@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet, ParamFeature } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet, ParamFeature, BayInfo, PanelPosition } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -49,6 +49,9 @@ export const Commands = {
   getProducts: () => command<{ products: { key: string; name: string; room: string; summary: string }[] }>({ cmd: 'get_products' }),
   /** Chèn mẫu sản phẩm dựng sẵn (một undo), cạnh tủ `after` nếu có. */
   insertProduct: (key: string, after?: ObjectId) => command<{ id: ObjectId }>({ cmd: 'insert_product', key, after }),
+  /** Chạy thử một thao tác (không undo, không đổi dự án): khoang / vị trí tấm chia kết quả. */
+  preview: (cabinet: ObjectId, request: Record<string, unknown>) =>
+    command<{ ok: boolean; error?: string; bays?: BayInfo[]; positions?: PanelPosition[]; problems?: number[] }>({ cmd: 'preview', cabinet, request }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),

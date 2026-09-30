@@ -275,6 +275,9 @@ pub enum Request {
     DeleteTemplate { name: String },
     /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
     GetStructure { cabinet: ObjectId },
+    /// Xem trước (chạy thử) một thao tác kéo / nhập số: core tính khoang, vị trí tấm chia, kích thước tủ
+    /// kết quả rồi trả dự án về nguyên trạng — không vào undo, không tăng revision, không phát sự kiện.
+    Preview { cabinet: ObjectId, request: Box<Request> },
     /// Mẫu sản phẩm dựng sẵn (tủ bếp dưới / trên / góc L / tủ lò…).
     GetProducts,
     InsertProduct {

@@ -112,6 +112,42 @@ impl Engine {
         self.respond(r)
     }
 
+    /// Chạy thử một thao tác sửa tủ (xem `Request::Preview`).
+    fn preview(&mut self, cab: ObjectId, req: Request) -> Result<Value, CoreError> {
+        use Request::*;
+        if !matches!(req, MoveSplitPanel { .. } | SetBay { .. } | ResizeCabinet { .. } | SetParameter { .. } | ResizePanelSide { .. } | MoveDrawerDivider { .. } | SetDrawerHeight { .. } | EqualizeSplit { .. }) {
+            return Err(CoreError::InvalidParameter { name: "preview".into(), reason: "request cannot be previewed".into() });
+        }
+        let rev = self.doc.revision;
+        let events = self.pending_events.len();
+        let redo = self.history.take_redo();
+        let mark = self.history.mark();
+        let r = self.handle(req);
+        let out = match &r {
+            Ok(_) => match self.doc.cabinet_layout(cab) {
+                Some(l) => json!({
+                    "ok": true,
+                    "bays": l.bays,
+                    "front_bays": l.front_bays,
+                    "positions": l.positions,
+                    "problems": l.problems,
+                    "size": [self.doc.param_value(cab, "width"), self.doc.param_value(cab, "height"), self.doc.param_value(cab, "depth")],
+                }),
+                None => json!({ "ok": false, "error": "NOT_FOUND" }),
+            },
+            Err(e) => json!({ "ok": false, "error": ApiError::from(e.clone()).code }),
+        };
+        self.history.rollback(&mut self.doc, mark);
+        self.history.restore_redo(redo);
+        let _ = self.doc.take_changes();
+        self.doc.revision = rev;
+        self.pending_events.truncate(events);
+        // Cache tính theo revision có thể đã lấy trạng thái chạy thử.
+        self.relations = None;
+        self.joints = None;
+        Ok(out)
+    }
+
     fn respond(&mut self, r: Result<Value, CoreError>) -> Response {
         let changes = self.doc.take_changes();
         let mut events = std::mem::take(&mut self.pending_events);
@@ -473,6 +509,7 @@ impl Engine {
                 ok(json!({}))
             }
             GetRuns => ok(self.get_runs()),
+            Preview { cabinet, request } => ok(self.preview(cabinet, *request)?),
             GetProducts => ok(self.products_info()),
             InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
             ToolFeature { ids, tool, feature } => ok(json!({ "panels": self.tool_feature(&ids, &tool, feature)? })),

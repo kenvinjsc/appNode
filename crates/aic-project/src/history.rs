@@ -24,6 +24,15 @@ impl History {
         Ok(())
     }
 
+    /// Lấy tạm stack redo (chạy thử không được xóa redo của người dùng).
+    pub fn take_redo(&mut self) -> Vec<(String, Command)> {
+        std::mem::take(&mut self.redo)
+    }
+
+    pub fn restore_redo(&mut self, redo: Vec<(String, Command)>) {
+        self.redo = redo;
+    }
+
     /// Position to group the commands executed after it (see `squash`, `rollback`).
     pub fn mark(&self) -> usize {
         self.undo.len()

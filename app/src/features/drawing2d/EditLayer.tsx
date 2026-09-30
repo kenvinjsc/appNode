@@ -2,7 +2,7 @@
 // LOCK / AUTO / % modes, drag of dividers and shelves (local PREVIEW, COMMIT on
 // release), zone pinning and the zone context menu. Every edit is a core
 // request; this layer only shows positions the core returned.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import type { BayInfo, BayMode, FrontBay, ObjectId, PanelSide, Vec3, ZonesInfo } from '../../core-api/types';
@@ -79,6 +79,24 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  // Xem trước do core tính (bắt lỗ hệ 32, KHÓA / % / AUTO, khoang quá nhỏ): chạy thử, không lưu.
+  const [corePrev, setCorePrev] = useState<{ id: ObjectId; before: number; snapped: number | null; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (!drag || !drag.moved) return setCorePrev(null);
+    const { id, before } = drag;
+    const t = setTimeout(() => {
+      void Commands.preview(info.cabinet, { cmd: 'move_split_panel', id, before })
+        .then((r) => {
+          const uid = info.panels.find((p) => p.id === id)?.uid;
+          const pos = r.positions?.find((p) => p.uid === uid);
+          setCorePrev({ id, before, snapped: pos ? pos.cell_before : null, ok: r.ok });
+        })
+        .catch(() => setCorePrev(null));
+    }, 40);
+    return () => clearTimeout(t);
+  }, [drag?.id, drag?.before, drag?.moved, info]);
+  /** Khoảng trống trước tấm đang kéo: số core trả về nếu có, không thì số đang kéo. */
+  const dragBefore = (d: Drag) => (corePrev && corePrev.id === d.id && corePrev.before === d.before && corePrev.snapped !== null ? corePrev.snapped : d.before);
   type FDrag = { uid: number; index: number; base: number; total: number; from: number; before: number; moved: boolean };
   const [fdrag, setFdrag] = useState<FDrag | null>(null);
   const fdragRef = useRef<FDrag | null>(null);
@@ -164,8 +182,8 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
       let size = b.size;
       if (drag && pos && pos.zone === zone) {
         const i = info.positions.filter((p) => p.zone === zone).findIndex((p) => p.uid === pos.uid);
-        if (b.index === i) size = drag.before;
-        if (b.index === i + 1) size = drag.total - drag.before;
+        if (b.index === i) size = dragBefore(drag);
+        if (b.index === i + 1) size = drag.total - dragBefore(drag);
       }
       const mode = b.mode;
       const tag = mode ? MODE_TAG[mode] : '·';
@@ -419,11 +437,11 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
         const pos = info.positions.find((p) => p.uid === uid);
         if (!it || !pos || pos.axis === 2) return [];
         const axis = pos.axis as 0 | 1;
-        const dx = drag?.id === id ? (axis === 0 ? drag.before - drag.base : -(drag.before - drag.base)) : 0;
+        const dx = drag?.id === id ? (axis === 0 ? dragBefore(drag) - drag.base : -(dragBefore(drag) - drag.base)) : 0;
         return [
           <rect
             key={id}
-            className={`d2e-handle ${axis === 0 ? 'x' : 'y'} ${drag?.id === id ? 'on' : ''}`}
+            className={`d2e-handle ${axis === 0 ? 'x' : 'y'} ${drag?.id === id ? 'on' : ''} ${drag?.id === id && corePrev?.id === id && !corePrev.ok ? 'bad' : ''}`}
             x={it.x0 + (axis === 0 ? dx : 0)}
             y={it.y0 + (axis === 1 ? dx : 0)}
             width={Math.max(it.x1 - it.x0, unit * 0.6)}
@@ -475,7 +493,7 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               setPend({
                 x: p.x + (d.axis === 0 ? 0 : unit * 6),
                 y: p.y - (d.axis === 0 ? unit * 3 : 0),
-                value: d.before,
+                value: dragBefore(d),
                 commit: (v) => Math.abs(v - d.base) > 0.01 && void Commands.moveSplitPanel(id, v).catch(() => undefined),
               });
             }}
