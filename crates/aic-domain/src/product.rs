@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum Product {
     Bed(BedSpec),
     Desk(DeskSpec),
+    Cladding(CladdingSpec),
 }
 
 impl Product {
@@ -17,6 +18,7 @@ impl Product {
         match self {
             Product::Bed(_) => "BED",
             Product::Desk(_) => "DESK",
+            Product::Cladding(_) => "CLADDING",
         }
     }
 
@@ -24,6 +26,7 @@ impl Product {
         match self {
             Product::Bed(_) => "Giường",
             Product::Desk(_) => "Bàn",
+            Product::Cladding(_) => "Vách ốp",
         }
     }
 }
@@ -177,6 +180,62 @@ impl Default for DeskSpec {
             cable_y: 60.0,
             mirror_w: 0.0,
             mirror_h: 800.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum JointType {
+    /// Soi V ở mép (tấm sát nhau, không khe).
+    VGroove,
+    /// Khe bóng (hở `joint_gap`).
+    #[default]
+    ShadowGap,
+    /// Ghép sát.
+    None,
+}
+
+/// Vách ốp / vách TV / lam gỗ: W × H của sản phẩm, áp tường (mặt sau ở z = 0).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CladdingSpec {
+    /// Chia cột (công thức chia khoang: `/5`, `600,*`, `3*800` …).
+    pub cols: String,
+    /// Chia hàng (trống = một hàng).
+    pub rows: String,
+    pub joint_gap: f64,
+    pub joint_type: JointType,
+    /// Lam gỗ phía trước tấm ốp.
+    pub batten: bool,
+    pub batten_w: f64,
+    pub batten_gap: f64,
+    pub batten_t: f64,
+    /// Lam dọc (false = ngang).
+    pub batten_vertical: bool,
+    /// Tấm ốp (ván nền); tắt = chỉ lam trên khung xương.
+    pub boards: bool,
+    /// Khung xương (thanh 20 × 40 sau tấm ốp, cách 400).
+    pub frame: bool,
+    /// Khoét (hộp điện, giá treo TV): neo theo chiều rộng vách, y tính từ sàn.
+    pub cutouts: Vec<crate::structure::BackCutout>,
+}
+
+impl Default for CladdingSpec {
+    fn default() -> Self {
+        Self {
+            cols: "/5".into(),
+            rows: String::new(),
+            joint_gap: 3.0,
+            joint_type: JointType::ShadowGap,
+            batten: false,
+            batten_w: 40.0,
+            batten_gap: 25.0,
+            batten_t: 20.0,
+            batten_vertical: true,
+            boards: true,
+            frame: false,
+            cutouts: Vec::new(),
         }
     }
 }

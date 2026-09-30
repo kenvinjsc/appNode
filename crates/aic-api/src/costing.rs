@@ -459,7 +459,9 @@ impl Engine {
             let mode: PricingMode = serde_json::from_value(c["pricing"].clone()).unwrap_or_default();
             let mode = match mode {
                 PricingMode::Auto => {
-                    if c["product"].as_bool() == Some(true) {
+                    if kind == "CLADDING" {
+                        PricingMode::FacadeM2
+                    } else if c["product"].as_bool() == Some(true) {
                         PricingMode::Piece
                     } else if matches!(kind, "Base" | "Wall" | "Drawer") {
                         PricingMode::LinearM

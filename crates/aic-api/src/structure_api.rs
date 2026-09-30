@@ -15,7 +15,7 @@ pub(crate) fn num(key: &str, label: &str, v: f64) -> Value {
 pub(crate) fn flag(key: &str, label: &str, v: bool) -> Value {
     json!({ "key": key, "label": label, "kind": "bool", "value": v })
 }
-fn text(key: &str, label: &str, v: &str, hint: &str) -> Value {
+pub(crate) fn text(key: &str, label: &str, v: &str, hint: &str) -> Value {
     json!({ "key": key, "label": label, "kind": "text", "value": v, "hint": hint })
 }
 pub(crate) fn section(label: &str) -> Value {
@@ -304,7 +304,7 @@ impl Engine {
             .collect();
         let rails_active = def.top_style == aic_domain::JoinStyle::Rails;
         let standards: Vec<&str> = self.library.groups.iter().filter(|g| g.group == SHOP_GROUP).map(|g| g.name.as_str()).collect();
-        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards, "room": def.room, "back_cutouts": def.rules.back.cutouts }))
+        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards, "room": def.room, "back_cutouts": match &def.rules.product { Some(aic_domain::product::Product::Cladding(c)) => c.cutouts.clone(), _ => def.rules.back.cutouts.clone() } }))
     }
 
     /// Lưu mẫu tab: the tab's current values under `name` in the shared library.

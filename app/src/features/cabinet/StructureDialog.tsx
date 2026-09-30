@@ -202,7 +202,7 @@ export function StructureDialog() {
         {cur.fields.map((f, i) => (
           <StructField key={`${cur.key}-${f.key}-${i}`} f={f} onCommit={commit} />
         ))}
-        {cur.key === 'back' && <Cutouts cabinet={info.cabinet} list={info.back_cutouts ?? []} />}
+        {(cur.key === 'back' || cur.key === 'cladding') && <Cutouts cabinet={info.cabinet} list={info.back_cutouts ?? []} />}
       </div>
     </div>
   );

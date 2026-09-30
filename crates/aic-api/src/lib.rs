@@ -527,7 +527,10 @@ impl Engine {
                     }
                 }
                 self.edit_cabinet_checked(cabinet, "Khoét hậu", move |c| {
-                    c.rules.back.cutouts = cutouts;
+                    match c.rules.product.as_mut() {
+                        Some(aic_domain::product::Product::Cladding(cl)) => cl.cutouts = cutouts,
+                        _ => c.rules.back.cutouts = cutouts,
+                    }
                     Ok(())
                 })?;
                 ok(json!({ "cabinet": cabinet }))

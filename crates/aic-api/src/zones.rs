@@ -516,7 +516,7 @@ impl Engine {
         // Cabinet-level options.
         if let Some(DomainObject::Cabinet(_)) = self.doc.objects.get(&id) {
             return match name {
-                k if k.starts_with("bed_") || k.starts_with("desk_") => self.set_product_property(id, k, value).map(|_| true),
+                k if k.starts_with("bed_") || k.starts_with("desk_") || k.starts_with("cl_") => self.set_product_property(id, k, value).map(|_| true),
                 "room" => self.edit_cabinet(id, "Tên phòng", |c| {
                     c.room = value.trim().to_string();
                     Ok(())

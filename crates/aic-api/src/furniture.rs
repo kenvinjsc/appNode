@@ -1,10 +1,10 @@
 //! Sản phẩm ngoài tủ hộp (D19+): tạo, thuộc tính (tab riêng trong Thuộc tính kết cấu).
 //! Hình học do `aic_domain::layout::products` dựng; ở đây chỉ là request / thuộc tính.
 
-use crate::structure_api::{flag, num, section, select};
+use crate::structure_api::{flag, num, section, select, text};
 use crate::zones::bad;
 use crate::{protocol, Engine, Request};
-use aic_domain::product::{BedSpec, DeskSpec, Product};
+use aic_domain::product::{BedSpec, CladdingSpec, DeskSpec, Product};
 use aic_domain::ObjectId;
 use aic_project::CoreError;
 use serde::{de::DeserializeOwned, Serialize};
@@ -48,7 +48,8 @@ impl Engine {
         let (product, def_size, def_name) = match kind.to_ascii_uppercase().as_str() {
             "BED" => (Product::Bed(BedSpec::default()), [1600.0, 1000.0, 2000.0], "Giường"),
             "DESK" => (Product::Desk(DeskSpec::default()), [1200.0, 750.0, 600.0], "Bàn"),
-            _ => return Err(bad("kind", "BED | DESK")),
+            "CLADDING" => (Product::Cladding(CladdingSpec::default()), [3000.0, 2700.0, 60.0], "VáchỐp"),
+            _ => return Err(bad("kind", "BED | DESK | CLADDING")),
         };
         let [w, h, d] = [0, 1, 2].map(|i| size[i].unwrap_or(def_size[i]));
         if def_name == "Giường" && !(800.0..=2200.0).contains(&w) {
@@ -102,6 +103,15 @@ impl Engine {
                     d.hutch_shelves = d.hutch_shelves.min(6);
                     Ok(())
                 }
+                (Some(Product::Cladding(c)), Some(("cl", f))) => {
+                    set_json_field(c, &key, f, &value)?;
+                    for (name, formula) in [("cl_cols", &c.cols), ("cl_rows", &c.rows)] {
+                        if !formula.trim().is_empty() {
+                            aic_domain::zone::parse_split_formula(formula).map_err(|e| bad(name, e))?;
+                        }
+                    }
+                    Ok(())
+                }
                 _ => Err(bad(&key, "not a property of this product")),
             }
         })
@@ -111,6 +121,25 @@ impl Engine {
     pub(crate) fn product_tabs(p: &Product) -> Vec<(String, String, Vec<Value>)> {
         let sup = &[("PANEL", "Chân tấm"), ("DRAWER_UNIT", "Hộc tủ ngăn kéo"), ("LEG", "Chân sắt")];
         match p {
+            Product::Cladding(c) => vec![(
+                "cladding".into(),
+                "Vách ốp".into(),
+                vec![
+                    section("Chia tấm ốp (công thức như Chia khoang)"),
+                    flag("cl_boards", "Tấm ốp", c.boards),
+                    text("cl_cols", "Chia cột", &c.cols, "/5 = 5 tấm đều · 600,* · 3*800"),
+                    text("cl_rows", "Chia hàng", &c.rows, "trống = 1 hàng · 1200,*"),
+                    select("cl_joint_type", "Mối ghép", &enum_str(&c.joint_type), &[("SHADOW_GAP", "Khe bóng"), ("V_GROOVE", "Soi V"), ("NONE", "Ghép sát")]),
+                    num("cl_joint_gap", "Khe (mm)", c.joint_gap),
+                    flag("cl_frame", "Khung xương sau tấm", c.frame),
+                    section("Lam gỗ"),
+                    flag("cl_batten", "Lam", c.batten),
+                    num("cl_batten_w", "Rộng lam", c.batten_w),
+                    num("cl_batten_gap", "Khe lam", c.batten_gap),
+                    num("cl_batten_t", "Dày lam", c.batten_t),
+                    flag("cl_batten_vertical", "Lam dọc", c.batten_vertical),
+                ],
+            )],
             Product::Desk(d) => vec![(
                 "desk".into(),
                 "Bàn".into(),

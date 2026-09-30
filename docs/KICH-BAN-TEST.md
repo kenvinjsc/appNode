@@ -81,6 +81,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.8 Bàn** (E2E 19, Rust `desk_with_drawer_unit_hutch_and_cable_hole`). Tủ ▾ → Bàn học 1200 → mặt 1200 × 600 dày 25,
   khoét luồn dây Ø60, hộc phải 3 ngăn rộng 400, kệ trên 2 tầng, yếm. Đổi rộng 1400 → hộc vẫn 400 (khóa). Đỡ trái = Chân sắt → 2
   chân, mất chân tấm.
+- **TC-02.9 Vách ốp / lam** (E2E 20, Rust `wall_cladding_modules_follow_width_and_battens`). Tủ ▾ → Vách TV 3000 × 2700 →
+  5 tấm (3000 − 4 × 3) / 5 × 2700; rộng 3200 → tấm giãn đều; tab Vách ốp → Chia cột `/6` → 6 tấm; công thức sai → báo lỗi.
+  Khoét hộp điện (danh sách Khoét như tab Hậu) → lỗ trên đúng tấm chứa tâm. Vách lam 1200 → lam 40 / khe 25 trên khung xương.
+  Báo giá: m² mặt đứng.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

@@ -1692,3 +1692,28 @@ fn desk_with_drawer_unit_hutch_and_cable_hole() {
     assert!(r.ok, "{:?}", r.error);
     assert_eq!(e.doc.cabinet_layout(desk).unwrap().fittings.legs, 2);
 }
+
+#[test]
+fn wall_cladding_modules_follow_width_and_battens() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_furniture", "kind": "CLADDING", "width": 3000, "height": 2700}));
+    assert!(r.ok, "{:?}", r.error);
+    let w: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let boards = |e: &Engine| e.doc.cabinet_layout(w).unwrap().parts.into_iter().filter(|p| p.name.starts_with("TấmỐp")).collect::<Vec<_>>();
+    let b = boards(&e);
+    assert_eq!(b.len(), 5);
+    let pw = (3000.0 - 4.0 * 3.0) / 5.0;
+    assert!(b.iter().all(|p| (p.size[0] - pw).abs() < 1e-6 && (p.size[1] - 2700.0).abs() < 1e-6));
+    call(&mut e, json!({"cmd": "set_parameter", "id": w, "name": "width", "value": "3200"}));
+    assert!((boards(&e)[0].size[0] - (3200.0 - 12.0) / 5.0).abs() < 1e-6, "modules follow the width");
+    // Khoét hộp điện giữa vách, cao 300.
+    let r = call(&mut e, json!({"cmd": "set_back_cutouts", "cabinet": w, "cutouts": [{"kind": "SOCKET", "x": 0, "y": 300, "w": 80, "h": 80}]}));
+    assert!(r.ok, "{:?}", r.error);
+    let with_hole = boards(&e).iter().filter(|p| matches!(&p.kind, aic_domain::layout::PartKind::Panel { features, .. } if !features.is_empty())).count();
+    assert_eq!(with_hole, 1);
+    // Công thức sai bị từ chối; lam dọc 40 / 25.
+    assert!(!call(&mut e, json!({"cmd": "set_parameter", "id": w, "name": "cl_cols", "value": "abc"})).ok);
+    assert!(call(&mut e, json!({"cmd": "set_parameter", "id": w, "name": "cl_batten", "value": "on"})).ok);
+    let lams = e.doc.cabinet_layout(w).unwrap().parts.iter().filter(|p| p.name.starts_with("Lam_")).count();
+    assert_eq!(lams, ((3200.0 + 25.0) / 65.0_f64).floor() as usize);
+}

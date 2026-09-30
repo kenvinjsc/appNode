@@ -2,12 +2,13 @@
 //! y sàn → trên, z sau → trước (mặt trước ở z lớn nhất).
 
 use super::*;
-use crate::product::{BedSpec, BedStorage, DeskSpec, DeskSupport, HeadboardStyle, Product, SlatKind};
+use crate::product::{BedSpec, BedStorage, CladdingSpec, DeskSpec, DeskSupport, HeadboardStyle, JointType, Product, SlatKind};
 
 pub(super) fn build(cx: &mut Ctx, p: &Product) {
     match p {
         Product::Bed(b) => bed(cx, b),
         Product::Desk(d) => desk(cx, d),
+        Product::Cladding(c) => cladding(cx, c),
     }
 }
 
@@ -249,5 +250,89 @@ fn desk(cx: &mut Ctx, s: &DeskSpec) {
     if s.mirror_w > 0.0 {
         let mw = s.mirror_w.min(w);
         cx.panel("k:mirror".into(), "Gương".into(), PanelRole::Generic, MaterialSlot::Front, GrainDirection::AlongHeight, [mw, s.mirror_h.clamp(200.0, 1500.0), 5.0], [(w - mw) / 2.0, h + 50.0, 0.0], [0.0; 3]);
+    }
+}
+
+/// Kích thước các ô theo công thức chia (khe `gap` giữa hai ô); công thức sai / trống = 1 ô.
+fn cells(len: f64, formula: &str, gap: f64) -> (Vec<f64>, bool) {
+    let bays = if formula.trim().is_empty() { Ok(vec![Bay::auto()]) } else { parse_split_formula(formula) };
+    match bays {
+        Ok(b) if !b.is_empty() => {
+            let gaps = vec![gap; b.len() - 1];
+            let (s, ok) = solve_bays(len, &gaps, &b);
+            (s, ok)
+        }
+        _ => (vec![len], false),
+    }
+}
+
+/// Vách ốp: lưới tấm (cột × hàng theo công thức, khe bóng / soi V), khung xương, lam gỗ,
+/// khoét hộp điện trên tấm chứa tâm lỗ.
+fn cladding(cx: &mut Ctx, c: &CladdingSpec) {
+    let v = cx.v;
+    let (w, h, t) = (v.width, v.height, v.thickness);
+    let gap = if c.joint_type == JointType::ShadowGap { c.joint_gap.clamp(0.0, 30.0) } else { 0.0 };
+    let fz = if c.frame { 20.0 } else { 0.0 };
+    if c.frame {
+        let n = ((w - 40.0) / 400.0).ceil().max(1.0) as u32;
+        let step = (w - 40.0) / n as f64;
+        for i in 0..=n {
+            cx.panel(format!("w:frame{i}"), format!("KhungXương_{:02}", i + 1), PanelRole::Rail, MaterialSlot::Carcass, GrainDirection::AlongHeight, [40.0, h, 20.0], [i as f64 * step, 0.0, 0.0], [0.0; 3]);
+        }
+    }
+    let holes: Vec<(f64, f64, f64, f64, f64)> = c
+        .cutouts
+        .iter()
+        .map(|k| {
+            let (cw, ch, r) = k.shape();
+            let x = match k.anchor {
+                crate::structure::HAnchor::Left => k.x,
+                crate::structure::HAnchor::Center => w / 2.0 + k.x,
+                crate::structure::HAnchor::Right => w - k.x,
+            };
+            (x, k.y, cw, ch, r)
+        })
+        .collect();
+    let mut bz = fz;
+    if c.boards {
+        let (cols, ok1) = cells(w, &c.cols, gap);
+        let (rows, ok2) = cells(h, &c.rows, gap);
+        if !(ok1 && ok2) {
+            cx.out.problems.push(0);
+        }
+        let v_groove = c.joint_type == JointType::VGroove;
+        let mut n = 0;
+        let mut y = 0.0;
+        for (ri, rh) in rows.iter().enumerate() {
+            let mut x = 0.0;
+            for (ci, cw) in cols.iter().enumerate() {
+                n += 1;
+                let name = format!("TấmỐp_{n:02}{}", if v_groove { " (soi V)" } else { "" });
+                let idx = cx.panel(format!("w:p{ri}_{ci}"), name, PanelRole::Generic, MaterialSlot::Front, GrainDirection::AlongHeight, [*cw, *rh, t], [x, y, fz], [0.0; 3]);
+                let mut feats = Vec::new();
+                for &(hx, hy, hw, hh, r) in &holes {
+                    let (lx, ly) = (hx - x, hy - y);
+                    if lx - hw / 2.0 >= 5.0 && lx + hw / 2.0 <= cw - 5.0 && ly - hh / 2.0 >= 5.0 && ly + hh / 2.0 <= rh - 5.0 {
+                        feats.push(MachiningFeature::Contour(crate::ContourFeature { polygon: rounded_rect(lx, ly, hw, hh, r), inner: true, depth: t }));
+                    }
+                }
+                cx.add_features(idx, feats);
+                x += cw + gap;
+            }
+            y += rh + gap;
+        }
+        bz += t;
+    }
+    if c.batten {
+        let (bw, bg, bt) = (c.batten_w.clamp(10.0, 200.0), c.batten_gap.clamp(0.0, 200.0), c.batten_t.clamp(8.0, 60.0));
+        let (span, len) = if c.batten_vertical { (w, h) } else { (h, w) };
+        // Số lam vừa khít: n lam + (n − 1) khe ≤ span, chia đều phần dư vào khe.
+        let n = ((span + bg) / (bw + bg)).floor().max(1.0) as u32;
+        let g = if n > 1 { (span - n as f64 * bw) / (n - 1) as f64 } else { 0.0 };
+        for i in 0..n {
+            let a = i as f64 * (bw + g);
+            let (size, at) = if c.batten_vertical { ([bw, len, bt], [a, 0.0, bz]) } else { ([len, bw, bt], [0.0, a, bz]) };
+            cx.panel(format!("w:batten{i}"), format!("Lam_{:02}", i + 1), PanelRole::Rail, MaterialSlot::Front, if c.batten_vertical { GrainDirection::AlongHeight } else { GrainDirection::AlongWidth }, size, at, [0.0; 3]);
+        }
     }
 }

@@ -70,7 +70,11 @@ Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 - **Bàn học 1200 / Bàn làm việc 1400 / Bàn trang điểm 1000**: tab **Bàn** có dày mặt, nhô hai bên, đỡ trái / phải (chân tấm,
   hộc tủ ngăn kéo, chân sắt), rộng hộc (khóa, không đổi theo rộng bàn), số ngăn kéo, yếm, hộc bàn phím, kệ trên (cao, số kệ,
   sâu), lỗ luồn dây (Ø, vị trí), gương.
-- Báo giá: giường, bàn tính **theo chiếc** (đổi được trong Báo cáo).
+- **Vách TV 3000 × 2700 / Vách lam 1200 × 2700**: tab **Vách ốp** có chia cột / hàng bằng công thức như Chia khoang (`/5`,
+  `600,*`, `3*800`), mối ghép (khe bóng / soi V / ghép sát), khe, khung xương, lam gỗ (rộng, khe, dày, dọc / ngang) và danh sách
+  **Khoét** (hộp điện, giá treo TV; neo theo chiều rộng vách, y tính từ sàn).
+- **Kệ TV treo**: dùng Tủ bếp dưới thấp (sâu 350–450) + Thuộc tính kết cấu → Chân / treo → Tủ treo (ke treo).
+- Báo giá: giường, bàn tính **theo chiếc**, vách ốp theo **m² mặt đứng** (đổi được trong Báo cáo).
 
 ## 3. Dựng chi tiết bên trong (tab Tạo tấm)
 
