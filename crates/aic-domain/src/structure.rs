@@ -409,6 +409,82 @@ pub struct StructureRules {
     /// Chuẩn xưởng (kệ, chốt, bản lề, tay nắm, ngăn kéo).
     #[serde(default)]
     pub shop: ShopRules,
+    /// Phào & ốp (D13).
+    #[serde(default)]
+    pub trim: TrimRules,
+}
+
+/// Mặt có phào nóc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CorniceSides {
+    #[default]
+    None,
+    Front,
+    FrontLeft,
+    FrontRight,
+    #[serde(rename = "3_SIDES")]
+    ThreeSides,
+}
+
+impl CorniceSides {
+    /// (trước, trái, phải)
+    pub fn sides(self) -> (bool, bool, bool) {
+        match self {
+            CorniceSides::None => (false, false, false),
+            CorniceSides::Front => (true, false, false),
+            CorniceSides::FrontLeft => (true, true, false),
+            CorniceSides::FrontRight => (true, false, true),
+            CorniceSides::ThreeSides => (true, true, true),
+        }
+    }
+}
+
+/// Tab "Phào & ốp": phào nóc, phào chân, ốp hông, nẹp.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrimRules {
+    /// Phào nóc: các mặt có phào.
+    pub cornice: CorniceSides,
+    /// Cao phào nóc (20–200).
+    pub cornice_h: f64,
+    /// Nhô ra khỏi mặt tủ.
+    pub cornice_overhang: f64,
+    /// Góc nối vát 45° (false = nối bằng).
+    pub cornice_miter: bool,
+    /// Phào chân (thanh dưới đáy, cùng các mặt với phào nóc; cao 0 = không).
+    pub skirting_h: f64,
+    /// Ốp hông trái / phải.
+    pub end_left: bool,
+    pub end_right: bool,
+    /// Dày ốp hông (0 = theo ván thùng).
+    pub end_t: f64,
+    /// Ốp hông nhô trước (0–20).
+    pub end_front: f64,
+    /// Ốp hông chạm sàn.
+    pub end_to_floor: bool,
+    /// Nẹp che khe (rộng 30–60, 0 = không) bên trái / phải, sát mặt trước.
+    pub scribe_left: f64,
+    pub scribe_right: f64,
+}
+
+impl Default for TrimRules {
+    fn default() -> Self {
+        Self {
+            cornice: CorniceSides::None,
+            cornice_h: 60.0,
+            cornice_overhang: 20.0,
+            cornice_miter: true,
+            skirting_h: 0.0,
+            end_left: false,
+            end_right: false,
+            end_t: 0.0,
+            end_front: 0.0,
+            end_to_floor: true,
+            scribe_left: 0.0,
+            scribe_right: 0.0,
+        }
+    }
 }
 
 fn plinth_setback() -> f64 {
@@ -417,7 +493,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default() }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default(), trim: TrimRules::default() }
     }
 }
 

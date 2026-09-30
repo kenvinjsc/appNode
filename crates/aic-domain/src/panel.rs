@@ -21,6 +21,8 @@ pub enum PanelRole {
     DrawerBack,
     DrawerBottom,
     Rail,
+    /// Phào, ốp hông, nẹp.
+    Trim,
 }
 
 impl PanelRole {
@@ -43,6 +45,7 @@ impl PanelRole {
             PanelRole::DrawerBack => "Drawer Back",
             PanelRole::DrawerBottom => "Drawer Bottom",
             PanelRole::Rail => "Rail",
+            PanelRole::Trim => "Trim",
         }
     }
 

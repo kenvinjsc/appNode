@@ -235,6 +235,7 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab:
 | Thông số chung | Rộng, cao, sâu, dày ván |
 | Liên kết | Nóc phủ / lọt / thanh giằng, đáy phủ / lọt, có tấm hậu |
 | Hậu | Độ sâu rãnh (C), dày hậu (B), lùi hậu (I), khe hở (hậu vào rãnh = C − khe), hở trái/phải/trên/dưới, chia dọc + công thức chia (`600` = mỗi tấm ≤ 600 mm, `3x` = chia 3), nóc trùm hậu, đáy trùm hậu, **hậu ốp bắt vít** (hậu phủ hết lưng, hồi/nóc/đáy ngắn lại một độ dày hậu, báo giá có vít bắt hậu), **hậu chia theo kệ cố định** (hậu lọt: mỗi khoang một tấm, kệ cố định suốt ra mép sau), **Khoét hậu**: + Ổ điện / + Ống nước Ø60 / + Thoát nhiệt, sửa neo (trái / giữa / phải), x, y (tâm cách mặt đáy), rộng, cao; lỗ theo lòng tủ nên đổi cỡ tủ vẫn đúng chỗ, xuất CNC là đường cắt trong |
+| Phào & ốp | Phào nóc 1–3 mặt (cao 20–200, nhô, góc vát 45° ghi vào tên thanh), phào chân (cùng các mặt), ốp hông trái / phải (dày, nhô trước, chạm sàn), nẹp che khe trái / phải (rộng). Phào trước tự dài theo rộng tủ + ốp + nẹp + 2 × nhô; phào hông không đổi |
 | Thanh giằng (trên) | Phía trước: số thanh, kích thước, ngang/đứng, âm mặt · Phía sau: số thanh, kích thước, ngang/đứng, cách hậu · Bổ sung: số lượng, kích thước, ngang (chia đều ở giữa). Dùng khi Nóc = Thanh giằng |
 | Len chân | Cao chân, chân giật vào |
 | Lùi đợt | Kệ di động lùi trước |

@@ -531,6 +531,7 @@ pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     let root = carcass(&mut cx);
     zone(&mut cx, &cab.zones.root, root, 0);
     backs(&mut cx);
+    trims(&mut cx);
     apply_mods(&mut cx.out, &cab.mods);
     cx.out
 }
@@ -834,6 +835,59 @@ fn backs(cx: &mut Ctx) {
             }
             cx.add_features(idx, feats);
             at += pw;
+        }
+    }
+}
+
+/// Phào & ốp (D13): ốp hông ngoài hồi, nẹp che khe, phào nóc / phào chân 1–3 mặt.
+/// Phào hông chạy ra ngoài ốp hông; góc vát 45° ghi ở tên thanh (danh sách cắt).
+fn trims(cx: &mut Ctx) {
+    let tr = cx.cab.rules.trim;
+    let v = cx.v;
+    let (w, h, d, t) = (v.width, v.height, v.depth, v.thickness);
+    let et = if tr.end_t > 0.0 { tr.end_t } else { t };
+    let ef = tr.end_front.clamp(0.0, 50.0);
+    let (y0, eh) = if tr.end_to_floor { (0.0, h) } else { (v.plinth_height, h - v.plinth_height) };
+    let (mut xl, mut xr, mut df) = (0.0, w, d);
+    if tr.end_left {
+        cx.panel("c:end_l".into(), "ỐpHôngTrái".into(), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongHeight, [d + ef, eh, et], [-et, y0, d + ef], ROT_SIDE);
+        xl = -et;
+        df = df.max(d + ef);
+    }
+    if tr.end_right {
+        cx.panel("c:end_r".into(), "ỐpHôngPhải".into(), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongHeight, [d + ef, eh, et], [w, y0, d + ef], ROT_SIDE);
+        xr = w + et;
+        df = df.max(d + ef);
+    }
+    // Nẹp che khe: thanh đứng sát mặt trước, ngoài cùng hai bên.
+    for (on, key, name, left) in [(tr.scribe_left, "c:scribe_l", "NẹpTrái", true), (tr.scribe_right, "c:scribe_r", "NẹpPhải", false)] {
+        if on > 0.0 {
+            let sw = on.clamp(10.0, 100.0);
+            let x = if left { xl - sw } else { xr };
+            cx.panel(key.into(), name.into(), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongHeight, [sw, eh, t], [x, y0, df - t], [0.0; 3]);
+            if left {
+                xl -= sw;
+            } else {
+                xr += sw;
+            }
+        }
+    }
+    let (front, left, right) = tr.cornice.sides();
+    let o = tr.cornice_overhang.clamp(0.0, 100.0);
+    let tag = if tr.cornice_miter { " (vát 45°)" } else { "" };
+    for (base, hh, y, name) in [("c:cornice", tr.cornice_h.clamp(20.0, 200.0), h, "PhàoNóc"), ("c:skirt", tr.skirting_h.clamp(0.0, 200.0), 0.0, "PhàoChân")] {
+        if !front || (base == "c:skirt" && tr.skirting_h <= 0.0) {
+            continue;
+        }
+        // Phào chân nằm trong khoảng chân tủ, phào nóc trên nóc.
+        let zf = df + o;
+        let (x0, x1) = (if left { xl - o } else { xl }, if right { xr + o } else { xr });
+        cx.panel(format!("{base}_f"), format!("{name}Trước{tag}"), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongWidth, [x1 - x0, hh, t], [x0, y, zf - t], [0.0; 3]);
+        if left {
+            cx.panel(format!("{base}_l"), format!("{name}Trái{tag}"), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongWidth, [zf, hh, t], [xl - o, y, zf], ROT_SIDE);
+        }
+        if right {
+            cx.panel(format!("{base}_r"), format!("{name}Phải{tag}"), PanelRole::Trim, MaterialSlot::Front, GrainDirection::AlongWidth, [zf, hh, t], [xr + o - t, y, zf], ROT_SIDE);
         }
     }
 }

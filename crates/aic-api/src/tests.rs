@@ -1580,3 +1580,38 @@ fn back_cutouts_overlay_back_and_split_at_fixed_shelves() {
     let PartKind::Panel { features, .. } = &backs[0].kind else { panic!() };
     assert!(features.iter().any(|f| matches!(f, MachiningFeature::Contour(c) if c.inner)));
 }
+
+#[test]
+fn cornice_end_panels_and_scribe_follow_the_cabinet() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 1600, "height": 2200, "depth": 580}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    for (k, v) in [("tr_cornice", "3_SIDES"), ("tr_cornice_h", "80")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    let part = |e: &Engine, key: &str| e.doc.cabinet_layout(cab).unwrap().parts.into_iter().find(|p| p.key == key);
+    let f = part(&e, "c:cornice_f").unwrap();
+    assert!((f.size[0] - 1640.0).abs() < 1e-6 && (f.size[1] - 80.0).abs() < 1e-6 && f.translation[1] == 2200.0, "{:?}", f);
+    assert!(f.name.contains("vát 45°"));
+    let side = part(&e, "c:cornice_l").unwrap().size[0];
+    assert!((side - 600.0).abs() < 1e-6);
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "1800"}));
+    assert!((part(&e, "c:cornice_f").unwrap().size[0] - 1840.0).abs() < 1e-6, "front cornice follows the width");
+    assert!((part(&e, "c:cornice_l").unwrap().size[0] - side).abs() < 1e-6, "side cornice unchanged");
+    // Ốp hông trái chạm sàn + nẹp 40: phào trước dài thêm cả hai.
+    for (k, v) in [("tr_end_left", "on"), ("tr_scribe_left", "40")] {
+        assert!(call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v})).ok);
+    }
+    let t = e.doc.param_value(cab, "thickness").unwrap();
+    let end = part(&e, "c:end_l").unwrap();
+    assert!(end.translation[0] == -t && end.translation[1] == 0.0 && (end.size[1] - 2200.0).abs() < 1e-6);
+    let sc = part(&e, "c:scribe_l").unwrap();
+    assert!((sc.translation[0] + t + 40.0).abs() < 1e-6);
+    assert!((part(&e, "c:cornice_f").unwrap().size[0] - (1840.0 + t + 40.0)).abs() < 1e-6);
+    let tabs = call(&mut e, json!({"cmd": "get_structure", "cabinet": cab})).result["tabs"].clone();
+    assert!(tabs.as_array().unwrap().iter().any(|t| t["key"] == "trim"));
+    // Một undo bỏ nẹp.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(part(&e, "c:scribe_l").is_none());
+}

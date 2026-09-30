@@ -181,6 +181,31 @@ impl Engine {
                 ],
             ),
             (
+                "trim".into(),
+                "Phào & ốp".into(),
+                {
+                    let tm = &r.trim;
+                    let sides = serde_json::to_value(tm.cornice).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
+                    vec![
+                        section("Phào nóc / phào chân"),
+                        select("tr_cornice", "Mặt có phào", &sides, &[("NONE", "Không"), ("FRONT", "Trước"), ("FRONT_LEFT", "Trước + trái"), ("FRONT_RIGHT", "Trước + phải"), ("3_SIDES", "3 mặt")]),
+                        num("tr_cornice_h", "Cao phào nóc (20–200)", tm.cornice_h),
+                        num("tr_cornice_overhang", "Nhô ra", tm.cornice_overhang),
+                        flag("tr_cornice_miter", "Góc nối vát 45°", tm.cornice_miter),
+                        num("tr_skirting_h", "Cao phào chân (0 = không)", tm.skirting_h),
+                        section("Ốp hông"),
+                        flag("tr_end_left", "Ốp hông trái", tm.end_left),
+                        flag("tr_end_right", "Ốp hông phải", tm.end_right),
+                        num("tr_end_t", "Dày ốp (0 = theo ván)", tm.end_t),
+                        num("tr_end_front", "Nhô trước (0–20)", tm.end_front),
+                        flag("tr_end_to_floor", "Chạm sàn", tm.end_to_floor),
+                        section("Nẹp che khe"),
+                        num("tr_scribe_left", "Nẹp trái rộng (0 = không)", tm.scribe_left),
+                        num("tr_scribe_right", "Nẹp phải rộng (0 = không)", tm.scribe_right),
+                    ]
+                },
+            ),
+            (
                 "shelves".into(),
                 "Kệ & chốt tầng".into(),
                 vec![

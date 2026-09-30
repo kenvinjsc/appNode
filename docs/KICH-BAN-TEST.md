@@ -90,6 +90,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-03.6 Kích thước sửa được trên 3D** (tay). Chọn 1 tủ → bấm số kích thước trên 3D → nhập → tủ đổi, tủ dãy bên phải bị đẩy.
 - **TC-03.8 Căn chỉnh** (E2E 14, Rust `align_distribute_rotate_and_snap_to_wall`). 3 tủ lệch mặt trước → Căn trước → cùng mặt trước,
   một undo; Chia đều → khe bằng nhau; Xoay 90° → rộng / sâu đổi chỗ; Sát tường khe 5 → cách tường sau 5.
+- **TC-03.9 Phào & ốp** (E2E 17, Rust `cornice_end_panels_and_scribe_follow_the_cabinet`). Thuộc tính kết cấu → Phào & ốp → Mặt có
+  phào = 3 mặt → 3 thanh PhàoNóc (tên có "vát 45°"); rộng 1500 → 1600 thì phào trước dài thêm 100, phào hông không đổi. Ốp hông
+  trái chạm sàn, nẹp trái 40 → phào trước dài thêm dày ốp + 40. Một undo bỏ từng thay đổi.
 - **TC-03.7 Đổi rộng tủ trong dãy** (Rust `row_of_cabinets_follows_a_width_change`). Tủ giữa dãy 600 → 700 → các tủ bên phải dịch
   100, không chồng nhau.
 - **TC-03.8 Khoét hậu, hậu ốp** (E2E 16, Rust `back_cutouts_overlay_back_and_split_at_fixed_shelves`). Thuộc tính kết cấu → Hậu →
