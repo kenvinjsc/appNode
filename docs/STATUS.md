@@ -46,6 +46,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D28 | Nhân dãy tủ: hộp thoại số lượng + trục X / Y / Z + khe + công thức kích thước từng tủ (`400,600,800`, `3*600`), một undo | |
 | D31 | Thư viện nhóm: nguồn thư mục chung (chỉ đọc / ghi), hợp nhất vào thư viện máy (giữ bản máy / dùng bản nguồn), không chép mục nguồn vào file máy, nạp lại, đẩy chuẩn xưởng lên nhóm | chưa: nguồn URL (HTTP), phiên bản / so sánh khi trùng tên |
 | D32 | Nối vân: `PartMod.grain_group` (ngang / dọc), nesting gộp nhóm thành một khối rồi tách lại (liền nhau, cùng sheet, cùng hướng, theo thứ tự vị trí); nhóm quá khổ ván xếp rời; menu chuột phải nhiều tấm. Menu chuột phải / Dựng nhanh cuộn trong cửa sổ | |
+| D33 | Luật theo phòng: loại phòng (đặt / đoán theo tên), WC → chống ẩm + chân nhựa + khoét ống khi tạo tủ (một undo), Bếp / Thờ khi đặt loại; khoang máy giặt; mẫu tủ máy giặt, tủ thờ | chưa: bảng luật tuỳ chỉnh theo loại phòng |
 | D13 | Phào nóc 1–3 mặt + phào chân, ốp hông (chạm sàn / nhô trước), nẹp che khe; tab "Phào & ốp" + lưu mẫu tab | chưa: phào theo cả dãy tủ (D09), vát 45° thành contour CNC |
 | D15 | Khoét hậu (ổ điện / ống / thoát nhiệt, neo theo lòng tủ, CNC cắt trong), hậu ốp bắt vít (+ vít vào báo giá), hậu chia theo kệ cố định | chưa: vẽ / kéo lỗ trên 2D |
 | D14 | Kệ nghiêng thật (xoay quanh trục X, dài theo cos θ, thanh chặn gót khi ≥ 5°, bỏ chốt kệ), vách lửng (`extent`), menu "Kệ giày nghiêng 15° × 4" | chưa: kệ góc L trong tủ góc mù |

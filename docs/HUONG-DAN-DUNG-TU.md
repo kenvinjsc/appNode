@@ -69,6 +69,12 @@ Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 - Chọn mẫu → sửa Rộng / Cao / Sâu và tham số (kịch trần + cao trần + che trần, số kệ, số cánh lùa, cánh lật…) → **Chèn mẫu**
   (đặt cạnh tủ đang chọn, cùng phòng). Một lần Hoàn tác bỏ cả mẫu.
 
+### 2.z Loại phòng (luật theo phòng)
+- Khung → Tên phòng → **Loại phòng**: Bếp, WC / nhà tắm, Phòng ngủ, Phòng khách, Phòng thờ. Chưa đặt thì tự đoán theo tên
+  (WC1 → WC). Tủ mới tạo trong phòng **WC**: vật liệu chống ẩm, tủ đứng sàn dùng chân nhựa, hậu khoét ống Ø60. **Bếp** (khi đã
+  đặt loại): bộ chống ẩm. **Thờ** (khi đã đặt): phào nóc.
+- Mẫu dựng sẵn thêm **Tủ máy giặt 700** (khoang máy giặt 600 dưới) và **Tủ thờ 1270** (2 hộc kéo, khoang trang trí + đèn, phào).
+
 ### 2.x Giường (và sản phẩm ngoài tủ hộp)
 - **Tủ ▾ → Sản phẩm khác → Giường 1600 × 2000 / Giường hộc kéo 1600**.
 - Rộng × Sâu của giường là **lọt nệm**; Cao là cao đầu giường. Đổi các số này ở Khung / 2D như tủ thường.

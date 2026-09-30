@@ -56,6 +56,8 @@ export const Commands = {
   publishLibraryItem: (source: string, kind: string, name: string, group?: string) => command<LibrarySourcesInfo>({ cmd: 'publish_library_item', source, kind, name, group }),
   /** Nối vân: các tấm cùng vật liệu lấy liền nhau trên một tấm ván (null = bỏ nhóm). */
   setGrainGroup: (ids: ObjectId[], group: string | null, vertical: boolean) => command<{ panels: number }>({ cmd: 'set_grain_group', ids, group, vertical }),
+  getRoomTypes: (room?: string) => command<RoomTypesInfo>({ cmd: 'get_room_types', room }),
+  setRoomType: (room: string, room_type: string | null) => command<RoomTypesInfo>({ cmd: 'set_room_type', room, room_type }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */
@@ -173,4 +175,9 @@ export interface LibrarySourcesInfo {
   conflict: 'KEEP_LOCAL' | 'USE_REMOTE';
   errors: string[];
   remote_items: { kind: string; key: string; source: string }[];
+}
+
+export interface RoomTypesInfo {
+  types: { value: string; label: string }[];
+  rooms: { room: string; type: string | null; explicit: boolean }[];
 }

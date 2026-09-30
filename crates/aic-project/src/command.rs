@@ -63,6 +63,8 @@ pub enum Command {
     SetCabinet { id: ObjectId, cabinet: Box<aic_domain::Cabinet>, label: String },
     /// Set (or clear) a unit price in the project price list.
     SetPrice { key: String, value: Option<f64> },
+    /// Loại phòng (luật theo phòng): `BẾP`, `WC`, `PN`, `KHÁCH`, `THỜ` …; None = bỏ.
+    SetRoomType { room: String, room_type: Option<String> },
     /// Add / replace / remove (None) a project template by name.
     SetTemplate { name: String, template: Option<Box<crate::document::CabinetTemplate>> },
     /// Add / replace / remove (None) a rule preset by name.
@@ -94,6 +96,7 @@ impl Command {
             Command::RemoveFeature { .. } => "Remove feature",
             Command::Batch { label, .. } | Command::SetCabinet { label, .. } => label,
             Command::SetPrice { .. } => "Đơn giá",
+            Command::SetRoomType { .. } => "Loại phòng",
             Command::SetTemplate { .. } => "Template",
             Command::SetRulePreset { .. } => "Rule preset",
             Command::SetRun { .. } => "Dãy tủ",
@@ -352,6 +355,14 @@ impl Command {
                 };
                 doc.mark_settings();
                 Ok(Command::SetPrice { key, value: old })
+            }
+            Command::SetRoomType { room, room_type } => {
+                let old = match room_type {
+                    Some(t) => doc.settings.room_types.insert(room.clone(), t),
+                    None => doc.settings.room_types.remove(&room),
+                };
+                doc.mark_settings();
+                Ok(Command::SetRoomType { room, room_type: old })
             }
             Command::SetTemplate { name, template } => {
                 let list = &mut doc.settings.templates;

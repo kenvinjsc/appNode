@@ -2089,3 +2089,29 @@ fn grain_matched_doors_are_nested_side_by_side() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(e.grain_group_of(ids[0]).is_none());
 }
+
+#[test]
+fn room_rules_wc_moisture_legs_and_pipe_cutout() {
+    let mut e = Engine::new();
+    // "WC1" đoán là WC: tủ dưới → MFC lõi xanh, chân nhựa, hậu khoét ống Ø60; một undo.
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "WC1", "overrides": {"width": 800}}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(r.result["room_rules"].as_array().unwrap().len() >= 3, "{}", r.result);
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let side = e.doc.scene.subtree(cab).into_iter().filter_map(|c| e.doc.panel(c)).find(|p| p.role == aic_domain::PanelRole::LeftSide).unwrap().material_id.0.clone();
+    assert_eq!(side, "MFCMR18-WHITE");
+    let def = e.doc.objects.get(&cab).unwrap().as_cabinet().unwrap().clone();
+    assert_eq!(def.rules.base_type, aic_domain::structure::BaseType::Legs);
+    assert_eq!(def.rules.back.cutouts.len(), 1);
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(!e.doc.objects.contains_key(&cab), "one undo removes the cabinet with its rules");
+    // Phòng "Bếp" chưa đặt loại: không đổi vật liệu; đặt loại BEP → tủ mới dùng bộ chống ẩm.
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "Bếp"}));
+    assert!(r.result.get("room_rules").is_none());
+    assert!(call(&mut e, json!({"cmd": "set_room_type", "room": "Bếp", "room_type": "BEP"})).ok);
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "Bếp"}));
+    assert!(r.result["room_rules"].as_array().is_some_and(|a| !a.is_empty()));
+    let info = call(&mut e, json!({"cmd": "get_room_types"}));
+    assert!(info.result["rooms"].as_array().unwrap().iter().any(|r| r["room"] == "Bếp" && r["type"] == "BEP" && r["explicit"] == true));
+    assert!(!call(&mut e, json!({"cmd": "set_room_type", "room": "X", "room_type": "ABC"})).ok);
+}

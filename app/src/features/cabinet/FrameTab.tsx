@@ -1,7 +1,7 @@
 // Tab "Khung": create a cabinet (Thông tin tủ) with joint and edge-band rules.
 import { useEffect, useState } from 'react';
 import { useUi } from '../../app/uiStore';
-import { Commands } from '../../core-api/commands';
+import { Commands, type RoomTypesInfo } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
 import type { CabinetKind, TemplatesInfo } from '../../core-api/types';
 import { Collapse, Fieldset, Num, Radio } from '../../shared/ui';
@@ -129,6 +129,7 @@ export function FrameTab() {
           </button>
         ))}
       </div>
+      {room.trim() && <RoomTypeRow room={room.trim()} />}
       <div className="form-row">
         <label>Tên tủ</label>
         <input className="field" value={name} placeholder="Tự đánh số theo kiểu khung" onChange={(e) => setName(e.target.value)} />
@@ -255,6 +256,36 @@ export function FrameTab() {
         <b>[TAB]</b> Tạo tủ
       </button>
       {current !== null && <p className="muted small">Tủ mới được đặt nối tiếp bên phải tủ đang chọn.</p>}
+    </div>
+  );
+}
+
+/** Loại phòng (luật theo phòng D33): tủ mới tạo trong phòng áp vật liệu / chân / khoét theo loại. */
+function RoomTypeRow({ room }: { room: string }) {
+  const { revision } = useUi();
+  const [info, setInfo] = useState<RoomTypesInfo | null>(null);
+  useEffect(() => {
+    Commands.getRoomTypes(room)
+      .then(setInfo)
+      .catch(() => setInfo(null));
+  }, [revision, room]);
+  if (!info) return null;
+  const cur = info.rooms.find((r) => r.room === room);
+  return (
+    <div className="form-row" title="Luật theo phòng: WC → vật liệu chống ẩm, chân nhựa, khoét ống; Bếp → bộ chống ẩm; Thờ → phào nóc">
+      <label>Loại phòng</label>
+      <select
+        className="field"
+        value={cur?.explicit ? (cur.type ?? '') : ''}
+        onChange={(e) => void Commands.setRoomType(room, e.target.value || null).then(setInfo).catch(() => undefined)}
+      >
+        <option value="">{cur?.type ? `Tự đoán: ${info.types.find((t) => t.value === cur.type)?.label ?? cur.type}` : 'Chưa đặt'}</option>
+        {info.types.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

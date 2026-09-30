@@ -295,6 +295,7 @@ export function ZoneMenu() {
             ['MICRO-380', 'Khoang vi sóng 380'],
             ['FRIDGE-600', 'Tủ lạnh âm 600'],
             ['DISHWASHER-600', 'Máy rửa bát âm 600'],
+            ['WASHER-600', 'Khoang máy giặt 600'],
           ].map(([code, label]) => (
             <Item key={code} label={label} fn={() => Commands.zoneAddLink(cabinet, zones, 'APPLIANCE_BAY', 0, code)} />
           ))}

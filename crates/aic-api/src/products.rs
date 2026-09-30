@@ -53,6 +53,8 @@ pub const PRODUCTS: &[Product] = &[
     Product { key: "SHOE_1200", name: "Tủ giày 1200", room: "Phòng khách", summary: "1200 × 1000 × 350 · /2 · mỗi khoang 4 kệ nghiêng 15° · khoét thông gió", size: [1200.0, 1000.0, 350.0], params: &[num("tilt", "Nghiêng kệ (°)", "15")] },
     Product { key: "DESK_1200", name: "Bàn học 1200", room: "Phòng ngủ", summary: "1200 × 750 × 600 · mặt 25 · hộc phải 3 ngăn · kệ trên 2 tầng · khoét dây", size: [1200.0, 750.0, 600.0], params: &[flag("hutch", "Kệ trên", "on")] },
     Product { key: "ISLAND_1800", name: "Bàn đảo 1800", room: "Bếp", summary: "1800 × 900 × 900 · mở 2 mặt: trước 1 cánh + 3 ngăn kéo, sau kệ mở · mặt đá nhô 300 phía ghế · ốp hông", size: [1800.0, 900.0, 900.0], params: &[num("seat", "Mặt đá nhô phía ghế", "300")] },
+    Product { key: "WASHER_700", name: "Tủ máy giặt 700", room: "WC", summary: "700 × 2000 × 620 · khoang máy giặt 600 dưới · 2 kệ + cánh đôi trên · chống ẩm", size: [700.0, 2000.0, 620.0], params: &[] },
+    Product { key: "ALTAR_1270", name: "Tủ thờ 1270", room: "Phòng thờ", summary: "1270 × 810 × 610 · 2 hộc kéo trên · khoang trang trí + đèn LED · phào nóc", size: [1270.0, 810.0, 610.0], params: &[] },
     Product { key: "LAVABO_800", name: "Tủ lavabo treo 800", room: "WC", summary: "800 × 500 × 480 · treo · cánh đôi + mặt ngăn giả · khoét ống Ø60 · chống ẩm", size: [800.0, 500.0, 480.0], params: &[] },
 ];
 
@@ -371,6 +373,34 @@ impl Engine {
                         self.drawers(cab, b, 3, false)?;
                     }
                     self.shelves(cab, vec![rear], 1)?;
+                }
+                cab
+            }
+            "WASHER_700" => {
+                let cab = self.create(CabinetKind::Base, size(0.0), "TủMáyGiặt", p, "WC")?;
+                self.set(cab, &[("base_type", "LEGS")])?;
+                let root = self.root_zone(cab)?;
+                // Khoang máy giặt dưới (≥ 620 × 870 × 600 lọt lòng), phía trên kệ + cánh đôi.
+                let parts = self.split(cab, root, SplitKind::ShelfFixed, "890", false)?;
+                if let [low, top] = parts[..] {
+                    self.zone_add_link(cab, vec![low], aic_domain::zone::LinkKind::ApplianceBay, 0.0, "WASHER-600".into())?;
+                    self.shelves(cab, vec![top], 2)?;
+                    self.doors(cab, vec![top], DoorKind::Double, 2, HingeSide::Left)?;
+                }
+                cab
+            }
+            "ALTAR_1270" => {
+                kitchen_set = false;
+                let mut o = size(80.0);
+                o.top_style = Some("OVERLAY".into());
+                let cab = self.create(CabinetKind::Base, o, "TủThờ", p, "Phòng thờ")?;
+                self.set(cab, &[("tr_cornice", "3_SIDES"), ("tr_cornice_h", "80")])?;
+                let root = self.root_zone(cab)?;
+                // 2 hộc kéo trên cao 200, dưới khoang trang trí mở + đèn LED.
+                let parts = self.split(cab, root, SplitKind::ShelfFixed, "200", true)?;
+                if let [low, top] = parts[..] {
+                    self.handle(Request::ZoneAddDrawers { cabinet: cab, zones: vec![top], count: 1, cols: 2, mount: Mount::Overlay, thickness: None, with_box: true, inner: false, false_front: false })?;
+                    self.zone_add_link(cab, vec![low], aic_domain::zone::LinkKind::Accessory, 0.0, "LED-STRIP".into())?;
                 }
                 cab
             }

@@ -386,6 +386,17 @@ pub enum Request {
         #[serde(default)]
         vertical: bool,
     },
+    /// Luật theo phòng (D33): loại phòng của các phòng (đoán theo tên khi chưa đặt).
+    GetRoomTypes {
+        /// Phòng đang nhập (chưa có tủ) để đoán loại.
+        #[serde(default)]
+        room: Option<String>,
+    },
+    SetRoomType {
+        room: String,
+        #[serde(default)]
+        room_type: Option<String>,
+    },
     /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
     SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.

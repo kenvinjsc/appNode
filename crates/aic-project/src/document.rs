@@ -39,6 +39,9 @@ pub struct ProjectSettings {
     /// Dãy tủ (mặt đá, len chân liền, tấm lấp, che trần).
     #[serde(default)]
     pub runs: Vec<RunDef>,
+    /// Loại phòng theo tên phòng (luật theo phòng D33): BEP / WC / PN / KHACH / THO.
+    #[serde(default)]
+    pub room_types: BTreeMap<String, String>,
 }
 
 /// Một dãy tủ: tủ thuộc dãy, luật và các tấm dãy đã sinh (tấm rời trong cây).
@@ -103,6 +106,7 @@ impl Default for ProjectSettings {
             screws: ScrewRule::default(),
             templates: Vec::new(),
             runs: Vec::new(),
+            room_types: BTreeMap::new(),
             presets: Vec::new(),
         }
     }

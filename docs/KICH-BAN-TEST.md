@@ -94,6 +94,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.12 Nhân dãy tủ** (E2E 29, Rust `array_cabinet_by_size_formula_on_any_axis`). Chuột phải BếpTrên01 → Nhân dãy tủ… →
   Kích thước từng tủ `400,600,800` → 3 tủ mới liền bên phải, rộng đúng thứ tự; Ctrl+Z bỏ cả 3. Trục Y (chồng lên) khe 10 được;
   công thức sai → báo lỗi.
+- **TC-02.13 Luật theo phòng** (E2E 32, Rust `room_rules_wc_moisture_legs_and_pipe_cutout`). Khung → phòng WC1 → Loại phòng "Tự
+  đoán: WC" → tạo tủ dưới → MFC lõi xanh, chân nhựa, hậu khoét ống Ø60; một Ctrl+Z bỏ cả tủ. Phòng "Bếp" chưa đặt loại → không
+  đổi vật liệu; đặt Loại phòng = Bếp → tủ mới dùng bộ chống ẩm. Mẫu Tủ máy giặt 700 (khoang máy giặt), Tủ thờ 1270 (2 hộc, LED,
+  phào) chèn được.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

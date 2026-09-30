@@ -22,6 +22,7 @@ mod arrange;
 mod products;
 mod furniture;
 mod drawing;
+mod room_rules;
 pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
@@ -271,8 +272,20 @@ impl Engine {
                 if let Some(r) = o.edge_rule { spec.edge_rule = Some(r); }
                 if let Some(g) = o.back_groove { spec.back_groove = g.max(0.0); }
                 let id = self.doc.ids.clone().alloc();
+                let mark = self.history.mark();
                 self.exec(Command::CreateCabinet { id: Some(id), spec, position: position.unwrap_or([0.0; 3]), parent, name })?;
-                ok(json!({ "id": id }))
+                // Luật theo phòng (WC chống ẩm, chân nhựa, khoét ống …) trong cùng một bước undo.
+                match self.apply_room_rules(id) {
+                    Ok(rules) if rules.is_empty() => ok(json!({ "id": id })),
+                    Ok(rules) => {
+                        self.history.squash(mark, "Tạo tủ");
+                        ok(json!({ "id": id, "room_rules": rules }))
+                    }
+                    Err(e) => {
+                        self.history.rollback(&mut self.doc, mark);
+                        Err(e)
+                    }
+                }
             }
             CreatePanel { name, width, height, thickness, material, transform, parent } => {
                 let id = self.doc.ids.clone().alloc();
@@ -547,6 +560,17 @@ impl Engine {
             ReloadLibrary => ok(self.reload_library()?),
             PublishLibraryItem { source, kind, name, group } => ok(self.publish_library_item(&source, &kind, &name, group.as_deref())?),
             SetGrainGroup { ids, group, vertical } => ok(self.set_grain_group(&ids, group, vertical)?),
+            GetRoomTypes { room } => ok(self.room_types_info(room.as_deref())),
+            SetRoomType { room, room_type } => {
+                let t = room_type.map(|t| t.trim().to_ascii_uppercase()).filter(|t| !t.is_empty());
+                if let Some(t) = &t {
+                    if !room_rules::ROOM_TYPES.iter().any(|(k, _)| k == t) {
+                        return Err(zones::bad("room_type", "BEP | WC | PN | KHACH | THO | KHAC"));
+                    }
+                }
+                self.exec(Command::SetRoomType { room: room.trim().to_string(), room_type: t })?;
+                ok(self.room_types_info(None))
+            }
             SetBackCutouts { cabinet, cutouts } => {
                 for c in &cutouts {
                     let (w, h, _) = c.shape();
