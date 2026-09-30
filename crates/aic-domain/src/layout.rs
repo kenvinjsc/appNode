@@ -57,6 +57,12 @@ pub struct PartMod {
     /// Extra machining added by tools, local panel frame.
     #[serde(default)]
     pub features: Vec<MachiningFeature>,
+    /// Nối vân (D32): các tấm cùng nhóm lấy liền nhau trên một tấm ván.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grain_group: Option<String>,
+    /// Vân liên tục theo chiều dọc (tấm chồng nhau) thay vì ngang.
+    #[serde(default)]
+    pub grain_vertical: bool,
     /// Manual edge-band overrides (on/off per edge) on top of the cabinet rule.
     #[serde(default)]
     pub edges: BTreeMap<EdgeSide, bool>,

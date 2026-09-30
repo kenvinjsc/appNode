@@ -186,6 +186,7 @@ impl Engine {
                     _ => GrainConstraint::Free,
                 },
                 material_id: mat.id.clone(),
+                grain_group: self.grain_group_of(id),
             });
             flats.push(flat);
         }
@@ -201,6 +202,61 @@ impl Engine {
             settings,
         };
         Ok((job, flats))
+    }
+
+    /// Đặt / bỏ nhóm nối vân cho các tấm (cùng vật liệu), một bước undo.
+    pub(crate) fn set_grain_group(&mut self, ids: &[ObjectId], group: Option<String>, vertical: bool) -> Result<Value, CoreError> {
+        let group = group.map(|g| g.trim().to_string()).filter(|g| !g.is_empty());
+        if group.is_some() && ids.len() < 2 {
+            return Err(CoreError::InvalidParameter { name: "ids".into(), reason: "chọn ít nhất 2 tấm".into() });
+        }
+        let mats: std::collections::BTreeSet<String> = ids.iter().filter_map(|id| self.doc.panel(*id)).map(|p| p.material_id.0.clone()).collect();
+        if mats.len() > 1 {
+            return Err(CoreError::ConstraintViolated { constraint: "GRAIN_MATERIAL".into(), message: format!("{mats:?}") });
+        }
+        let mut by_cab: std::collections::BTreeMap<ObjectId, Vec<String>> = Default::default();
+        for id in ids {
+            let (cab, key) = self.part_ref(*id).ok_or(CoreError::InvalidParameter { name: "ids".into(), reason: "chỉ tấm của tủ".into() })?;
+            by_cab.entry(cab).or_default().push(key);
+        }
+        let mark = self.history.mark();
+        let res = (|| -> Result<(), CoreError> {
+            for (cab, keys) in &by_cab {
+                let g = group.clone();
+                self.edit_cabinet(*cab, "Nối vân", move |c| {
+                    for k in keys {
+                        let m = c.mods.entry(k.clone()).or_default();
+                        m.grain_group = g.clone();
+                        m.grain_vertical = vertical;
+                    }
+                    Ok(())
+                })?;
+            }
+            Ok(())
+        })();
+        match res {
+            Ok(()) => {
+                self.history.squash(mark, "Nối vân");
+                Ok(json!({ "panels": ids.len() }))
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
+    }
+
+    /// Nhóm nối vân của một tấm (PartMod.grain_group), thứ tự theo vị trí: trái → phải (vân ngang)
+    /// hoặc dưới → trên (vân dọc).
+    pub(crate) fn grain_group_of(&self, id: ObjectId) -> Option<aic_nesting::GrainGroup> {
+        let (cab, key) = self.part_ref(id)?;
+        let def = self.doc.objects.get(&cab)?.as_cabinet()?;
+        let m = def.mods.get(&key)?;
+        let name = m.grain_group.clone()?;
+        let vertical = m.grain_vertical;
+        let b = self.doc.world_aabb(id);
+        let order = if vertical { b.min[1] } else { b.min[0] + b.min[2] };
+        Some(aic_nesting::GrainGroup { name, order: order.max(0.0).round() as u32, vertical })
     }
 
     pub(crate) fn run_nesting(&mut self, material: Option<String>, settings: NestingSettings) -> Result<Value, CoreError> {

@@ -378,6 +378,14 @@ pub enum Request {
         #[serde(default)]
         group: Option<String>,
     },
+    /// Nối vân (D32): các tấm (cánh, mặt ngăn kéo …) lấy liền nhau trên cùng tấm ván; `group` = None bỏ nhóm.
+    SetGrainGroup {
+        ids: Vec<ObjectId>,
+        #[serde(default)]
+        group: Option<String>,
+        #[serde(default)]
+        vertical: bool,
+    },
     /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
     SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.

@@ -29,6 +29,18 @@ pub struct NestingPart {
     pub quantity: u32,
     pub grain: GrainConstraint,
     pub material_id: MaterialId,
+    /// Nối vân (D32): các tấm cùng nhóm được xếp liền nhau, cùng hướng, trên cùng một tấm ván.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grain_group: Option<GrainGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GrainGroup {
+    pub name: String,
+    /// Thứ tự trong nhóm (trái → phải / dưới → trên).
+    pub order: u32,
+    /// Vân chạy liên tục ngang (tấm cạnh nhau) hay dọc (tấm chồng nhau).
+    pub vertical: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -177,8 +189,98 @@ impl Bin {
     }
 }
 
+/// Khối nối vân: một part chữ nhật thay cả nhóm; `members` = (part, offset trong khối, w, h).
+struct Block {
+    id: PartId,
+    vertical: bool,
+    members: Vec<(PartId, f64, f64, f64)>,
+}
+
+/// Gộp mỗi nhóm nối vân thành một part chữ nhật (tấm liền nhau, cách nhau `spacing`).
+fn merge_groups(job: &NestingJob) -> (NestingJob, Vec<Block>) {
+    let sp = job.settings.spacing_mm;
+    let mut out = job.clone();
+    let mut blocks = Vec::new();
+    let mut names: Vec<&str> = job.parts.iter().filter_map(|p| p.grain_group.as_ref().map(|g| g.name.as_str())).collect();
+    names.sort();
+    names.dedup();
+    for name in names {
+        let mut members: Vec<&NestingPart> = job.parts.iter().filter(|p| p.grain_group.as_ref().is_some_and(|g| g.name == name)).collect();
+        if members.len() < 2 {
+            continue;
+        }
+        members.sort_by_key(|p| p.grain_group.as_ref().map(|g| g.order).unwrap_or(0));
+        let vertical = members[0].grain_group.as_ref().is_some_and(|g| g.vertical);
+        let mut at = 0.0;
+        let mut cross: f64 = 0.0;
+        let mut list = Vec::new();
+        for m in &members {
+            let (mn, mx) = m.contour.bounds();
+            let (w, h) = (mx.x - mn.x, mx.y - mn.y);
+            list.push((m.id, at, w, h));
+            at += if vertical { h } else { w } + sp;
+            cross = cross.max(if vertical { w } else { h });
+        }
+        let len = at - sp;
+        let (bw, bh) = if vertical { (cross, len) } else { (len, cross) };
+        // Khối không vừa một tấm ván (cả khi xoay) → xếp rời như thường, không bỏ sót tấm.
+        let (uw, uh) = (job.sheet.width_mm - 2.0 * job.settings.margin_mm, job.sheet.height_mm - 2.0 * job.settings.margin_mm);
+        if !((bw <= uw && bh <= uh) || (bh <= uw && bw <= uh)) {
+            continue;
+        }
+        let first = members[0];
+        let ids: Vec<PartId> = members.iter().map(|m| m.id).collect();
+        out.parts.retain(|p| !ids.contains(&p.id));
+        out.parts.push(NestingPart {
+            id: first.id,
+            name: format!("Nối vân {name}"),
+            contour: Polygon2D::rect(0.0, 0.0, bw, bh),
+            holes: Vec::new(),
+            quantity: 1,
+            grain: first.grain,
+            material_id: first.material_id.clone(),
+            grain_group: None,
+        });
+        blocks.push(Block { id: first.id, vertical, members: list });
+    }
+    (out, blocks)
+}
+
 impl Nester for MaxRectsNester {
     fn nest(&self, job: &NestingJob) -> NestingResult {
+        let (merged, blocks) = merge_groups(job);
+        let mut r = self.nest_rects(&merged);
+        if blocks.is_empty() {
+            return r;
+        }
+        // Tách khối về từng tấm: cùng sheet, cùng góc xoay, liền nhau theo thứ tự nhóm.
+        let mut placements = Vec::new();
+        for p in r.placements.drain(..) {
+            let Some(b) = blocks.iter().find(|b| b.id == p.part_id) else {
+                placements.push(p);
+                continue;
+            };
+            let rotated = (p.rotation_deg - 90.0).abs() < 1e-6;
+            for &(id, off, w, h) in &b.members {
+                // Không xoay: dọc trục khối; xoay 90°: trục khối thành trục y của ván (và ngược lại).
+                let along_x = b.vertical == rotated;
+                let (x, y) = if along_x { (p.x_mm + off, p.y_mm) } else { (p.x_mm, p.y_mm + off) };
+                let (fw, fh) = if rotated { (h, w) } else { (w, h) };
+                placements.push(NestingPlacement { part_id: id, instance: 0, sheet_id: p.sheet_id, x_mm: x, y_mm: y, rotation_deg: p.rotation_deg, width_mm: fw, height_mm: fh });
+            }
+        }
+        if r.unplaced.iter().any(|u| blocks.iter().any(|b| b.id == *u)) {
+            let extra: Vec<PartId> = blocks.iter().filter(|b| r.unplaced.contains(&b.id)).flat_map(|b| b.members.iter().map(|m| m.0)).collect();
+            r.unplaced.retain(|u| !blocks.iter().any(|b| b.id == *u));
+            r.unplaced.extend(extra);
+        }
+        r.placements = placements;
+        r
+    }
+}
+
+impl MaxRectsNester {
+    fn nest_rects(&self, job: &NestingJob) -> NestingResult {
         let s = &job.settings;
         let sp = s.spacing_mm;
         // Usable area; each part is inflated by the spacing on its right/top.
@@ -299,6 +401,25 @@ mod tests {
             quantity: q,
             grain: GrainConstraint::Free,
             material_id: MaterialId::new("M"),
+            grain_group: None,
+        }
+    }
+
+    #[test]
+    fn grain_group_parts_are_placed_adjacent_in_order() {
+        let mut parts: Vec<NestingPart> = (1..=4).map(|i| part(i, 450.0, 2000.0, 1)).collect();
+        for (k, p) in parts.iter_mut().enumerate() {
+            p.grain_group = Some(GrainGroup { name: "A".into(), order: k as u32, vertical: false });
+        }
+        parts.push(part(9, 300.0, 300.0, 3));
+        let job = NestingJob { parts, sheet: SheetSpec { material_id: MaterialId::new("M"), width_mm: 2440.0, height_mm: 2440.0, thickness_mm: 18.0, has_grain: false }, settings: NestingSettings { allow_rotation: false, ..Default::default() } };
+        let r = MaxRectsNester.nest(&job);
+        let mut g: Vec<&NestingPlacement> = r.placements.iter().filter(|p| p.part_id.0 <= 4).collect();
+        assert_eq!(g.len(), 4);
+        g.sort_by_key(|p| p.part_id.0);
+        assert!(g.iter().all(|p| p.sheet_id == g[0].sheet_id && p.rotation_deg == g[0].rotation_deg && (p.y_mm - g[0].y_mm).abs() < 1e-9));
+        for w in g.windows(2) {
+            assert!((w[1].x_mm - (w[0].x_mm + 450.0 + 12.0)).abs() < 1e-6, "adjacent in order: {:?}", g);
         }
     }
 

@@ -2036,3 +2036,56 @@ fn team_library_shared_folder_between_two_machines() {
     assert_eq!(r.error.unwrap().details["constraint"], "LIBRARY_READONLY");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn grain_matched_doors_are_nested_side_by_side() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "insert_product", "key": "WARDROBE_4D_1800"}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    fn walk(v: &Value, out: &mut Vec<Value>) {
+        out.push(v.clone());
+        for c in v["children"].as_array().into_iter().flatten() {
+            walk(c, out);
+        }
+    }
+    let mut all = Vec::new();
+    for r in tree.result["roots"].as_array().unwrap() {
+        walk(r, &mut all);
+    }
+    let _ = cab;
+    // 4 cánh dưới (cao) nối vân ngang.
+    let doors: Vec<(ObjectId, f64)> = all
+        .iter()
+        .filter(|n| n["name"].as_str().is_some_and(|s| s.starts_with("CửaĐôi")))
+        .map(|n| serde_json::from_value::<ObjectId>(n["id"].clone()).unwrap())
+        .map(|id| (id, e.doc.world_aabb(id).max[1] - e.doc.world_aabb(id).min[1]))
+        .filter(|(_, h)| *h > 1000.0)
+        .collect();
+    assert_eq!(doors.len(), 4);
+    // 2 cánh của khoang trái (vừa khổ ván 1220 khi đặt cạnh nhau).
+    let ids: Vec<ObjectId> = doors.iter().take(2).map(|d| d.0).collect();
+    let r = call(&mut e, json!({"cmd": "set_grain_group", "ids": ids, "group": "Cánh tủ áo"}));
+    assert!(r.ok, "{:?}", r.error);
+    let mat = e.doc.panel(ids[0]).unwrap().material_id.0.clone();
+    let n = call(&mut e, json!({"cmd": "run_nesting", "material": mat}));
+    assert!(n.ok, "{:?}", n.error);
+    let pl = n.result["jobs"][0]["result"]["placements"].as_array().unwrap().clone();
+    let mut mine: Vec<&Value> = pl.iter().filter(|p| ids.iter().any(|i| serde_json::to_value(i).unwrap() == p["part_id"])).collect();
+    assert_eq!(mine.len(), 2);
+    let sheet = mine[0]["sheet_id"].clone();
+    let rot = mine[0]["rotation_deg"].clone();
+    assert!(mine.iter().all(|p| p["sheet_id"] == sheet && p["rotation_deg"] == rot), "same sheet, same direction");
+    // Liền nhau: khoảng hở giữa 2 tấm kề = khoảng cách dao.
+    let horiz = mine.iter().all(|p| (p["y_mm"].as_f64().unwrap() - mine[0]["y_mm"].as_f64().unwrap()).abs() < 1e-6);
+    let key = if horiz { "x_mm" } else { "y_mm" };
+    let size = if horiz { "width_mm" } else { "height_mm" };
+    mine.sort_by(|a, b| a[key].as_f64().unwrap().total_cmp(&b[key].as_f64().unwrap()));
+    for w in mine.windows(2) {
+        let gap = w[1][key].as_f64().unwrap() - (w[0][key].as_f64().unwrap() + w[0][size].as_f64().unwrap());
+        assert!((gap - 12.0).abs() < 1e-6, "gap {gap}");
+    }
+    // Một undo bỏ nhóm.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(e.grain_group_of(ids[0]).is_none());
+}

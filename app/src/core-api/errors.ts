@@ -9,6 +9,7 @@ const CONSTRAINTS: Record<string, string> = {
   THICKNESS_OUT_OF_RANGE: 'Chiều dày ván phải nằm trong khoảng 3–60 mm.',
   TOO_MANY_SHELVES: 'Không đủ chiều cao cho số đợt này.',
   DOOR_TOO_NARROW: 'Cánh tủ sẽ hẹp hơn 50 mm.',
+  GRAIN_MATERIAL: 'Các tấm nối vân phải cùng vật liệu.',
   LIBRARY_READONLY: 'Nguồn thư viện này chỉ đọc.',
   LIBRARY_SOURCE: 'Không đọc / ghi được thư mục thư viện nhóm.',
   APPLIANCE_FIT: 'Khoang nhỏ hơn kích thước lọt lòng của thiết bị.',

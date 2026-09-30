@@ -546,6 +546,7 @@ impl Engine {
             SetLibrarySources { sources, conflict } => ok(self.set_library_sources(sources, conflict)?),
             ReloadLibrary => ok(self.reload_library()?),
             PublishLibraryItem { source, kind, name, group } => ok(self.publish_library_item(&source, &kind, &name, group.as_deref())?),
+            SetGrainGroup { ids, group, vertical } => ok(self.set_grain_group(&ids, group, vertical)?),
             SetBackCutouts { cabinet, cutouts } => {
                 for c in &cutouts {
                     let (w, h, _) = c.shape();

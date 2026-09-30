@@ -54,6 +54,8 @@ export const Commands = {
   reloadLibrary: () => command<LibrarySourcesInfo>({ cmd: 'reload_library' }),
   /** Đẩy một mục thư viện lên nguồn nhóm (groups / templates / presets / zones / material_sets). */
   publishLibraryItem: (source: string, kind: string, name: string, group?: string) => command<LibrarySourcesInfo>({ cmd: 'publish_library_item', source, kind, name, group }),
+  /** Nối vân: các tấm cùng vật liệu lấy liền nhau trên một tấm ván (null = bỏ nhóm). */
+  setGrainGroup: (ids: ObjectId[], group: string | null, vertical: boolean) => command<{ panels: number }>({ cmd: 'set_grain_group', ids, group, vertical }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */

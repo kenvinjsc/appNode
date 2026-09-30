@@ -421,8 +421,19 @@ export function ContextMenu() {
   const id = contextMenu.id;
   const selection = useUi.getState().selection;
   const sel2 = selection.length === 2 && selection.every((x) => findNode(tree, x)?.node.kind === 'PANEL') ? selection : [];
+  const panels = selection.filter((x) => findNode(tree, x)?.node.kind === 'PANEL');
   return (
-    <div className="ctx" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(e) => e.stopPropagation()}>
+    <div
+      className="ctx"
+      style={{
+        left: Math.min(contextMenu.x, window.innerWidth - 260),
+        // Gần đáy màn hình: dời lên, dài quá thì cuộn (mục cuối không bị khuất).
+        top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 420)),
+        maxHeight: window.innerHeight - Math.max(8, Math.min(contextMenu.y, window.innerHeight - 420)) - 8,
+        overflowY: 'auto',
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <div className="ctx-title">{n?.name}</div>
       {item('new', 'Đổi tên', () => set({ renaming: id }), 'F2')}
       {item('duplicate', 'Sao chép', () => void Actions.duplicate(), 'Ctrl+D')}
@@ -444,6 +455,28 @@ export function ContextMenu() {
             set({ prompt: { title: 'Khe giữa 2 tấm', label: 'Khe (mm)', value: '3', ok: (v) => void Commands.setRelation(sel2[0], sel2[1], 'GAP', Number(v.replace(',', '.')) || 0).catch(() => undefined) } }),
           )}
           {item('x', 'Bỏ quan hệ', () => void Commands.setRelation(sel2[0], sel2[1], 'NONE').catch(() => undefined))}
+        </>
+      )}
+      {panels.length >= 2 && (
+        <>
+          <hr />
+          {item('grid', `Nối vân ${panels.length} tấm (ngang)…`, () =>
+            set({
+              prompt: {
+                title: 'Nối vân',
+                label: 'Tên nhóm vân (các tấm lấy liền nhau trên một tấm ván)',
+                value: n?.name ?? 'Nhóm vân',
+                ok: (v) =>
+                  void Commands.setGrainGroup(panels, v, false)
+                    .then(() => useUi.getState().toast({ kind: 'success', title: `Đã nối vân ${panels.length} tấm` }))
+                    .catch(() => undefined),
+              },
+            }),
+          )}
+          {item('grid', 'Nối vân dọc (tấm chồng nhau)…', () =>
+            set({ prompt: { title: 'Nối vân dọc', label: 'Tên nhóm vân', value: n?.name ?? 'Nhóm vân', ok: (v) => void Commands.setGrainGroup(panels, v, true).catch(() => undefined) } }),
+          )}
+          {item('x', 'Bỏ nối vân', () => void Commands.setGrainGroup(panels, null, false).catch(() => undefined))}
         </>
       )}
       {n?.kind === 'PANEL' && n.generated && (

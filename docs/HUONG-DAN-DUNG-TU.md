@@ -182,6 +182,11 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
   dùng bản nguồn. **Nạp lại từ nguồn** để lấy mục máy khác vừa đẩy.
 - Đẩy chuẩn xưởng lên nhóm: Thuộc tính kết cấu → Chuẩn xưởng → chọn → **Đẩy lên nhóm** (nguồn ghi được đầu tiên).
 
+### 3.9 Nối vân
+- Chọn nhiều cánh / mặt ngăn kéo (Ctrl+click, cùng vật liệu) → chuột phải → **Nối vân … (ngang)** hoặc **Nối vân dọc**: khi Xếp tấm
+  các tấm được lấy liền nhau trên cùng một tấm ván, cùng hướng, theo thứ tự trái → phải (dưới → trên), vân chạy liên tục.
+  Nhóm lớn hơn khổ ván thì xếp rời như thường. **Bỏ nối vân** để gỡ nhóm.
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 

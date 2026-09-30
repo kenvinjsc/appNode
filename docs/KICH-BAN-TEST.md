@@ -201,6 +201,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-08.7 Xuất file máy** (E2E 28, Rust `export_machine_files_dxf_layers_mpr_cix`). Tủ liên kết cam + chốt → chọn hồi → Chỉnh
   tấm → Gia công → Xuất DXF → tải file `.dxf` (tên không dấu). DXF có layer `CUT`, `DRILL_15_12.5` (cam), `DRILL_B_…` (mặt B, đã
   lật), `HDRILL_8_25` (chốt khoan cạnh). MPR có `_BSX=` / `<102 \BohrVert\`, CIX có `BEGIN MAINDATA`, `BV`, `BH`.
+- **TC-08.8 Nối vân** (E2E 31, Rust `grain_matched_doors_are_nested_side_by_side`, nesting `grain_group_parts_are_placed_adjacent_in_order`).
+  Chọn 2 cánh (Ctrl+click) → chuột phải → Nối vân 2 tấm → Xếp tấm: 2 cánh liền nhau (cách đúng khoảng dao), cùng tấm ván, cùng
+  hướng, theo thứ tự trái → phải. Nhóm quá khổ ván → xếp rời, không mất tấm. Khác vật liệu → báo lỗi. Một undo bỏ nhóm.
 - **TC-08.5 Contour cung / đa giác** (Rust `contour_arc_and_free_polygon_on_a_part`). Đa giác tự cắt → báo lỗi tiếng Việt.
 
 ### 09. Kết cấu & chuẩn xưởng
