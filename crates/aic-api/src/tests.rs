@@ -909,3 +909,36 @@ fn shop_standard_fields_saved_and_applied() {
     let r = call(&mut e, json!({"cmd": "set_parameter", "id": a, "name": "s_pin_d", "value": "-3"}));
     assert!(!r.ok);
 }
+
+#[test]
+fn shelves_snap_to_32mm_pin_row() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 800, "height": 2000, "doors": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let shelf_pos = |e: &mut Engine| {
+        let z = call(e, json!({"cmd": "get_zones", "cabinet": cab}));
+        z.result["positions"].as_array().unwrap().iter().filter(|p| p["axis"] == 1).map(|p| p["from_start"].as_f64().unwrap()).collect::<Vec<_>>()
+    };
+    let before = shelf_pos(&mut e);
+    assert!(!before.is_empty());
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_pin_row", "value": "ROW_32"}));
+    let after = shelf_pos(&mut e);
+    // base = lỗ đầu 64 + lỗ dưới mặt kệ 5; mọi kệ nằm trên bội 32.
+    for st in &after {
+        let k = (st - 69.0) / 32.0;
+        assert!((k - k.round()).abs() < 1e-6, "shelf at {st} not on the 32 grid");
+    }
+    for (a, b) in before.iter().zip(after.iter()) {
+        assert!((a - b).abs() <= 16.0 + 1e-6);
+    }
+    // Kéo kệ tới vị trí lẻ → vẫn bắt lỗ.
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let shelf: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"].as_str().unwrap().starts_with("KệDiĐộng")).unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "move_split_panel", "id": shelf, "before": 413}));
+    assert!(r.ok, "{:?}", r.error);
+    for st in shelf_pos(&mut e) {
+        let k = (st - 69.0) / 32.0;
+        assert!((k - k.round()).abs() < 1e-6, "{st}");
+    }
+}

@@ -268,6 +268,9 @@ Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của t�
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.
 Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ).
 
+Khi bật **Hàng lỗ hệ 32** + **Kéo kệ bắt vào lỗ**: mọi kệ di động (thêm mới, kéo, nhập số, chia khoang) tự nằm
+trên lỗ gần nhất (lệch tối đa nửa bước lỗ), nên kích thước khoang hiển thị là kích thước thật khi lắp.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 

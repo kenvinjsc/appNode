@@ -651,6 +651,25 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
         } else {
             solve_split(len, &s.panels)
         };
+        // Hàng lỗ hệ 32: kệ di động bắt vào lỗ gần nhất (không lấn sang tấm kề).
+        let sr = &cx.cab.rules.shop;
+        let mut starts = starts;
+        if a == 1 && sr.pin_row == PinRow::Row32 && sr.pin_snap {
+            let p = sr.pin_pitch.max(8.0);
+            let base = sr.pin_start + sr.pin_below;
+            for i in 0..s.panels.len() {
+                if s.panels[i].kind != SplitKind::ShelfAdjustable {
+                    continue;
+                }
+                let lo = if i == 0 { 1.0 } else { starts[i - 1] + s.panels[i - 1].thickness + 1.0 };
+                let hi = if i + 1 < s.panels.len() { starts[i + 1] } else { len } - s.panels[i].thickness - 1.0;
+                let snapped = base + ((starts[i] - base) / p).round() * p;
+                let cand = [snapped, snapped - p, snapped + p];
+                if let Some(v) = cand.into_iter().filter(|v| *v >= lo && *v <= hi).min_by(|x, y| (x - starts[i]).abs().total_cmp(&(y - starts[i]).abs())) {
+                    starts[i] = v;
+                }
+            }
+        }
         let mut part_idx = Vec::with_capacity(s.panels.len());
         let mut cursor = 0.0;
         for (i, (p, st)) in s.panels.iter().zip(starts.iter()).enumerate() {
