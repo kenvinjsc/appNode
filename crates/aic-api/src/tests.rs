@@ -1123,3 +1123,35 @@ fn edge_bands_per_panel_group() {
     let c = call(&mut e, json!({"cmd": "get_costing"}));
     assert!(!c.result["edges"].as_array().unwrap().iter().any(|l| l["key"].as_str().unwrap().contains("ABS-2")));
 }
+
+#[test]
+fn quote_linear_facade_and_cut_groups() {
+    let mut e = Engine::new();
+    for w in [800.0, 600.0, 900.0] {
+        call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "Bếp", "overrides": {"width": w}}));
+    }
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "room": "PN1", "overrides": {"width": 1800, "height": 2400}}));
+    let wr: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    let q = &c.result["quote"];
+    let bep: f64 = q["rows"].as_array().unwrap().iter().filter(|r| r["room"] == "Bếp").map(|r| r["amount"].as_f64().unwrap()).sum();
+    assert!((bep - 2.3 * 4_500_000.0).abs() < 1.0, "{bep}");
+    let tu = q["rows"].as_array().unwrap().iter().find(|r| r["room"] == "PN1").unwrap();
+    assert_eq!(tu["mode"], "FACADE_M2");
+    assert!((tu["amount"].as_f64().unwrap() - 4.32 * 3_200_000.0).abs() < 1.0);
+    assert!((q["total"].as_f64().unwrap() - q["subtotal"].as_f64().unwrap() * 1.08).abs() < 1.0, "VAT 8%");
+    // Đổi đơn giá mét dài + chuyển tủ áo sang bóc chi tiết.
+    call(&mut e, json!({"cmd": "set_price", "key": "quote:linear:BASE", "value": 5_000_000}));
+    call(&mut e, json!({"cmd": "set_parameter", "id": wr, "name": "pricing", "value": "DETAIL"}));
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    let q = &c.result["quote"];
+    let bep: f64 = q["rows"].as_array().unwrap().iter().filter(|r| r["room"] == "Bếp").map(|r| r["amount"].as_f64().unwrap()).sum();
+    assert!((bep - 2.3 * 5_000_000.0).abs() < 1.0);
+    let tu = q["rows"].as_array().unwrap().iter().find(|r| r["room"] == "PN1").unwrap();
+    assert_eq!(tu["mode"], "DETAIL");
+    // Danh sách cắt gộp: 3 tủ bếp cùng cao/sâu → hồi gộp (6 tấm).
+    let groups = c.result["cut_groups"].as_array().unwrap();
+    let sides = groups.iter().filter(|g| g["name"].as_str().unwrap().starts_with("Hồi")).map(|g| g["qty"].as_u64().unwrap()).max().unwrap();
+    assert!(sides >= 6, "{sides}");
+    assert!(c.result["cut_list"][0]["code"].as_str().unwrap().contains("Bếp") || c.result["cut_list"][0]["code"].as_str().unwrap().contains("PN1"));
+}

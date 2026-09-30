@@ -412,6 +412,35 @@ export interface CutRow {
   edge_m: number;
   machining: string[];
   note: string;
+  /** Mã tấm (nhãn): phòng-tủ-số. */
+  code: string;
+}
+
+export interface CutGroup {
+  name: string;
+  material: string;
+  length: number;
+  width: number;
+  thickness: number;
+  cut_length: number;
+  cut_width: number;
+  qty: number;
+  edges: [EdgeSide, string][];
+  machining: string[];
+  codes: string[];
+  ids: ObjectId[];
+}
+
+export type PricingMode = 'AUTO' | 'DETAIL' | 'LINEAR_M' | 'FACADE_M2';
+
+export interface Quote {
+  rows: { id: ObjectId; floor: string; room: string; name: string; mode: PricingMode; qty: number; unit: string; price: number; price_key: string; amount: number; material_cost: number }[];
+  rooms: { floor: string; room: string; amount: number }[];
+  settings: { waste_pct: number; labor_pct: number; margin_pct: number; vat_pct: number };
+  subtotal: number;
+  margin: number;
+  vat: number;
+  total: number;
 }
 
 export interface Costing {
@@ -420,7 +449,9 @@ export interface Costing {
   fittings: CostLine[];
   totals: { panels: number; edges: number; fittings: number; total: number };
   cut_list: CutRow[];
-  cabinets: { id: ObjectId; room: string; name: string; frame: string; size: Vec3; panels: number; amount: number }[];
+  cut_groups: CutGroup[];
+  cabinets: { id: ObjectId; room: string; name: string; frame: string; size: Vec3; panels: number; amount: number; pricing: PricingMode }[];
+  quote: Quote;
 }
 
 export type Corner = 'BOTTOM_LEFT' | 'BOTTOM_RIGHT' | 'TOP_RIGHT' | 'TOP_LEFT';

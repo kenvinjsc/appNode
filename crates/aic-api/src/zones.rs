@@ -439,7 +439,7 @@ impl Engine {
                 }).map(|_| true),
                 k if k.starts_with("back_") && !matches!(k, "back_groove" | "back_thickness" | "back_offset" | "back_panel" | "back_material")
                     || k.starts_with("rt_")
-                    || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback" | "base_type" | "plinth_side_setback" | "leg_count" | "hang_rail") =>
+                    || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback" | "base_type" | "plinth_side_setback" | "leg_count" | "hang_rail" | "pricing") =>
                 {
                     let (k, v) = (k.to_string(), value.trim().to_string());
                     let on = matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes");
@@ -460,6 +460,16 @@ impl Engine {
                             "plinth_side_setback" => r.plinth_side_setback = n(&v)?.max(0.0),
                             "leg_count" => r.leg_count = n(&v)?.clamp(0.0, 16.0) as u32,
                             "hang_rail" => r.hang_rail = on,
+                            "pricing" => {
+                                use aic_domain::structure::PricingMode as P;
+                                r.pricing = match v.to_ascii_uppercase().as_str() {
+                                    "AUTO" => P::Auto,
+                                    "DETAIL" => P::Detail,
+                                    "LINEAR_M" => P::LinearM,
+                                    "FACADE_M2" => P::FacadeM2,
+                                    _ => return Err(bad(&k, "AUTO | DETAIL | LINEAR_M | FACADE_M2")),
+                                }
+                            }
                             "base_type" => {
                                 use aic_domain::structure::BaseType as B;
                                 r.base_type = match v.to_ascii_uppercase().as_str() {

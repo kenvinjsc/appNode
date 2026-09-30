@@ -45,6 +45,8 @@ pub struct CutRow {
     pub edge_codes: BTreeMap<String, f64>,
     pub machining: Vec<String>,
     pub note: String,
+    /// Mã tấm (in nhãn, lắp đặt): `<phòng>-<tủ>-<số>`.
+    pub code: String,
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -182,9 +184,19 @@ impl Engine {
                 edge_codes,
                 machining: machining.into_iter().map(|(k, n)| format!("{k} ×{n}")).collect(),
                 note: tools.join(", "),
+                code: String::new(),
             });
         }
         rows.sort_by(|a, b| (&a.room, &a.cabinet, &a.name).cmp(&(&b.room, &b.cabinet, &b.name)));
+        // Mã tấm: số thứ tự trong tủ (theo tên tấm), ổn định khi thứ tự tấm không đổi.
+        let mut seq: BTreeMap<(String, String), u32> = BTreeMap::new();
+        for r in rows.iter_mut() {
+            let n = seq.entry((r.room.clone(), r.cabinet.clone())).or_default();
+            *n += 1;
+            let slug = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).collect::<String>();
+            let head = [slug(&r.room), slug(&r.cabinet)].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>().join("-");
+            r.code = if head.is_empty() { format!("T-{n:03}") } else { format!("{head}-{n:03}") };
+        }
         Ok(rows)
     }
 
@@ -363,15 +375,129 @@ impl Engine {
                 "size": [v("width"), v("height"), v("depth")],
                 "panels": rows.len(),
                 "amount": sum(&p) + sum(&e) + sum(&f),
+                "kind": format!("{:?}", c.kind),
+                "pricing": c.rules.pricing,
             }));
         }
+        let groups = cut_groups(&cut);
+        let quote = self.quote(&cabinets)?;
         Ok(json!({
             "panels": panels,
             "edges": edges,
             "fittings": fittings,
             "totals": { "panels": sum(&panels), "edges": sum(&edges), "fittings": sum(&fittings), "total": total },
             "cut_list": cut,
+            "cut_groups": groups,
             "cabinets": cabinets,
+            "quote": quote,
+        }))
+    }
+}
+
+/// Danh sách cắt gộp: các tấm cùng vật liệu, dày, kích thước cắt, dán cạnh và gia công.
+fn cut_groups(rows: &[CutRow]) -> Vec<Value> {
+    let mut groups: BTreeMap<String, (usize, Vec<String>, Vec<ObjectId>)> = BTreeMap::new();
+    let mut order: Vec<String> = Vec::new();
+    for (i, r) in rows.iter().enumerate() {
+        let mut edges: Vec<String> = r.edges.iter().map(|(e, c)| format!("{e:?}:{c}")).collect();
+        edges.sort();
+        let key = format!("{}|{}|{:.1}|{:.1}|{}|{}", r.material_id, r.thickness, r.cut_length, r.cut_width, edges.join(","), r.machining.join(","));
+        let g = groups.entry(key.clone()).or_insert_with(|| {
+            order.push(key.clone());
+            (i, Vec::new(), Vec::new())
+        });
+        g.1.push(r.code.clone());
+        g.2.push(r.id);
+    }
+    order
+        .iter()
+        .map(|k| {
+            let (i, codes, ids) = &groups[k];
+            let r = &rows[*i];
+            json!({
+                "name": r.name,
+                "material": r.material,
+                "length": r.length,
+                "width": r.width,
+                "thickness": r.thickness,
+                "cut_length": r.cut_length,
+                "cut_width": r.cut_width,
+                "qty": codes.len(),
+                "edges": r.edges,
+                "machining": r.machining,
+                "codes": codes,
+                "ids": ids,
+            })
+        })
+        .collect()
+}
+
+impl Engine {
+    fn setting(&self, key: &str, default: f64) -> f64 {
+        self.doc.settings.prices.get(key).copied().unwrap_or(default)
+    }
+
+    /// Báo giá khách: mét dài (tủ bếp), m² mặt đứng (tủ áo, kệ…) hoặc bóc chi tiết, theo phòng.
+    fn quote(&self, cabinets: &[Value]) -> Result<Value, CoreError> {
+        use aic_domain::structure::PricingMode;
+        let waste = self.setting("quote:waste_pct", 10.0) / 100.0;
+        let labor = self.setting("quote:labor_pct", 15.0) / 100.0;
+        let margin = self.setting("quote:margin_pct", 0.0) / 100.0;
+        let vat = self.setting("quote:vat_pct", 8.0) / 100.0;
+        let mut rows = Vec::new();
+        let mut rooms: BTreeMap<(String, String), f64> = BTreeMap::new();
+        for c in cabinets {
+            let id: ObjectId = serde_json::from_value(c["id"].clone()).map_err(|_| CoreError::NotFound { id: ObjectId(0) })?;
+            let kind = c["kind"].as_str().unwrap_or("");
+            let mode: PricingMode = serde_json::from_value(c["pricing"].clone()).unwrap_or_default();
+            let mode = match mode {
+                PricingMode::Auto => {
+                    if matches!(kind, "Base" | "Wall" | "Drawer") {
+                        PricingMode::LinearM
+                    } else {
+                        PricingMode::FacadeM2
+                    }
+                }
+                m => m,
+            };
+            let w = c["size"][0].as_f64().unwrap_or(0.0) / 1000.0;
+            let h = c["size"][1].as_f64().unwrap_or(0.0) / 1000.0;
+            let material = c["amount"].as_f64().unwrap_or(0.0);
+            let (qty, unit, price, key) = match mode {
+                PricingMode::LinearM => {
+                    let key = format!("quote:linear:{}", kind.to_ascii_uppercase());
+                    let def = match kind {
+                        "Wall" => 3_500_000.0,
+                        _ => 4_500_000.0,
+                    };
+                    (w, "m", self.setting(&key, def), key)
+                }
+                PricingMode::FacadeM2 => {
+                    let key = format!("quote:facade:{}", kind.to_ascii_uppercase());
+                    (w * h, "m²", self.setting(&key, 3_200_000.0), key)
+                }
+                _ => (1.0, "bộ", material * (1.0 + waste) * (1.0 + labor), String::new()),
+            };
+            let amount = qty * price;
+            let (floor, room) = (c["floor"].as_str().unwrap_or("").to_string(), c["room"].as_str().unwrap_or("").to_string());
+            *rooms.entry((floor.clone(), room.clone())).or_default() += amount;
+            rows.push(json!({
+                "id": id, "floor": floor, "room": room, "name": c["name"], "mode": mode,
+                "qty": (qty * 1000.0).round() / 1000.0, "unit": unit, "price": price, "price_key": key, "amount": amount,
+                "material_cost": material,
+            }));
+        }
+        let subtotal: f64 = rooms.values().sum();
+        let with_margin = subtotal * (1.0 + margin);
+        let vat_amount = with_margin * vat;
+        Ok(json!({
+            "rows": rows,
+            "rooms": rooms.iter().map(|((f, r), a)| json!({ "floor": f, "room": r, "amount": a })).collect::<Vec<_>>(),
+            "settings": { "waste_pct": waste * 100.0, "labor_pct": labor * 100.0, "margin_pct": margin * 100.0, "vat_pct": vat * 100.0 },
+            "subtotal": subtotal,
+            "margin": with_margin - subtotal,
+            "vat": vat_amount,
+            "total": with_margin + vat_amount,
         }))
     }
 }

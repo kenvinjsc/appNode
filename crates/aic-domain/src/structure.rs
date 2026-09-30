@@ -279,6 +279,21 @@ pub enum BaseType {
     Hanging,
 }
 
+/// Cách báo giá một tủ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PricingMode {
+    /// Theo loại tủ: bếp (dưới / trên / ngăn kéo) → mét dài, còn lại → m² mặt đứng.
+    #[default]
+    Auto,
+    /// Bóc chi tiết: vật tư × (1 + hao hụt) × (1 + công).
+    Detail,
+    /// Mét dài (rộng tủ).
+    LinearM,
+    /// m² mặt đứng (rộng × cao).
+    FacadeM2,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StructureRules {
     #[serde(default)]
@@ -300,6 +315,9 @@ pub struct StructureRules {
     /// Tủ treo: thanh treo tường 17 × 60 sau hậu.
     #[serde(default)]
     pub hang_rail: bool,
+    /// Cách báo giá tủ.
+    #[serde(default)]
+    pub pricing: PricingMode,
     /// Chuẩn xưởng (kệ, chốt, bản lề, tay nắm, ngăn kéo).
     #[serde(default)]
     pub shop: ShopRules,
@@ -311,7 +329,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, shop: ShopRules::default() }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, shop: ShopRules::default() }
     }
 }
 

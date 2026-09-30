@@ -591,3 +591,9 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .struct-std b { color: #d9480f; white-space: nowrap; }
 .run-dlg { right: 360px; top: 190px; }
 .run-dlg .btn.danger { margin-top: 8px; color: #c92a2a; border-color: #ffc9c9; }
+.report-window .chk { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; margin-right: 6px; }
+.quote-settings { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 0 12px; font-size: 12.5px; }
+.quote-settings label { display: inline-flex; align-items: center; gap: 6px; }
+.quote-setting { display: inline-flex; align-items: center; gap: 3px; }
+.quote-setting .price { width: 90px; }
+.grand-total.small-lines { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; }

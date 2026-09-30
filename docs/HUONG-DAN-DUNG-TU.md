@@ -339,6 +339,14 @@ Mở bằng nút **Báo cáo** trên ribbon. Báo cáo gồm:
 - **Danh sách cắt** (xuất CSV): tên dạng `[Phòng - Tủ] Tấm`, kích thước cắt, mã chỉ cạnh.
 - **Cabinet List**: danh sách tủ theo phòng.
 
+### Báo giá, danh sách cắt gộp, nhãn tấm
+- Tab **Báo giá**: theo tầng · phòng; mỗi tủ chọn *theo loại tủ* (bếp dưới / trên / ngăn kéo → **mét dài**; tủ áo, kệ… →
+  **m² mặt đứng**), **bóc chi tiết** (vật tư × (1 + hao hụt) × (1 + công)). Sửa đơn giá mét dài / m² ngay trên dòng, hao hụt,
+  công, lợi nhuận, VAT ở đầu bảng (lưu trong dự án, có undo).
+- Tab **Danh sách cắt**: cột **Mã tấm** (phòng-tủ-số); **Gộp tấm giống nhau** (cùng vật liệu, kích thước cắt, dán cạnh, gia
+  công) → SL gộp + danh sách mã; **Excel / CSV** xuất theo chế độ đang xem; **In nhãn** 60 × 40 mm (mã, tên, kích thước cắt,
+  vật liệu, ký hiệu cạnh dán) — in từ trình duyệt ra A4.
+
 ## 7. Sản xuất
 Thanh bên trái có các mục sau:
 - **Gia công**: bản vẽ trải phẳng mặt A/B.
