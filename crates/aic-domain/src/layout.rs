@@ -7,7 +7,7 @@
 
 use crate::cabinet::{MaterialSlot, ROT_HORIZONTAL, ROT_SIDE};
 use crate::zone::*;
-use crate::structure::{HandlePos, PinRow, ShopRules};
+use crate::structure::{HandlePos, HandleType, PinRow, ShopRules, SlideType};
 use crate::{
     Axis2, Cabinet, CabinetKind, DrillFeature, DrillPurpose, EdgeSide, FaceSide, GrainDirection, GrooveFeature, HardwareKind,
     JoinStyle, MachiningFeature, PanelRole,
@@ -299,6 +299,18 @@ pub struct Fittings {
     pub oval_cups: u32,
     pub handles: u32,
     pub sliding_tracks: u32,
+    /// Núm tay nắm.
+    #[serde(default)]
+    pub knobs: u32,
+    /// Bộ nhấn mở (push-open).
+    #[serde(default)]
+    pub push_latches: u32,
+    /// Ray âm giảm chấn (dài → bộ).
+    #[serde(default)]
+    pub undermount: BTreeMap<u32, u32>,
+    /// Hộp kim loại tandem (dài → bộ).
+    #[serde(default)]
+    pub tandem: BTreeMap<u32, u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -907,9 +919,35 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
                 *hs = Some(to_edge(hinge));
             }
             cx.out.fittings.hinges += sr.hinge_count(if matches!(hinge, HingeSide::Left | HingeSide::Right) { ch } else { cw });
+            // Đế bản lề: 2 lỗ Ø5 trên hồi / vách phía lề (cách mép trước 37, bước 32).
+            if sr.hinge_plate && matches!(hinge, HingeSide::Left | HingeSide::Right) {
+                let (nb, face) = if hinge == HingeSide::Left { (b.nb[0], FaceSide::A) } else { (b.nb[1], FaceSide::B) };
+                if let Some(pi) = nb.part {
+                    let part = &cx.out.parts[pi];
+                    if part.rotation_deg == ROT_SIDE {
+                        let (tz, ty) = (part.translation[2], part.translation[1]);
+                        let feats = sr
+                            .hinge_positions(ch)
+                            .into_iter()
+                            .flat_map(|s| [37.0, 69.0].map(|e| (dy + s, d - e)))
+                            .map(|(wy, wz)| MachiningFeature::Drill(DrillFeature { x: tz - wz, y: wy - ty, diameter: 5.0, depth: 12.0, side: face, purpose: DrillPurpose::HingeScrew }))
+                            .collect();
+                        cx.add_features(pi, feats);
+                    }
+                }
+            }
             if cx.cab.handles {
+                match sr.handle_type {
+                    HandleType::None => continue,
+                    HandleType::PushOpen => {
+                        cx.out.fittings.push_latches += if ch > 1200.0 { 2 } else { 1 };
+                        continue;
+                    }
+                    _ => {}
+                }
                 // Handle on the opening side; height by the shop rule (bếp dưới → trên, bếp trên → dưới).
-                let l = sr.handle_len.clamp(10.0, ch.max(10.0));
+                let knob = sr.handle_type == HandleType::Knob;
+                let l = if knob { 30.0 } else { sr.handle_len.clamp(10.0, ch.max(10.0)) };
                 let e = sr.handle_edge;
                 let pos = match sr.handle_pos {
                     HandlePos::Auto => match cx.cab.kind {
@@ -924,15 +962,30 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
                     HandlePos::Bottom => dy + sr.handle_from_end,
                     _ => dy + ch / 2.0 - l / 2.0,
                 };
+                let vertical = matches!(hinge, HingeSide::Left | HingeSide::Right);
                 let (hx, hy, size) = match hinge {
                     HingeSide::Left => (dx + cw - e - 6.0, vy, [12.0, l, 30.0]),
                     HingeSide::Right => (dx + e - 6.0, vy, [12.0, l, 30.0]),
                     HingeSide::Bottom => (dx + cw / 2.0 - l / 2.0, dy + ch - e - 6.0, [l, 12.0, 30.0]),
                     HingeSide::Top => (dx + cw / 2.0 - l / 2.0, dy + e - 6.0, [l, 12.0, 30.0]),
                 };
+                let size = if knob { [30.0, 30.0, 30.0] } else { size };
                 let k = cx.next("TayNắm");
-                cx.hardware(format!("h:{}:{r}:{c}", spec.uid), format!("TayNắm_{k:02}"), HardwareKind::Handle, &format!("HDL-BAR-{}", l.round()), size, [hx, hy, z + t]);
-                cx.out.fittings.handles += 1;
+                let code = if knob { "HDL-KNOB".to_string() } else { format!("HDL-BAR-{}", l.round()) };
+                cx.hardware(format!("h:{}:{r}:{c}", spec.uid), format!("TayNắm_{k:02}"), HardwareKind::Handle, &code, size, [hx, hy, z + t]);
+                if sr.handle_drill {
+                    // Lỗ bắt tay nắm xuyên cánh (tọa độ local của cánh).
+                    let (cx0, cy0) = if vertical { (hx + 6.0 - dx, hy + l / 2.0 - dy) } else { (hx + l / 2.0 - dx, hy + 6.0 - dy) };
+                    let half = if knob { 0.0 } else { sr.handle_pitch.min(l) / 2.0 };
+                    let pts: Vec<(f64, f64)> = if knob { vec![(cx0, cy0)] } else if vertical { vec![(cx0, cy0 - half), (cx0, cy0 + half)] } else { vec![(cx0 - half, cy0), (cx0 + half, cy0)] };
+                    let feats = pts.into_iter().map(|(x, y)| MachiningFeature::Drill(DrillFeature { x, y, diameter: 5.0, depth: t, side: FaceSide::A, purpose: DrillPurpose::Handle })).collect();
+                    cx.add_features(idx, feats);
+                }
+                if knob {
+                    cx.out.fittings.knobs += 1;
+                } else {
+                    cx.out.fittings.handles += 1;
+                }
             }
         }
     }
@@ -993,13 +1046,38 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             let fh = heights[i as usize];
             let fy = starts[i as usize];
             let key = |part: &str| format!("w:{}:{c}:{i}:{part}", spec.uid);
-            cx.panel(key("front"), format!("MặtNgăn [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
+            let front_idx = cx.panel(key("front"), format!("MặtNgăn [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
             if cx.cab.handles {
-                let l = cx.cab.rules.shop.handle_len.clamp(10.0, fw.max(10.0));
-                cx.hardware(key("handle"), format!("TayNắm [Bộ {set}]"), HardwareKind::Handle, &format!("HDL-BAR-{}", l.round()), [l, 12.0, 30.0], [fx + fw / 2.0 - l / 2.0, fy + fh / 2.0 - 6.0, z + ft]);
-                cx.out.fittings.handles += 1;
+                match sr.handle_type {
+                    HandleType::None => {}
+                    HandleType::PushOpen => cx.out.fittings.push_latches += 1,
+                    t => {
+                        let knob = t == HandleType::Knob;
+                        let l = if knob { 30.0 } else { sr.handle_len.clamp(10.0, fw.max(10.0)) };
+                        let code = if knob { "HDL-KNOB".to_string() } else { format!("HDL-BAR-{}", l.round()) };
+                        let size = if knob { [30.0, 30.0, 30.0] } else { [l, 12.0, 30.0] };
+                        cx.hardware(key("handle"), format!("TayNắm [Bộ {set}]"), HardwareKind::Handle, &code, size, [fx + fw / 2.0 - l / 2.0, fy + fh / 2.0 - 6.0, z + ft]);
+                        if sr.handle_drill {
+                            let (hx, hy) = (fw / 2.0, fh / 2.0);
+                            let half = if knob { 0.0 } else { sr.handle_pitch.min(l) / 2.0 };
+                            let pts: Vec<f64> = if knob { vec![hx] } else { vec![hx - half, hx + half] };
+                            let feats = pts.into_iter().map(|x| MachiningFeature::Drill(DrillFeature { x, y: hy, diameter: 5.0, depth: ft, side: FaceSide::A, purpose: DrillPurpose::Handle })).collect();
+                            cx.add_features(front_idx, feats);
+                        }
+                        if knob {
+                            cx.out.fittings.knobs += 1;
+                        } else {
+                            cx.out.fittings.handles += 1;
+                        }
+                    }
+                }
             }
-            *cx.out.fittings.slides.entry(slide as u32).or_default() += 1;
+            let fitting = match sr.slide_type {
+                SlideType::Ball => &mut cx.out.fittings.slides,
+                SlideType::Undermount => &mut cx.out.fittings.undermount,
+                SlideType::Tandem => &mut cx.out.fittings.tandem,
+            };
+            *fitting.entry(slide as u32).or_default() += 1;
             if !spec.with_box {
                 continue;
             }
@@ -1011,18 +1089,42 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             let cell_h = (fh + gap) * k;
             let bt = spec.box_thickness;
             let bb = spec.bottom_thickness;
-            let sc = spec.slide_clearance;
-            let bw = (cw - 2.0 * sc).max(2.0 * bt + 10.0);
             let hb = (cell_h - sr.box_top_gap).clamp(sr.box_min.max(10.0), sr.box_max.max(sr.box_min.max(10.0)));
             let by = cell_y0 + sr.box_bottom_gap;
-            let bx = bxz + sc;
-            cx.panel(key("sideL"), format!("ThànhTrái [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [slide, hb, bt], [bx, by, zf], ROT_SIDE);
-            cx.panel(key("sideR"), format!("ThànhPhải [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [slide, hb, bt], [bx + bw - bt, by, zf], ROT_SIDE);
-            cx.panel(key("back"), format!("HậuHộc [Bộ {set}]"), PanelRole::DrawerBack, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bw - 2.0 * bt, hb - bb, bt], [bx + bt, by + bb, zf - slide], [0.0; 3]);
-            cx.panel(key("front_inner"), format!("ĐầuHộc [Bộ {set}]"), PanelRole::DrawerBack, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bw - 2.0 * bt, hb - bb, bt], [bx + bt, by + bb, zf - bt], [0.0; 3]);
-            cx.panel(key("bottom"), format!("ĐáyNgănKéo [Bộ {set}]"), PanelRole::DrawerBottom, MaterialSlot::Back, GrainDirection::AlongWidth, [bw - 2.0 * bt, slide, bb], [bx + bt, by, zf], ROT_HORIZONTAL);
-            cx.hardware(key("slideL"), format!("RayBi {} [Bộ {set}]", slide as u32), HardwareKind::Slide, &format!("RAYBI-{}", slide as u32), [sc - 0.5, 45.0, slide], [bxz, by + hb / 2.0 - 22.5, zf - slide]);
-            cx.hardware(key("slideR"), format!("RayBi {} [Bộ {set}]", slide as u32), HardwareKind::Slide, &format!("RAYBI-{}", slide as u32), [sc - 0.5, 45.0, slide], [bx + bw + 0.5, by + hb / 2.0 - 22.5, zf - slide]);
+            let (hw_name, hw_code) = match sr.slide_type {
+                SlideType::Ball => ("RayBi", "RAYBI"),
+                SlideType::Undermount => ("RayÂm", "RAYAM"),
+                SlideType::Tandem => ("Tandem", "TANDEM"),
+            };
+            let label = format!("{hw_name} {} [Bộ {set}]", slide as u32);
+            let code = format!("{hw_code}-{}", slide as u32);
+            match sr.slide_type {
+                SlideType::Tandem => {
+                    // Thành hộc kim loại: chỉ cắt đáy (LW − 75) + hậu hộc (LW − 87).
+                    let len = slide - 10.0;
+                    cx.panel(key("back"), format!("HậuHộc [Bộ {set}]"), PanelRole::DrawerBack, MaterialSlot::Carcass, GrainDirection::AlongWidth, [(cw - 87.0).max(10.0), (hb - 30.0).max(10.0), bt], [bxz + 43.5, by + bb, zf - len], [0.0; 3]);
+                    cx.panel(key("bottom"), format!("ĐáyNgănKéo [Bộ {set}]"), PanelRole::DrawerBottom, MaterialSlot::Back, GrainDirection::AlongWidth, [(cw - 75.0).max(10.0), len - bt, bb], [bxz + 37.5, by, zf - bt], ROT_HORIZONTAL);
+                    cx.hardware(key("slideL"), label.clone(), HardwareKind::Slide, &code, [18.0, hb, len], [bxz + 5.0, by, zf - len]);
+                    cx.hardware(key("slideR"), label, HardwareKind::Slide, &code, [18.0, hb, len], [bxz + cw - 23.0, by, zf - len]);
+                }
+                st => {
+                    let (sc, len, raise) = if st == SlideType::Undermount { (5.0, slide - 10.0, 12.0) } else { (spec.slide_clearance, slide, 0.0) };
+                    let bw = (cw - 2.0 * sc).max(2.0 * bt + 10.0);
+                    let bx = bxz + sc;
+                    cx.panel(key("sideL"), format!("ThànhTrái [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [len, hb, bt], [bx, by, zf], ROT_SIDE);
+                    cx.panel(key("sideR"), format!("ThànhPhải [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [len, hb, bt], [bx + bw - bt, by, zf], ROT_SIDE);
+                    cx.panel(key("back"), format!("HậuHộc [Bộ {set}]"), PanelRole::DrawerBack, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bw - 2.0 * bt, hb - bb - raise, bt], [bx + bt, by + bb + raise, zf - len], [0.0; 3]);
+                    cx.panel(key("front_inner"), format!("ĐầuHộc [Bộ {set}]"), PanelRole::DrawerBack, MaterialSlot::Carcass, GrainDirection::AlongWidth, [bw - 2.0 * bt, hb - bb - raise, bt], [bx + bt, by + bb + raise, zf - bt], [0.0; 3]);
+                    cx.panel(key("bottom"), format!("ĐáyNgănKéo [Bộ {set}]"), PanelRole::DrawerBottom, MaterialSlot::Back, GrainDirection::AlongWidth, [bw - 2.0 * bt, len, bb], [bx + bt, by + raise, zf], ROT_HORIZONTAL);
+                    if st == SlideType::Undermount {
+                        cx.hardware(key("slideL"), label.clone(), HardwareKind::Slide, &code, [bt, 20.0, slide], [bx, by - 20.0, zf - slide]);
+                        cx.hardware(key("slideR"), label, HardwareKind::Slide, &code, [bt, 20.0, slide], [bx + bw - bt, by - 20.0, zf - slide]);
+                    } else {
+                        cx.hardware(key("slideL"), label.clone(), HardwareKind::Slide, &code, [sc - 0.5, 45.0, slide], [bxz, by + hb / 2.0 - 22.5, zf - slide]);
+                        cx.hardware(key("slideR"), label, HardwareKind::Slide, &code, [sc - 0.5, 45.0, slide], [bx + bw + 0.5, by + hb / 2.0 - 22.5, zf - slide]);
+                    }
+                }
+            }
         }
     }
 }

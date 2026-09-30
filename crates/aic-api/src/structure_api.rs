@@ -44,7 +44,7 @@ pub(crate) fn set_shop_field(shop: &mut aic_domain::structure::ShopRules, key: &
             }
             json!(n)
         }
-        _ => Value::String(if field.starts_with("pin_row") || field.starts_with("handle_pos") { v.to_ascii_uppercase() } else { v.to_string() }),
+        _ => Value::String(if matches!(field, "pin_row" | "handle_pos" | "handle_type" | "slide_type") { v.to_ascii_uppercase() } else { v.to_string() }),
     };
     obj.insert(field.to_string(), new);
     *shop = serde_json::from_value(map).map_err(|_| bad(key, "invalid value"))?;
@@ -67,6 +67,17 @@ impl Engine {
             aic_domain::structure::HandlePos::Center => "CENTER",
             aic_domain::structure::HandlePos::Top => "TOP",
             aic_domain::structure::HandlePos::Bottom => "BOTTOM",
+        };
+        let handle_type = match sh.handle_type {
+            aic_domain::structure::HandleType::Bar => "BAR",
+            aic_domain::structure::HandleType::Knob => "KNOB",
+            aic_domain::structure::HandleType::PushOpen => "PUSH_OPEN",
+            aic_domain::structure::HandleType::None => "NONE",
+        };
+        let slide_type = match sh.slide_type {
+            aic_domain::structure::SlideType::Ball => "BALL",
+            aic_domain::structure::SlideType::Undermount => "UNDERMOUNT",
+            aic_domain::structure::SlideType::Tandem => "TANDEM",
         };
         Ok(vec![
             ("general".into(), "Thông số chung".into(), vec![num("width", "Rộng", p("width")), num("height", "Cao", p("height")), num("depth", "Sâu", p("depth")), num("thickness", "Dày ván", p("thickness"))]),
@@ -146,8 +157,12 @@ impl Engine {
                     num("s_hinge_end", "Chén đầu cách đầu cánh", sh.hinge_end),
                     num("s_cup_d", "Đường kính chén", sh.cup_d),
                     num("s_cup_depth", "Sâu chén", sh.cup_depth),
+                    flag("s_hinge_plate", "Khoan đế bản lề trên hồi", sh.hinge_plate),
                     section("Tay nắm"),
+                    select("s_handle_type", "Loại", handle_type, &[("BAR", "Tay nắm thanh"), ("KNOB", "Núm"), ("PUSH_OPEN", "Nhấn mở (push-open)"), ("NONE", "Không tay nắm")]),
                     num("s_handle_len", "Dài tay nắm", sh.handle_len),
+                    num("s_handle_pitch", "Bước lỗ", sh.handle_pitch),
+                    flag("s_handle_drill", "Khoan lỗ tay nắm", sh.handle_drill),
                     select("s_handle_pos", "Vị trí trên cánh", handle_pos, &[("AUTO", "Theo loại tủ (bếp dưới: trên, bếp trên: dưới)"), ("CENTER", "Giữa"), ("TOP", "Trên"), ("BOTTOM", "Dưới")]),
                     num("s_handle_from_end", "Cách đầu cánh (trên / dưới)", sh.handle_from_end),
                     num("s_handle_edge", "Cách mép mở", sh.handle_edge),
@@ -159,6 +174,7 @@ impl Engine {
                 "drawers".into(),
                 "Ngăn kéo".into(),
                 vec![
+                    select("s_slide_type", "Loại ray", slide_type, &[("BALL", "Ray bi 3 tầng"), ("UNDERMOUNT", "Ray âm giảm chấn"), ("TANDEM", "Hộp kim loại (tandem)")]),
                     num("s_box_top_gap", "Hộc thấp hơn ô (trên)", sh.box_top_gap),
                     num("s_box_bottom_gap", "Đáy hộc cách đáy ô", sh.box_bottom_gap),
                     num("s_box_min", "Cao hộc tối thiểu", sh.box_min),

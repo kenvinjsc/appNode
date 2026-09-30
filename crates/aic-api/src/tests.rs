@@ -942,3 +942,46 @@ fn shelves_snap_to_32mm_pin_row() {
         assert!((k - k.round()).abs() < 1e-6, "{st}");
     }
 }
+
+#[test]
+fn handle_types_hinge_plate_and_slide_types() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "doors": 2}}));
+    let door_cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "DRAWER", "overrides": {"width": 600, "drawers": 2}}));
+    let drw: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let names = |e: &Engine, c| e.doc.cabinet_layout(c).unwrap().parts.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+    let count = |e: &Engine, c, purpose: aic_domain::DrillPurpose| {
+        e.doc.cabinet_layout(c).unwrap().parts.iter().filter_map(|p| match &p.kind { aic_domain::PartKind::Panel { features, .. } => Some(features.clone()), _ => None }).flatten().filter(|f| matches!(f, aic_domain::MachiningFeature::Drill(d) if d.purpose == purpose)).count()
+    };
+    let set = |e: &mut Engine, id, k: &str, v: &str| {
+        let r = call(e, json!({"cmd": "set_parameter", "id": id, "name": k, "value": v}));
+        assert!(r.ok, "{k}={v}: {:?}", r.error);
+    };
+    // Tay nắm bếp dưới (AUTO) nằm nửa trên cánh.
+    let l = e.doc.cabinet_layout(door_cab).unwrap();
+    let h = l.parts.iter().find(|p| p.name.starts_with("TayNắm")).unwrap().translation[1];
+    let d = l.parts.iter().find(|p| p.name.starts_with("CửaĐôi") || p.name.starts_with("CửaĐơn")).unwrap();
+    assert!(h > d.translation[1] + d.size[1] / 2.0, "handle on the upper half of a base door");
+    // Đế bản lề + khoan lỗ tay nắm.
+    assert_eq!(count(&e, door_cab, aic_domain::DrillPurpose::HingeScrew), 0);
+    set(&mut e, door_cab, "s_hinge_plate", "on");
+    set(&mut e, door_cab, "s_handle_drill", "on");
+    let hinges = e.doc.cabinet_layout(door_cab).unwrap().fittings.hinges as usize;
+    assert_eq!(count(&e, door_cab, aic_domain::DrillPurpose::HingeScrew), hinges * 2);
+    assert_eq!(count(&e, door_cab, aic_domain::DrillPurpose::Handle), 4, "2 doors × 2 holes");
+    // Nhấn mở: không còn tay nắm, báo giá có push-open.
+    set(&mut e, door_cab, "s_handle_type", "push_open");
+    assert!(!names(&e, door_cab).iter().any(|n| n.starts_with("TayNắm")));
+    assert_eq!(e.doc.cabinet_layout(door_cab).unwrap().fittings.push_latches, 2);
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(c.result["fittings"].as_array().unwrap().iter().any(|l| l["name"] == "Nhấn mở (push-open)"), "{}", c.result["fittings"]);
+    // Ray: tandem bỏ thành gỗ; ray âm dùng mã RAYAM.
+    assert!(names(&e, drw).iter().any(|n| n.starts_with("ThànhTrái")));
+    set(&mut e, drw, "s_slide_type", "TANDEM");
+    let n = names(&e, drw);
+    assert!(!n.iter().any(|n| n.starts_with("ThànhTrái")) && n.iter().any(|n| n.starts_with("Tandem")));
+    set(&mut e, drw, "s_slide_type", "UNDERMOUNT");
+    assert!(names(&e, drw).iter().any(|n| n.starts_with("RayÂm")));
+    assert!(!e.doc.cabinet_layout(drw).unwrap().fittings.undermount.is_empty());
+}

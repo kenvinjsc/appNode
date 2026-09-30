@@ -261,8 +261,10 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab mới:
   cách đáy/nóc khoang, cách mép trước/sau, Ø, sâu).
 - **Cánh & tay nắm**: bảng số bản lề theo cao cánh (`900=2, 1600=3, 4`), tâm chén cách mép, chén đầu cách đầu cánh,
   Ø/sâu chén; tay nắm dài, vị trí (**theo loại tủ**: bếp dưới/ngăn kéo → trên, bếp trên → dưới), cách đầu cánh;
-  chồng cánh lùa.
-- **Ngăn kéo**: hộc thấp hơn ô, đáy hộc cách đáy ô, cao hộc tối thiểu/tối đa (ngăn nồi > 250), ray ngắn hơn sâu khoang.
+  chồng cánh lùa. **Loại tay nắm**: thanh / núm / nhấn mở (push-open: 1 bộ mỗi cánh ≤ 1200, 2 bộ nếu cao hơn) /
+  không tay nắm; **Khoan lỗ tay nắm** (xuyên cánh theo bước lỗ); **Khoan đế bản lề trên hồi** (2 lỗ Ø5 cách mép trước 37, bước 32).
+- **Ngăn kéo**: **loại ray** (ray bi 3 tầng / ray âm giảm chấn: hở hông 5, hộc ngắn hơn ray 10, đáy nâng 12 / hộp kim loại
+  tandem: chỉ cắt đáy LW−75 và hậu hộc LW−87), hộc thấp hơn ô, đáy hộc cách đáy ô, cao hộc tối thiểu/tối đa (ngăn nồi > 250), ray ngắn hơn sâu khoang.
 
 Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của tủ này (trừ Rộng/Cao/Sâu) vào thư viện dùng chung;
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.

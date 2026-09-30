@@ -104,6 +104,34 @@ pub enum HandlePos {
     Bottom,
 }
 
+/// Loại tay nắm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HandleType {
+    /// Tay nắm thanh (2 lỗ theo bước lỗ).
+    #[default]
+    Bar,
+    /// Núm (1 lỗ).
+    Knob,
+    /// Nhấn mở (push-open): không tay nắm, 1 bộ / cánh ≤ 1200, 2 bộ nếu cao hơn.
+    PushOpen,
+    /// Không tay nắm (tay nắm âm / cánh vát).
+    None,
+}
+
+/// Loại ray ngăn kéo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SlideType {
+    /// Ray bi 3 tầng: hở hông theo ngăn kéo (mặc định 13).
+    #[default]
+    Ball,
+    /// Ray âm giảm chấn: hở hông 5, hộc ngắn hơn ray 10, đáy nâng 12.
+    Undermount,
+    /// Hộp kim loại (tandem box): chỉ cắt đáy + hậu hộc.
+    Tandem,
+}
+
 macro_rules! shop_rules {
     ($( $field:ident : $ty:ty = $default:expr ),* $(,)?) => {
         /// Chuẩn xưởng: các giá trị sản xuất trước đây viết cứng trong generator.
@@ -142,7 +170,11 @@ shop_rules! {
     cup_depth: f64 = 13.0,
     handle_len: f64 = 160.0,
     handle_edge: f64 = 40.0,
+    handle_type: HandleType = HandleType::Bar,
     handle_pos: HandlePos = HandlePos::Auto,
+    handle_pitch: f64 = 128.0,
+    handle_drill: bool = false,
+    hinge_plate: bool = false,
     handle_from_end: f64 = 60.0,
     slide_overlap: f64 = 30.0,
     // Ngăn kéo
@@ -151,6 +183,7 @@ shop_rules! {
     box_min: f64 = 60.0,
     box_max: f64 = 250.0,
     slide_margin: f64 = 10.0,
+    slide_type: SlideType = SlideType::Ball,
 }
 
 impl ShopRules {

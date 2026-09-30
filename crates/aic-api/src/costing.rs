@@ -248,6 +248,21 @@ impl Engine {
                 add(format!("slide:{len}"), format!("RayBi, Dài {len} mm"), *n as f64, "Bộ");
                 slides += *n as f64;
             }
+            for (len, n) in &f.undermount {
+                add(format!("slide_um:{len}"), format!("Ray âm giảm chấn, Dài {len} mm"), *n as f64, "Bộ");
+                slides += *n as f64;
+            }
+            for (len, n) in &f.tandem {
+                add(format!("tandem:{len}"), format!("Hộp tandem, Dài {len} mm"), *n as f64, "Bộ");
+                slides += *n as f64;
+            }
+            if f.knobs > 0 {
+                add("knob".into(), "Núm tay nắm".into(), f.knobs as f64, "Cái");
+                handles += f.knobs as f64;
+            }
+            if f.push_latches > 0 {
+                add("push_open".into(), "Nhấn mở (push-open)".into(), f.push_latches as f64, "Bộ");
+            }
             for (len, n) in &f.oval_rails {
                 add(format!("oval_rail:{len}"), format!("Thanh Oval dài {len}"), *n as f64, "Cây");
             }
