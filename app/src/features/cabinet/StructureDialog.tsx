@@ -86,6 +86,23 @@ export function StructureDialog() {
           Lưu chuẩn
         </button>
         {standard && (
+          <button
+            className="btn tiny"
+            title="Đẩy chuẩn này lên thư viện nhóm (nguồn ghi được đầu tiên, Cài đặt → Thư viện nhóm)"
+            onClick={() =>
+              void Commands.getLibrarySources()
+                .then((s) => {
+                  const src = s.sources.find((x) => !x.readonly);
+                  if (!src) throw useUi.getState().toast({ kind: 'error', title: 'Chưa có nguồn thư viện nhóm ghi được', detail: 'Cài đặt → Thư viện nhóm → Thêm nguồn.' });
+                  return Commands.publishLibraryItem(src.name, 'groups', standard, 'all').then(() => useUi.getState().toast({ kind: 'success', title: `Đã đẩy “${standard}” lên ${src.name}` }));
+                })
+                .catch(() => undefined)
+            }
+          >
+            Đẩy lên nhóm
+          </button>
+        )}
+        {standard && (
           <button className="icon-btn danger" title="Xóa chuẩn" onClick={() => void Commands.deleteGroupPreset('all', standard).then(() => setStandard('')).catch(() => undefined)}>
             <Icon name="x" size={12} />
           </button>

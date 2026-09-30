@@ -48,6 +48,12 @@ export const Commands = {
   /** Xuất file máy theo tấm (DXF / MPR / CIX). */
   exportMachine: (ids: ObjectId[], format: 'DXF' | 'MPR' | 'CIX', flip_for_b = true) =>
     command<{ files: { id: ObjectId; name: string; content: string }[] }>({ cmd: 'export_machine', ids, format, flip_for_b }),
+  getLibrarySources: () => command<LibrarySourcesInfo>({ cmd: 'get_library_sources' }),
+  setLibrarySources: (sources: { name: string; path: string; readonly: boolean }[], conflict: 'KEEP_LOCAL' | 'USE_REMOTE') =>
+    command<LibrarySourcesInfo>({ cmd: 'set_library_sources', sources, conflict }),
+  reloadLibrary: () => command<LibrarySourcesInfo>({ cmd: 'reload_library' }),
+  /** Đẩy một mục thư viện lên nguồn nhóm (groups / templates / presets / zones / material_sets). */
+  publishLibraryItem: (source: string, kind: string, name: string, group?: string) => command<LibrarySourcesInfo>({ cmd: 'publish_library_item', source, kind, name, group }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */
@@ -158,4 +164,11 @@ export interface ProductInfo {
   summary: string;
   size: [number, number, number];
   params: { key: string; label: string; kind: 'number' | 'bool' | 'select'; default: string; options: { value: string; label: string }[] }[];
+}
+
+export interface LibrarySourcesInfo {
+  sources: { name: string; path: string; readonly: boolean; items: number }[];
+  conflict: 'KEEP_LOCAL' | 'USE_REMOTE';
+  errors: string[];
+  remote_items: { kind: string; key: string; source: string }[];
 }

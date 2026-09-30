@@ -41,6 +41,11 @@ pub struct Library {
     /// Bộ vật liệu: thùng / cánh / hậu + chỉ dán cánh, thùng.
     #[serde(default)]
     pub material_sets: Vec<MaterialSet>,
+    /// Nguồn thư viện nhóm (D31) và cách xử lý trùng tên.
+    #[serde(default)]
+    pub sources: Vec<crate::library_sources::LibrarySource>,
+    #[serde(default)]
+    pub conflict: crate::library_sources::Conflict,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -137,6 +142,8 @@ impl Engine {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         self.library_path = path;
+        self.merged = Default::default();
+        self.merge_sources();
     }
 
     pub(crate) fn save_library_pub(&self) -> Result<(), CoreError> {
@@ -148,7 +155,8 @@ impl Engine {
         if let Some(dir) = p.parent() {
             std::fs::create_dir_all(dir).map_err(|e| bad("library", e.to_string()))?;
         }
-        let s = serde_json::to_string_pretty(&self.library).map_err(|e| bad("library", e.to_string()))?;
+        // Chỉ mục của máy (mục từ nguồn nhóm không chép vào file máy).
+        let s = serde_json::to_string_pretty(&self.local_library_value()?).map_err(|e| bad("library", e.to_string()))?;
         std::fs::write(p, s).map_err(|e| bad("library", e.to_string()))
     }
 

@@ -250,6 +250,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-12.3 G-code** (E2E 07.2, Rust `program_for_one_part`). Sinh chương trình có G0 / G1, thời gian ước tính; tải về được.
 - **TC-12.4 Mô phỏng CNC** (tay). Play / pause / step đường chạy dao đúng thứ tự dụng cụ.
 - **TC-12.5 Hàng lỗ 32 trong gia công** (tay). Bật ROW_32 → hồi có hàng lỗ; 3D vẫn mượt (lỗ chỉ vẽ vòng tròn).
+- **TC-12.6 Thư viện nhóm** (E2E 30, Rust `team_library_shared_folder_between_two_machines`). Máy A: Cài đặt → Thư viện nhóm → thêm
+  nguồn "Công ty" (thư mục chung) → lưu chuẩn "MFC 18" → Thuộc tính kết cấu → Đẩy lên nhóm. Máy B trỏ cùng thư mục (chỉ đọc) →
+  thấy và áp được "MFC 18"; file thư viện máy B không chép mục nguồn; đẩy từ máy B → "Nguồn thư viện này chỉ đọc".
 
 ### 13. Báo cáo
 

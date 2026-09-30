@@ -13,6 +13,7 @@ import { MaterialBrowser } from '../materials/MaterialBrowser';
 import { PropertiesPanel } from '../properties/PropertiesPanel';
 import { CreateTab } from './CreateTab';
 import { FrameTab } from './FrameTab';
+import { TeamLibrary } from './TeamLibrary';
 
 const TABS: [DesignerTab, string][] = [
   ['frame', 'Khung'],
@@ -117,6 +118,9 @@ function SettingsTab() {
   const cab = cabinetOf(tree, active);
   return (
     <div className="designer-form">
+      <Collapse title="Thư viện nhóm (thư mục chung)">
+        <TeamLibrary />
+      </Collapse>
       <Collapse title={`Template tủ (${lib?.templates.length ?? 0})`} defaultOpen>
         <div className="tpl-list">
           {lib?.templates.map((t) => (

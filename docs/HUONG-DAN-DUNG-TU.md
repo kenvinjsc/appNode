@@ -176,6 +176,12 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
   `DRILL_B_…` mặt B, `HDRILL_<Ø>_<sâu>` khoan cạnh, `POCKET_…`, `GROOVE_…`) cho phần mềm CAM; MPR (Homag WoodWOP); CIX (Biesse).
   "Lật mặt B" lật toạ độ lỗ mặt B để gia công sau khi lật tấm. Mỗi tấm một file, tên không dấu.
 
+### 3.8 Thư viện nhóm
+- Cài đặt → **Thư viện nhóm (thư mục chung)**: thêm nguồn (tên + thư mục mạng / thư mục đồng bộ, tick **Chỉ đọc** cho máy thợ).
+  Chuẩn xưởng, mẫu tab, template, mẫu vùng, bộ vật liệu trong nguồn hiện chung với thư viện máy. Trùng tên: giữ bản máy hoặc
+  dùng bản nguồn. **Nạp lại từ nguồn** để lấy mục máy khác vừa đẩy.
+- Đẩy chuẩn xưởng lên nhóm: Thuộc tính kết cấu → Chuẩn xưởng → chọn → **Đẩy lên nhóm** (nguồn ghi được đầu tiên).
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 

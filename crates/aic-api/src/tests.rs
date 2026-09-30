@@ -2001,3 +2001,38 @@ fn array_cabinet_by_size_formula_on_any_axis() {
     assert!(r.ok, "{:?}", r.error);
     assert!(!call(&mut e, json!({"cmd": "array_cabinet", "id": cab, "count": 1, "sizes": "abc"})).ok);
 }
+
+#[test]
+fn team_library_shared_folder_between_two_machines() {
+    let dir = std::env::temp_dir().join(format!("aic-team-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let shared = dir.join("cong-ty");
+    let src = |ro: bool| json!([{"name": "Công ty", "path": shared.display().to_string(), "readonly": ro}]);
+    // Máy A: lưu chuẩn xưởng "MFC 18" rồi đẩy lên thư mục chung.
+    let mut a = Engine::new();
+    a.set_library_path(Some(dir.join("a").join("library.json")));
+    assert!(call(&mut a, json!({"cmd": "set_library_sources", "sources": src(false)})).ok);
+    let r = call(&mut a, json!({"cmd": "create_cabinet", "kind": "BASE"}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    assert!(call(&mut a, json!({"cmd": "save_group_preset", "cabinet": cab, "group": "all", "name": "MFC 18"})).ok);
+    let r = call(&mut a, json!({"cmd": "publish_library_item", "source": "Công ty", "kind": "groups", "group": "all", "name": "MFC 18"}));
+    assert!(r.ok, "{:?}", r.error);
+    // Máy B: trỏ cùng thư mục → thấy "MFC 18"; file máy B không chép mục nguồn.
+    let mut b = Engine::new();
+    b.set_library_path(Some(dir.join("b").join("library.json")));
+    let r = call(&mut b, json!({"cmd": "set_library_sources", "sources": src(true)}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.result["sources"][0]["items"], 1);
+    let rb = call(&mut b, json!({"cmd": "create_cabinet", "kind": "BASE"}));
+    let cb: ObjectId = serde_json::from_value(rb.result["id"].clone()).unwrap();
+    let st = call(&mut b, json!({"cmd": "get_structure", "cabinet": cb}));
+    assert!(st.result["standards"].as_array().unwrap().iter().any(|s| s == "MFC 18"), "{}", st.result["standards"]);
+    assert!(call(&mut b, json!({"cmd": "apply_group_preset", "ids": [cb], "group": "all", "name": "MFC 18"})).ok);
+    let local_b = std::fs::read_to_string(dir.join("b").join("library.json")).unwrap();
+    assert!(!local_b.contains("MFC 18"), "remote items are not copied into the machine library");
+    // Nguồn chỉ đọc: không đẩy được.
+    assert!(call(&mut b, json!({"cmd": "save_group_preset", "cabinet": cb, "group": "all", "name": "B riêng"})).ok);
+    let r = call(&mut b, json!({"cmd": "publish_library_item", "source": "Công ty", "kind": "groups", "group": "all", "name": "B riêng"}));
+    assert_eq!(r.error.unwrap().details["constraint"], "LIBRARY_READONLY");
+    let _ = std::fs::remove_dir_all(&dir);
+}

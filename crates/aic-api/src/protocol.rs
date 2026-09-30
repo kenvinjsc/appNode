@@ -362,6 +362,22 @@ pub enum Request {
         #[serde(default)]
         date: String,
     },
+    /// Thư viện nhóm (D31): nguồn thư viện, xử lý trùng tên, nạp lại, đẩy mục lên nguồn.
+    GetLibrarySources,
+    SetLibrarySources {
+        sources: Vec<crate::library_sources::LibrarySource>,
+        #[serde(default)]
+        conflict: crate::library_sources::Conflict,
+    },
+    ReloadLibrary,
+    PublishLibraryItem {
+        source: String,
+        /// `groups` (chuẩn xưởng / mẫu tab), `templates`, `presets`, `zones`, `material_sets`.
+        kind: String,
+        name: String,
+        #[serde(default)]
+        group: Option<String>,
+    },
     /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
     SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.

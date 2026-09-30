@@ -15,6 +15,7 @@ mod zones;
 pub mod shape;
 mod templates;
 pub mod library;
+pub mod library_sources;
 mod structure_api;
 mod runs;
 mod arrange;
@@ -48,6 +49,8 @@ pub struct Engine {
     /// Thư viện mẫu dùng chung mọi dự án (see `library.rs`).
     pub(crate) library: library::Library,
     pub(crate) library_path: Option<std::path::PathBuf>,
+    /// Hợp nhất thư viện nhóm (mục nào đến từ nguồn nào).
+    pub(crate) merged: library_sources::Merged,
     pending_events: Vec<CoreEvent>,
 }
 
@@ -75,6 +78,7 @@ impl Engine {
             relation_settings: RelationSettings::default(),
             library: library::Library::default(),
             library_path: None,
+            merged: Default::default(),
             pending_events: Vec::new(),
         };
         e.doc.mark_loaded();
@@ -538,6 +542,10 @@ impl Engine {
             GetDrawingSheet { ids, room, floor, paper, portrait, views, hide_fronts, drawer, date } => {
                 ok(self.drawing_sheet(&ids, room.as_deref(), floor.as_deref(), &paper, portrait, &views, hide_fronts, &drawer, &date)?)
             }
+            GetLibrarySources => ok(self.library_sources_info()),
+            SetLibrarySources { sources, conflict } => ok(self.set_library_sources(sources, conflict)?),
+            ReloadLibrary => ok(self.reload_library()?),
+            PublishLibraryItem { source, kind, name, group } => ok(self.publish_library_item(&source, &kind, &name, group.as_deref())?),
             SetBackCutouts { cabinet, cutouts } => {
                 for c in &cutouts {
                     let (w, h, _) = c.shape();
