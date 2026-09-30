@@ -21,7 +21,7 @@ test('TC-06.11 cánh lùa 3 cánh, khung nhôm bản 45 + gương', async ({ pag
   await expect.poll(() => countNamed(page, 'KhungNhôm', c.id)).toBe(12);
   const bar = flatten(flatten(await tree(page)).find((n) => n.id === c.id)!.children).find((n) => n.name.startsWith('KhungNhôm'))!;
   await api(page, { cmd: 'set_parameter', id: bar.id, name: 'door_slide_infill', value: 'MIRROR' });
-  await expect.poll(() => countNamed(page, 'GươngCửaLùa', c.id)).toBe(3);
+  await expect.poll(() => countNamed(page, 'GươngCửa', c.id)).toBe(3);
   const q = JSON.stringify(await api(page, { cmd: 'get_costing' }));
   expect(q).toContain('Profile nhôm cánh');
 });

@@ -292,6 +292,9 @@ impl Engine {
             if f.glass_mm2 > 0.0 {
                 add("glass".into(), "Kính / gương cánh".into(), (f.glass_mm2 / 1e4).round() / 100.0, "m²");
             }
+            for (code, n) in &f.lifts {
+                add(format!("lift:{code}"), format!("Tay nâng cánh lật {code}"), *n as f64, "Bộ");
+            }
             if f.gas_lifts > 0 {
                 add("gas_lift".into(), "Ben hơi nâng giường".into(), f.gas_lifts as f64, "Cái");
             }

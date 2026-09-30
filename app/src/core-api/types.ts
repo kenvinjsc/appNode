@@ -289,7 +289,7 @@ export interface SnapResult {
 export type SplitKind = 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' | 'DIVIDER' | 'BACK_SUB' | 'VIRTUAL_H' | 'VIRTUAL_V';
 export type Lock = 'EVEN' | 'RATIO' | 'FROM_START' | 'FROM_END';
 export type Mount = 'OVERLAY' | 'INSET';
-export type DoorKind = 'SINGLE' | 'DOUBLE' | 'SLIDING';
+export type DoorKind = 'SINGLE' | 'DOUBLE' | 'SLIDING' | 'LIFT_UP' | 'FOLD';
 export type HingeSide = 'LEFT' | 'RIGHT' | 'TOP' | 'BOTTOM';
 export type StopRail = 'NONE' | 'L_SHAPE' | 'STRAIGHT';
 

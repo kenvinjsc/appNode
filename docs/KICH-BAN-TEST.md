@@ -161,6 +161,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
   3 cánh lùa, chồng 35 → mỗi cánh (rộng ray + 2 × 35) / 3, xen kẽ 2 ray. Chỉnh tấm cánh → Khung = Nhôm bản 45 → 4 thanh khung / cánh;
   Ô nhét = Gương → 3 tấm gương (phụ kiện, không vào xếp tấm); báo giá có profile nhôm (m) và kính (m²). Chọn thanh khung vẫn sửa
   được hệ ray.
+- **TC-06.12 Cánh lật / gập / kính** (E2E 22, Rust `lift_up_door_hk_on_wall_cabinet_and_height_check`). Tủ trên 800 × 400 →
+  chuột phải khoang → Cánh lật tay nâng HK → 1 cánh, 2 lỗ chén ở mép trên, 1 bộ tay nâng HK (lực S/M/L theo khối lượng cánh)
+  vào báo giá. Khoang cao 300 → "Khoang quá thấp … cho tay nâng", không đổi dữ liệu. Cánh gập 2 lá (HF) + khung nhôm bản 20 →
+  2 lá × 4 thanh khung.
 - **TC-06.7 Cánh rộng sai** (Rust `blind_corner_…`). Tủ góc 600 với cánh 500 → từ chối, thông báo tiếng Việt.
 
 ### 07. Quan hệ tấm, ràng buộc, offset

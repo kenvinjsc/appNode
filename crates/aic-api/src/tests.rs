@@ -1751,9 +1751,50 @@ fn sliding_doors_follow_the_track_system_with_alu_frame_and_glass() {
     let r = call(&mut e, json!({"cmd": "set_parameter", "id": bar, "name": "door_slide_infill", "value": "GLASS"}));
     assert!(r.ok, "{:?}", r.error);
     let lay = e.doc.cabinet_layout(cab).unwrap();
-    assert_eq!(lay.parts.iter().filter(|p| p.name.starts_with("KínhCửaLùa")).count(), 3);
+    assert_eq!(lay.parts.iter().filter(|p| p.name.starts_with("KínhCửa")).count(), 3);
     assert!(lay.fittings.alu_profile_mm > 3.0 * 2.0 * 2500.0);
     assert!(lay.fittings.glass_mm2 > 0.0);
     let c = call(&mut e, json!({"cmd": "get_costing"})).result.to_string();
     assert!(c.contains("Profile nhôm cánh") && c.contains("Kính / gương cánh"));
+}
+
+#[test]
+fn lift_up_door_hk_on_wall_cabinet_and_height_check() {
+    use aic_domain::layout::PartKind;
+    use aic_domain::MachiningFeature;
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "overrides": {"width": 800, "height": 400, "depth": 350, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": cab, "zones": [root], "kind": "LIFT_UP"}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let doors: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("CửaLật")).collect();
+    assert_eq!(doors.len(), 1);
+    let PartKind::Panel { features, .. } = &doors[0].kind else { panic!() };
+    let cups = features.iter().filter(|f| matches!(f, MachiningFeature::Drill(d) if d.purpose == aic_domain::DrillPurpose::HingeCup)).count();
+    assert_eq!(cups, 2, "2 hinge cups on the top edge");
+    assert_eq!(l.fittings.lifts.values().sum::<u32>(), 1, "one HK set");
+    assert!(l.fittings.lifts.keys().all(|k| k.starts_with("HK-")));
+    // Khoang cao 300 → lỗi LIFT_HEIGHT.
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "overrides": {"width": 800, "height": 334, "depth": 350, "doors": 0, "shelves": 0}}));
+    let low: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": low})).result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": low, "zones": [root], "kind": "LIFT_UP"}));
+    assert_eq!(r.error.unwrap().details["constraint"], "LIFT_HEIGHT");
+    // Cánh gập 2 lá + khung nhôm kính.
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "overrides": {"width": 900, "height": 700, "depth": 350, "doors": 0, "shelves": 0}}));
+    let tall: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": tall})).result["zones"][0]["id"].as_u64().unwrap();
+    assert!(call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": tall, "zones": [root], "kind": "FOLD"})).ok);
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
+    let did: ObjectId = serde_json::from_value(all.iter().filter(|k| k["name"].as_str().is_some_and(|n| n.starts_with("CửaLật"))).last().unwrap()["id"].clone()).unwrap();
+    for (k, v) in [("door_lift", "HF"), ("door_glass_frame", "ALU_THIN")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": did, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    let l = e.doc.cabinet_layout(tall).unwrap();
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("KhungNhôm")).count(), 8, "2 leaves × 4 bars");
+    assert!(l.fittings.lifts.keys().all(|k| k.starts_with("HF-")));
 }

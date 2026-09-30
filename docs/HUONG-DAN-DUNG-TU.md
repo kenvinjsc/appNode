@@ -139,6 +139,9 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
 ### 3.5 Cánh lùa theo hệ ray
 - Tạo cánh kiểu **Lùa** (Tạo tấm → Cánh, số cánh ngang 2–6). Chọn một cánh → **Chỉnh tấm**: số ray (2 / 3), chồng cánh, trừ cao
   trên / dưới (bánh xe, ray), khung (ván trơn / nhôm bản 20 / nhôm bản 45), ô nhét (ván / kính / gương), nẹp ngang 0–3.
+- **Cánh lật / gập**: chuột phải khoang → Cánh lật tay nâng HK / Cánh gập 2 lá (HF). Chỉnh tấm cánh → Tay nâng (HK / HF / HL /
+  ben hơi; mỗi loại có khoảng cao khoang lắp được, sai thì báo lỗi). Mọi cánh mở / lật có thêm **Khung nhôm** + **Ô nhét**
+  (cánh kính khung nhôm cho tủ trên, tủ trang trí).
 - Khung nhôm và kính / gương là phụ kiện: báo giá theo mét (profile) và m² (kính), không vào xếp tấm ván.
 
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)

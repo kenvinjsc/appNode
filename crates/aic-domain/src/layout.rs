@@ -397,6 +397,9 @@ pub struct Fittings {
     /// Kính / gương (mm²).
     #[serde(default)]
     pub glass_mm2: f64,
+    /// Tay nâng cánh lật (mã → bộ).
+    #[serde(default)]
+    pub lifts: BTreeMap<String, u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -1137,7 +1140,7 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
     }
     if let Some(f) = &z.front {
         match f {
-            Front::Doors(d) => doors(cx, d, &b),
+            Front::Doors(d) => doors(cx, d, &b, z.id),
             Front::Drawers(d) => drawers(cx, d, &b),
         }
     }
@@ -1266,6 +1269,47 @@ fn to_edge(h: HingeSide) -> EdgeSide {
     }
 }
 
+/// Cánh khung nhôm: 2 thanh đứng + 2 thanh ngang (+ nẹp ngang) là phụ kiện profile, ô nhét
+/// ván (tấm cánh) hoặc kính / gương (phụ kiện theo m²). Khóa phụ kiện bắt đầu bằng `key`
+/// nên chọn khung / kính vẫn sửa được cánh.
+#[allow(clippy::too_many_arguments)]
+fn framed_leaf(cx: &mut Ctx, key: &str, tag: &str, at: [f64; 3], size: [f64; 3], pw: f64, infill: Infill, rails: u32) {
+    let [lx, y, lz] = at;
+    let [lw, hgt, t] = size;
+    if pw > 0.0 {
+        let bars = [
+            ("l", [pw, hgt, t], [lx, y, lz]),
+            ("r", [pw, hgt, t], [lx + lw - pw, y, lz]),
+            ("b", [lw - 2.0 * pw, pw, t], [lx + pw, y, lz]),
+            ("t", [lw - 2.0 * pw, pw, t], [lx + pw, y + hgt - pw, lz]),
+        ];
+        for (s, sz, p) in bars {
+            cx.hardware(format!("{key}:alu_{s}"), format!("KhungNhôm_{tag}{s}"), HardwareKind::Profile, "ALU-FRAME", sz, p);
+        }
+        cx.out.fittings.alu_profile_mm += 2.0 * (lw + hgt) + rails as f64 * (lw - 2.0 * pw);
+    }
+    let cells = rails + 1;
+    let ih = (hgt - 2.0 * pw - rails as f64 * pw) / cells as f64;
+    for c in 0..cells {
+        let cy = y + pw + c as f64 * (ih + pw);
+        if c > 0 && pw > 0.0 {
+            cx.hardware(format!("{key}:alu_m{c}"), format!("NẹpNgang_{tag}_{c}"), HardwareKind::Profile, "ALU-FRAME", [lw - 2.0 * pw, pw, t], [lx + pw, cy - pw, lz]);
+        }
+        let sz = [lw - 2.0 * pw, ih, if infill == Infill::Board { t.min(10.0) } else { 5.0 }];
+        let p = [lx + pw, cy, lz + (t - sz[2]) / 2.0];
+        match infill {
+            Infill::Board => {
+                cx.panel(format!("{key}:in{c}"), format!("ÔNhétCửa_{tag}_{}", c + 1), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, sz, p, [0.0; 3]);
+            }
+            Infill::Glass | Infill::Mirror => {
+                let (name, code) = if infill == Infill::Glass { ("Kính", "GLASS-5") } else { ("Gương", "MIRROR-5") };
+                cx.hardware(format!("{key}:in{c}"), format!("{name}Cửa_{tag}_{}", c + 1), HardwareKind::Glass, code, sz, p);
+                cx.out.fittings.glass_mm2 += sz[0] * sz[1];
+            }
+        }
+    }
+}
+
 /// Cánh lùa theo hệ ray: n cánh chồng `overlap`, cánh xen kẽ các ray, trừ cao theo bánh xe;
 /// khung nhôm (4 thanh + nẹp ngang) và kính / gương là phụ kiện (không vào xếp tấm ván).
 fn sliding_doors(cx: &mut Ctx, spec: &DoorSpec, rect: [f64; 5], t: f64) {
@@ -1293,39 +1337,7 @@ fn sliding_doors(cx: &mut Ctx, spec: &DoorSpec, rect: [f64; 5], t: f64) {
             cx.panel(key, format!("CửaLùa_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [lw, hgt, t], [lx, y, lz], [0.0; 3]);
             continue;
         }
-        // Khung nhôm: 2 thanh đứng + 2 thanh ngang + nẹp ngang; ô nhét chia đều theo nẹp.
-        let bars = [
-            ("l", [pw, hgt, t], [lx, y, lz]),
-            ("r", [pw, hgt, t], [lx + lw - pw, y, lz]),
-            ("b", [lw - 2.0 * pw, pw, t], [lx + pw, y, lz]),
-            ("t", [lw - 2.0 * pw, pw, t], [lx + pw, y + hgt - pw, lz]),
-        ];
-        if pw > 0.0 {
-            for (s, size, at) in bars {
-                cx.hardware(format!("{key}:alu_{s}"), format!("KhungNhôm_{k:02}{s}"), HardwareKind::Profile, "ALU-SLIDE", size, at);
-            }
-            cx.out.fittings.alu_profile_mm += 2.0 * (lw + hgt) + rails as f64 * (lw - 2.0 * pw);
-        }
-        let cells = rails + 1;
-        let ih = (hgt - 2.0 * pw - rails as f64 * pw) / cells as f64;
-        for c in 0..cells {
-            let cy = y + pw + c as f64 * (ih + pw);
-            if c > 0 && pw > 0.0 {
-                cx.hardware(format!("{key}:alu_m{c}"), format!("NẹpNgang_{k:02}_{c}"), HardwareKind::Profile, "ALU-SLIDE", [lw - 2.0 * pw, pw, t], [lx + pw, cy - pw, lz]);
-            }
-            let size = [lw - 2.0 * pw, ih, if infill == Infill::Board { t.min(10.0) } else { 5.0 }];
-            let at = [lx + pw, cy, lz + (t - size[2]) / 2.0];
-            match infill {
-                Infill::Board => {
-                    cx.panel(format!("{key}:in{c}"), format!("ÔNhétCửaLùa_{k:02}_{}", c + 1), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, size, at, [0.0; 3]);
-                }
-                Infill::Glass | Infill::Mirror => {
-                    let (name, code) = if infill == Infill::Glass { ("Kính", "GLASS-5") } else { ("Gương", "MIRROR-5") };
-                    cx.hardware(format!("{key}:in{c}"), format!("{name}CửaLùa_{k:02}_{}", c + 1), HardwareKind::Glass, code, size, at);
-                    cx.out.fittings.glass_mm2 += size[0] * size[1];
-                }
-            }
-        }
+        framed_leaf(cx, &key, &format!("{k:02}"), [lx, y, lz], [lw, hgt, t], pw, infill, rails);
     }
     let depth = tracks as f64 * (t + 4.0);
     cx.hardware(format!("t:{}:top", spec.uid), "RayLùaTrên".into(), HardwareKind::Rail, "TRACK-SLIDE", [total, 20.0, depth], [x0, y1, z]);
@@ -1333,7 +1345,7 @@ fn sliding_doors(cx: &mut Ctx, spec: &DoorSpec, rect: [f64; 5], t: f64) {
     cx.out.fittings.sliding_tracks += 1;
 }
 
-fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
+fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox, zid: Uid) {
     let gap = spec.gap.unwrap_or(cx.v.door_gap);
     let t = spec.thickness.unwrap_or(cx.v.door_thickness);
     let d = cx.v.depth;
@@ -1364,12 +1376,36 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     // Hinged doors: grid of leaves.
     let _ = &mut x0;
     let _ = &mut x1;
+    // Cánh lật: 1 lá; cánh gập: 2 lá chồng đứng; cả hai bản lề phía trên.
+    let lift = matches!(spec.kind, DoorKind::LiftUp | DoorKind::Fold);
+    let (cols, rows) = match spec.kind {
+        DoorKind::LiftUp => (1, 1),
+        DoorKind::Fold => (1, 2),
+        _ => (cols, rows),
+    };
+    if lift {
+        let (lo, hi) = spec.lift.height_range();
+        let oh = b.size[1];
+        if oh < lo || oh > hi {
+            cx.out.problems.push(zid);
+        }
+    }
     let cw = ((x1 - x0) - (cols - 1) as f64 * gap) / cols as f64;
     let ch = ((y1 - y0) - (rows - 1) as f64 * gap) / rows as f64;
-    let base = if spec.fixed { "TấmMù" } else if spec.kind == DoorKind::Double { "CửaĐôi" } else { "CửaĐơn" };
+    let framed = spec.glass.filter(|g| g.frame != SlideFrame::None || g.infill != Infill::Board);
+    let base = if spec.fixed {
+        "TấmMù"
+    } else if lift {
+        "CửaLật"
+    } else if spec.kind == DoorKind::Double {
+        "CửaĐôi"
+    } else {
+        "CửaĐơn"
+    };
     for r in 0..rows {
         for c in 0..cols {
             let hinge = match (spec.kind, spec.hinge) {
+                (DoorKind::LiftUp | DoorKind::Fold, _) => HingeSide::Top,
                 (DoorKind::Double, HingeSide::Left | HingeSide::Right) => {
                     if c % 2 == 0 { HingeSide::Left } else { HingeSide::Right }
                 }
@@ -1381,15 +1417,25 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
             let k = cx.next(base);
             let dx = x0 + c as f64 * (cw + gap);
             let dy = y0 + r as f64 * (ch + gap);
-            let idx = cx.panel(format!("d:{}:{r}:{c}", spec.uid), format!("{base}_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [cw, ch, t], [dx, dy, z], [0.0; 3]);
+            let key = format!("d:{}:{r}:{c}", spec.uid);
+            let idx = match framed {
+                Some(g) => {
+                    let pw = SlidingSpec { frame: g.frame, ..Default::default() }.profile_w();
+                    framed_leaf(cx, &key, &format!("{base}{k:02}"), [dx, dy, z], [cw, ch, t], pw, g.infill, 0);
+                    None
+                }
+                None => Some(cx.panel(key, format!("{base}_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [cw, ch, t], [dx, dy, z], [0.0; 3])),
+            };
             if spec.fixed {
                 // Tấm mù cố định: bắt vít vào hồi / vách, không bản lề, không tay nắm.
                 continue;
             }
             let sr = cx.cab.rules.shop.clone();
-            cx.add_features(idx, hinge_cups(&sr, cw, ch, hinge));
-            if let PartKind::Panel { hinge: hs, .. } = &mut cx.out.parts[idx].kind {
-                *hs = Some(to_edge(hinge));
+            if let Some(idx) = idx {
+                cx.add_features(idx, hinge_cups(&sr, cw, ch, hinge));
+                if let PartKind::Panel { hinge: hs, .. } = &mut cx.out.parts[idx].kind {
+                    *hs = Some(to_edge(hinge));
+                }
             }
             cx.out.fittings.hinges += sr.hinge_count(if matches!(hinge, HingeSide::Left | HingeSide::Right) { ch } else { cw });
             // Đế bản lề: 2 lỗ Ø5 trên hồi / vách phía lề (cách mép trước 37, bước 32).
@@ -1452,7 +1498,9 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
                     let half = if knob { 0.0 } else { sr.handle_pitch.min(l) / 2.0 };
                     let pts: Vec<(f64, f64)> = if knob { vec![(cx0, cy0)] } else if vertical { vec![(cx0, cy0 - half), (cx0, cy0 + half)] } else { vec![(cx0 - half, cy0), (cx0 + half, cy0)] };
                     let feats = pts.into_iter().map(|(x, y)| MachiningFeature::Drill(DrillFeature { x, y, diameter: 5.0, depth: t, side: FaceSide::A, purpose: DrillPurpose::Handle })).collect();
-                    cx.add_features(idx, feats);
+                    if let Some(idx) = idx {
+                        cx.add_features(idx, feats);
+                    }
                 }
                 if knob {
                     cx.out.fittings.knobs += 1;
@@ -1461,6 +1509,19 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
                 }
             }
         }
+    }
+    if lift && !spec.fixed {
+        // Tay nâng 2 bên (1 bộ); lực theo khối lượng cánh (ván ~750 kg/m³).
+        let kg = 750.0 * (x1 - x0) * (y1 - y0) * t / 1e9;
+        let class = if kg < 3.5 { "S" } else if kg < 7.0 { "M" } else { "L" };
+        let code = format!("{}-{class}", spec.lift.code());
+        let [bx, by, _] = b.min;
+        let [bw, bh, _] = b.size;
+        let (lh, ld) = (bh.min(150.0), (d / 2.0).min(250.0));
+        for (s, x) in [("l", bx), ("r", bx + bw - 20.0)] {
+            cx.hardware(format!("t:{}:lift_{s}", spec.uid), format!("TayNâng{}_{s}", spec.lift.code()), HardwareKind::Hinge, &code, [20.0, lh, ld], [x, by + bh - lh, d - 20.0 - ld]);
+        }
+        *cx.out.fittings.lifts.entry(code).or_insert(0) += 1;
     }
 }
 
@@ -1791,6 +1852,8 @@ pub fn set_legacy_front(t: &mut ZoneTree, doors: u32, drawers: u32) {
             stop: StopRailSpec::default(),
             fixed: false,
             sliding: None,
+            lift: Default::default(),
+            glass: None,
         }))
     } else {
         None

@@ -84,8 +84,12 @@ impl Engine {
         let values = self.doc.cabinet_values(cab);
         let before = self.doc.cabinet_layout(cab).map(|l| l.problems).unwrap_or_default();
         let after = aic_domain::build_cabinet(&def, values).problems;
-        if after.iter().any(|z| !before.contains(z)) {
-            return Err(CoreError::ConstraintViolated { constraint: "ZONE_TOO_SMALL".into(), message: format!("zones {after:?}") });
+        let new: Vec<Uid> = after.iter().copied().filter(|z| !before.contains(z)).collect();
+        if !new.is_empty() {
+            // Cánh lật / gập không vừa khoang: lỗi riêng (khoang quá thấp / cao cho tay nâng).
+            let lift = new.iter().any(|z| matches!(def.zones.zone(*z).and_then(|z| z.front.as_ref()), Some(Front::Doors(d)) if matches!(d.kind, DoorKind::LiftUp | DoorKind::Fold)));
+            let constraint = if lift { "LIFT_HEIGHT" } else { "ZONE_TOO_SMALL" };
+            return Err(CoreError::ConstraintViolated { constraint: constraint.into(), message: format!("zones {new:?}") });
         }
         self.exec_cmd(Command::SetCabinet { id: cab, cabinet: Box::new(def), label: label.into() })
     }
@@ -320,7 +324,7 @@ impl Engine {
     }
 
     pub(crate) fn zone_set_front(&mut self, cab: ObjectId, zones: Vec<Uid>, front: Option<Front>) -> Result<(), CoreError> {
-        self.edit_cabinet(cab, if front.is_some() { "Thêm cánh / ngăn kéo" } else { "Xóa cánh" }, |c| {
+        self.edit_cabinet_checked(cab, if front.is_some() { "Thêm cánh / ngăn kéo" } else { "Xóa cánh" }, |c| {
             for z in zones {
                 let f = front.clone().map(|mut f| {
                     let uid = c.zones.alloc();
@@ -862,13 +866,15 @@ impl Engine {
                 let v = value.to_string();
                 let n = name.to_string();
                 let door_gap = self.doc.param_value(cab, "door_gap").unwrap_or(2.0);
-                self.edit_cabinet(cab, "Chỉnh cánh", move |c| {
+                self.edit_cabinet_checked(cab, "Chỉnh cánh", move |c| {
                     let Some(Front::Doors(d)) = c.zones.front_mut(uid) else { return Err(bad(&n, "door not found")) };
                     match n.as_str() {
                         "door_kind" => {
                             d.kind = match v.trim().to_ascii_uppercase().as_str() {
                                 "DOUBLE" => DoorKind::Double,
                                 "SLIDING" => DoorKind::Sliding,
+                                "LIFT_UP" => DoorKind::LiftUp,
+                                "FOLD" => DoorKind::Fold,
                                 _ => DoorKind::Single,
                             }
                         }
@@ -906,6 +912,13 @@ impl Engine {
                         "door_stop_cover" => d.stop.cover_up = num(&n, &v)?,
                         "door_stop_leg" => d.stop.leg_depth = num(&n, &v)?,
                         "door_stop_setback" => d.stop.setback = num(&n, &v)?,
+                        "door_lift" => {
+                            d.lift = serde_json::from_value(serde_json::Value::String(v.trim().to_ascii_uppercase())).map_err(|_| bad(&n, "HK | HF | HL | STRUT"))?;
+                        }
+                        k if k.starts_with("door_glass_") => {
+                            let g = d.glass.get_or_insert_with(Default::default);
+                            crate::furniture::set_json_field(g, &n, &k["door_glass_".len()..], &v)?;
+                        }
                         k if k.starts_with("door_slide_") => {
                             let sp = d.sliding.get_or_insert_with(Default::default);
                             crate::furniture::set_json_field(sp, &n, &k["door_slide_".len()..], &v)?;
@@ -966,7 +979,7 @@ impl Engine {
 
 /// Default door spec used by the "Tạo cánh" panel.
 pub(crate) fn default_door(kind: DoorKind, cols: u32, rows: u32, mount: Mount, hinge: HingeSide, thickness: Option<f64>, stop: Option<StopRailSpec>) -> Front {
-    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default(), fixed: false, sliding: None })
+    Front::Doors(DoorSpec { uid: 0, kind, cols: cols.max(1), rows: rows.max(1), mount, hinge, thickness, gap: None, side_gaps: None, stop: stop.unwrap_or_default(), fixed: false, sliding: None, lift: Default::default(), glass: None })
 }
 
 pub(crate) fn default_drawers(count: u32, cols: u32, mount: Mount, thickness: Option<f64>, with_box: bool) -> Front {

@@ -164,9 +164,10 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
             }
         }
         PartRef::Door(uid) => {
+            let es = |v: serde_json::Value| v.as_str().unwrap_or("").to_string();
             if let Some(Front::Doors(d)) = def.zones.zone_of_attachment(uid).and_then(|z| def.zones.zone(z)).and_then(|z| z.front.as_ref()) {
                 let mut fields = vec![
-                    sel("door_kind", "Kiểu cửa", &up(d.kind), &[("SINGLE", "Đơn"), ("DOUBLE", "Đôi"), ("SLIDING", "Lùa")], editable),
+                    sel("door_kind", "Kiểu cửa", &es(json!(d.kind)), &[("SINGLE", "Đơn"), ("DOUBLE", "Đôi"), ("SLIDING", "Lùa"), ("LIFT_UP", "Lật lên (tay nâng)"), ("FOLD", "Gập 2 lá")], editable),
                     sel("door_mount", "Kiểu kết cấu", &up(d.mount), &[("OVERLAY", "Phủ bì"), ("INSET", "Lọt lòng")], editable),
                     sel("door_hinge", "Lắp lề", &up(d.hinge), &[("LEFT", "Trái"), ("RIGHT", "Phải"), ("TOP", "Trên"), ("BOTTOM", "Dưới")], editable),
                     {
@@ -188,10 +189,17 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                 for (i, (k, l)) in [("door_gap_left", "Khe trái"), ("door_gap_right", "Khe phải"), ("door_gap_bottom", "Khe dưới"), ("door_gap_top", "Khe trên")].iter().enumerate() {
                     fields.push(numf(k, l, sg[i], editable));
                 }
+                if matches!(d.kind, aic_domain::zone::DoorKind::LiftUp | aic_domain::zone::DoorKind::Fold) {
+                    fields.push(sel("door_lift", "Tay nâng", &es(json!(d.lift)), &[("HK", "HK lật song song (khoang 350–800)"), ("HF", "HF gập đôi (480–1040)"), ("HL", "HL nâng thẳng (300–580)"), ("STRUT", "Ben hơi / tay chống")], editable));
+                }
+                if d.kind != aic_domain::zone::DoorKind::Sliding {
+                    let g = d.glass.unwrap_or_default();
+                    fields.push(sel("door_glass_frame", "Khung nhôm", &es(json!(g.frame)), &[("NONE", "Không (cánh ván)"), ("ALU_THIN", "Nhôm bản 20"), ("ALU_WIDE", "Nhôm bản 45")], editable));
+                    fields.push(sel("door_glass_infill", "Ô nhét", &es(json!(g.infill)), &[("BOARD", "Ván"), ("GLASS", "Kính"), ("MIRROR", "Gương")], editable));
+                }
                 if d.kind == aic_domain::zone::DoorKind::Sliding {
                     // Hệ ray cánh lùa (mặc định khi chưa chọn).
                     let sp = d.sliding.clone().unwrap_or_default();
-                    let es = |v: serde_json::Value| v.as_str().unwrap_or("").to_string();
                     fields.push(sel("door_slide_tracks", "Số ray", &sp.tracks.to_string(), &[("2", "2 ray"), ("3", "3 ray")], editable));
                     fields.push(numf("door_slide_overlap", "Chồng cánh", sp.overlap, editable));
                     fields.push(numf("door_slide_deduct_top", "Trừ cao trên", sp.deduct_top, editable));

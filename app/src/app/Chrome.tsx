@@ -7,7 +7,7 @@ import { CONTACT_LABEL, fmt } from '../shared/i18n';
 import { View } from '../viewport/viewportBus';
 import { Actions } from './actions';
 import { openSplitTool } from '../features/cabinet/SplitDialog';
-import type { ObjectId } from '../core-api/types';
+import type { DoorKind, ObjectId } from '../core-api/types';
 import { findNode, useUi, type Workspace } from './uiStore';
 
 export function TitleBar() {
@@ -209,7 +209,7 @@ export function ZoneMenu() {
   const shelves = (n: number, kind: 'SHELF_ADJUSTABLE' | 'SHELF_FIXED' = 'SHELF_ADJUSTABLE') =>
     Commands.zoneAddPanels({ cabinet, zones, kind, count: n, lock: n > 1 ? 'EVEN' : 'RATIO', value: 50 });
   const dividers = (n: number) => Commands.zoneAddPanels({ cabinet, zones, kind: 'DIVIDER', count: n, lock: n > 1 ? 'EVEN' : 'RATIO', value: 50 });
-  const door = (kind: 'SINGLE' | 'DOUBLE' | 'SLIDING', hinge: 'LEFT' | 'RIGHT' | 'TOP' = 'LEFT', mount: 'OVERLAY' | 'INSET' = 'OVERLAY', cols = kind === 'SINGLE' ? 1 : 2) =>
+  const door = (kind: DoorKind, hinge: 'LEFT' | 'RIGHT' | 'TOP' = 'LEFT', mount: 'OVERLAY' | 'INSET' = 'OVERLAY', cols = kind === 'SINGLE' ? 1 : 2) =>
     Commands.zoneAddDoors({ cabinet, zones, kind, cols, rows: 1, mount, hinge });
   const drawers = (n: number, mount: 'OVERLAY' | 'INSET' = 'OVERLAY') => Commands.zoneAddDrawers({ cabinet, zones, count: n, cols: 1, mount, with_box: true });
   return (
@@ -267,6 +267,8 @@ export function ZoneMenu() {
           <Item label="Cánh đôi (phủ bì)" fn={() => door('DOUBLE')} />
           <Item label="Cánh đôi (lọt lòng)" fn={() => door('DOUBLE', 'LEFT', 'INSET')} />
           <Item label="Cánh lật (lề trên)" fn={() => door('SINGLE', 'TOP')} />
+          <Item label="Cánh lật tay nâng HK" fn={() => door('LIFT_UP', 'TOP', 'OVERLAY', 1)} />
+          <Item label="Cánh gập 2 lá (HF)" fn={() => door('FOLD', 'TOP', 'OVERLAY', 1)} />
           <Item label="Cửa lùa 2 cánh" fn={() => door('SLIDING')} />
           <h5>Ngăn kéo</h5>
           {[1, 2, 3, 4].map((n) => (

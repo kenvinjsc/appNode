@@ -374,6 +374,52 @@ pub enum DoorKind {
     Single,
     Double,
     Sliding,
+    /// Cánh lật lên (tay nâng).
+    LiftUp,
+    /// Cánh gập 2 lá lật lên.
+    Fold,
+}
+
+/// Loại tay nâng cánh lật.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LiftType {
+    /// Lật lên song song (Aventos HK).
+    #[default]
+    Hk,
+    /// Gập đôi (HF).
+    Hf,
+    /// Nâng thẳng (HL).
+    Hl,
+    /// Ben hơi / tay chống.
+    Strut,
+}
+
+impl LiftType {
+    /// Khoang cao tối thiểu / tối đa lắp được.
+    pub fn height_range(self) -> (f64, f64) {
+        match self {
+            LiftType::Hk => (350.0, 800.0),
+            LiftType::Hf => (480.0, 1040.0),
+            LiftType::Hl => (300.0, 580.0),
+            LiftType::Strut => (200.0, 1200.0),
+        }
+    }
+    pub fn code(self) -> &'static str {
+        match self {
+            LiftType::Hk => "HK",
+            LiftType::Hf => "HF",
+            LiftType::Hl => "HL",
+            LiftType::Strut => "STRUT",
+        }
+    }
+}
+
+/// Cánh khung nhôm (cánh mở / lật): profile + ô nhét.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct GlassFrame {
+    pub frame: SlideFrame,
+    pub infill: Infill,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -443,6 +489,12 @@ pub struct DoorSpec {
     /// Hệ ray cánh lùa (None = chồng theo chuẩn xưởng, 2 ray, cánh ván).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sliding: Option<SlidingSpec>,
+    /// Tay nâng (cánh lật / gập).
+    #[serde(default)]
+    pub lift: LiftType,
+    /// Cánh khung nhôm kính (cánh mở / lật).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glass: Option<GlassFrame>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

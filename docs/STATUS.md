@@ -37,6 +37,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D21 | Bàn học / làm việc / trang điểm: mặt bàn + khoét dây, chân tấm / hộc tủ (dùng lại ngăn kéo) / chân sắt, yếm, hộc bàn phím, kệ trên, gương | chưa: sửa vị trí lỗ dây trực tiếp trên 2D |
 | D22 | Vách ốp / vách TV / lam: lưới tấm theo công thức cột × hàng, khe bóng / soi V, khung xương, lam dọc/ngang, khoét hộp điện; kệ TV treo = tủ thấp + chân Treo | chưa: kéo đường chia mô-đun trên 2D |
 | D16 | Cánh lùa theo hệ ray: 2/3 ray, chồng, trừ cao, khung nhôm 20/45 + nẹp ngang, ô nhét ván/kính/gương; profile (m) + kính (m²) vào báo giá | chưa: catalog hệ ray theo hãng; kính hiển thị trong suốt |
+| D17 | Cánh lật (HK/HL/ben hơi) và gập 2 lá (HF): bản lề trên, tay nâng theo khối lượng cánh, kiểm tra cao khoang (LIFT_HEIGHT); cánh mở / lật khung nhôm kính | chưa: khoan lắp tay nâng trên hồi |
 | D13 | Phào nóc 1–3 mặt + phào chân, ốp hông (chạm sàn / nhô trước), nẹp che khe; tab "Phào & ốp" + lưu mẫu tab | chưa: phào theo cả dãy tủ (D09), vát 45° thành contour CNC |
 | D15 | Khoét hậu (ổ điện / ống / thoát nhiệt, neo theo lòng tủ, CNC cắt trong), hậu ốp bắt vít (+ vít vào báo giá), hậu chia theo kệ cố định | chưa: vẽ / kéo lỗ trên 2D |
 | D14 | Kệ nghiêng thật (xoay quanh trục X, dài theo cos θ, thanh chặn gót khi ≥ 5°, bỏ chốt kệ), vách lửng (`extent`), menu "Kệ giày nghiêng 15° × 4" | chưa: kệ góc L trong tủ góc mù |
