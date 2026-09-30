@@ -83,6 +83,7 @@ Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 |---|---|
 | Tấm ngang | Kệ di động ×1…×5 (chia đều), Kệ cố định giữa |
 | Tấm đứng / hậu | Hông giữa (2 khoang), Chia 3 khoang, Hậu phụ |
+| Ngăn kéo đặc biệt | **Ngăn kéo trong × 2 (sau cánh)**: mặt lọt lòng lùi 25 mm sau cánh, không tay nắm, ray ngắn lại theo phần lùi (dùng cho khoang con dưới cánh tủ áo — chia khoang Tạo tấm = Không trước). **Mặt giả (tủ chậu)**: chỉ có mặt ngăn cố định, không hộc / ray / tay nắm |
 | Cánh | Cánh đơn lề trái/phải, Cánh đôi phủ bì/lọt lòng, Cánh lật (lề trên), Cửa lùa 2 cánh |
 | Ngăn kéo | ×1…×4 phủ bì, ×2 lọt lòng (tự có hộc + ray bi theo chiều sâu) |
 | Liên kết | Thanh treo oval |

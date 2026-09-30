@@ -20,7 +20,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 |---|---|---|
 | D01 | Chuẩn xưởng `Cabinet.rules.shop` (kệ, chốt, bản lề, tay nắm, ngăn kéo, liên kết), lưu / áp chuẩn (mẫu nhóm `all`) | mặc định = giá trị cũ |
 | D02 | Hàng lỗ chốt hệ 32, kệ di động bắt lỗ | hình học chỉ vẽ vòng tròn khi > 16 lỗ |
-| D04/D05 | Loại tay nắm (thanh/núm/push-open/không), khoan lỗ tay nắm, đế bản lề trên hồi; ray bi / âm / tandem | chưa: catalog phụ kiện riêng, ngăn kéo trong, mặt giả |
+| D04/D05 | Loại tay nắm (thanh/núm/push-open/không), khoan lỗ tay nắm, đế bản lề trên hồi; ray bi / âm / tandem | chưa: catalog phụ kiện riêng (ngăn kéo trong, mặt giả: đã có) |
 | D06 | Liên kết chốt gỗ / cam + chốt / vít / ke, lỗ thật theo tủ; báo giá đếm theo lỗ | khoan cạnh vẫn là cảnh báo CNC |
 | D07 | Tủ góc L mù (trái / phải) | chưa: góc chéo, mâm xoay |
 | D08 | Chân tủ: len trước / 3 mặt, chân nhựa (+ len kẹp), tủ treo | |

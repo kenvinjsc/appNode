@@ -463,6 +463,18 @@ pub struct DrawerSpec {
     /// Front heights bottom → top (LOCK mm / PERCENT / AUTO); empty = equal.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heights: Vec<Bay>,
+    /// Ngăn kéo trong: nằm sau cánh, mặt lọt lòng lùi vào `inner_setback`, không tay nắm.
+    #[serde(default)]
+    pub inner: bool,
+    #[serde(default = "inner_setback")]
+    pub inner_setback: f64,
+    /// Mặt giả (tủ chậu): chỉ có mặt ngăn cố định, không hộc, không ray, không tay nắm.
+    #[serde(default)]
+    pub false_front: bool,
+}
+
+fn inner_setback() -> f64 {
+    25.0
 }
 
 fn one() -> u32 {
@@ -484,6 +496,9 @@ impl DrawerSpec {
             slide_clearance: 13.0,
             with_box: true,
             heights: Vec::new(),
+            inner: false,
+            inner_setback: inner_setback(),
+            false_front: false,
         }
     }
 }

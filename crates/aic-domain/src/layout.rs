@@ -1061,8 +1061,11 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
     let d = cx.v.depth;
     let ft = spec.face_thickness.unwrap_or(cx.v.door_thickness);
     let gap = spec.gap;
-    let side_gap = if spec.mount == Mount::Inset { spec.side_gap } else { cx.v.door_gap };
-    let (x0, y0, x1, y1, z) = front_rect(b, spec.mount, [side_gap; 4], d, ft);
+    // Ngăn kéo trong: mặt lọt lòng, lùi sau cánh.
+    let mount = if spec.inner { Mount::Inset } else { spec.mount };
+    let side_gap = if mount == Mount::Inset { spec.side_gap } else { cx.v.door_gap };
+    let (x0, y0, x1, y1, z) = front_rect(b, mount, [side_gap; 4], d, ft);
+    let z = if spec.inner { z - spec.inner_setback.max(0.0) } else { z };
     let n = spec.count.max(1);
     let cols = spec.cols.max(1);
     let fw = ((x1 - x0) - (cols - 1) as f64 * gap) / cols as f64;
@@ -1102,8 +1105,10 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
     let [zw, zh, zd] = b.size;
     let cw = (zw - (cols - 1) as f64 * cx.v.thickness) / cols as f64;
     let sr = cx.cab.rules.shop.clone();
-    let slide = STD_SLIDES.iter().copied().filter(|l| *l <= zd - sr.slide_margin).fold(STD_SLIDES[0], f64::max);
-    let zf = if spec.mount == Mount::Overlay { d } else { d - ft };
+    // Ngăn kéo trong lùi sau cánh: ray ngắn hơn phần lùi.
+    let avail = zd - sr.slide_margin - if spec.inner { spec.inner_setback.max(0.0) + ft } else { 0.0 };
+    let slide = STD_SLIDES.iter().copied().filter(|l| *l <= avail).fold(STD_SLIDES[0], f64::max);
+    let zf = if spec.inner { z } else if spec.mount == Mount::Overlay { d } else { d - ft };
     for c in 0..cols {
         for i in 0..n {
             cx.drawer_sets += 1;
@@ -1112,8 +1117,13 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             let fh = heights[i as usize];
             let fy = starts[i as usize];
             let key = |part: &str| format!("w:{}:{c}:{i}:{part}", spec.uid);
-            let front_idx = cx.panel(key("front"), format!("MặtNgăn [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
-            if cx.cab.handles {
+            let face_name = if spec.false_front { "MặtGiả" } else if spec.inner { "MặtNgănTrong" } else { "MặtNgăn" };
+            let front_idx = cx.panel(key("front"), format!("{face_name} [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
+            if spec.false_front {
+                // Mặt giả: bắt cố định, không tay nắm / hộc / ray.
+                continue;
+            }
+            if cx.cab.handles && !spec.inner {
                 match sr.handle_type {
                     HandleType::None => {}
                     HandleType::PushOpen => cx.out.fittings.push_latches += 1,

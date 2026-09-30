@@ -229,6 +229,12 @@ pub enum Request {
         thickness: Option<f64>,
         #[serde(default = "yes")]
         with_box: bool,
+        /// Ngăn kéo trong (sau cánh).
+        #[serde(default)]
+        inner: bool,
+        /// Mặt giả (tủ chậu).
+        #[serde(default)]
+        false_front: bool,
     },
     ZoneAddLink {
         cabinet: ObjectId,

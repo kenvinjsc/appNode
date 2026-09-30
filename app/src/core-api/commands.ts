@@ -46,7 +46,7 @@ export const Commands = {
     command<{ uids: number[] }>({ cmd: 'zone_add_panels', ...p }),
   zoneAddDoors: (p: { cabinet: ObjectId; zones: number[]; kind: DoorKind; cols: number; rows: number; mount: Mount; hinge: HingeSide; thickness?: number; stop?: StopRailSpec }) =>
     command({ cmd: 'zone_add_doors', ...p }),
-  zoneAddDrawers: (p: { cabinet: ObjectId; zones: number[]; count: number; cols: number; mount: Mount; thickness?: number; with_box: boolean }) =>
+  zoneAddDrawers: (p: { cabinet: ObjectId; zones: number[]; count: number; cols: number; mount: Mount; thickness?: number; with_box: boolean; inner?: boolean; false_front?: boolean }) =>
     command({ cmd: 'zone_add_drawers', ...p }),
   zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL', offset = 60) => command({ cmd: 'zone_add_link', cabinet, zones, kind, offset }),
   zoneRemove: (cabinet: ObjectId, uid: number) => command({ cmd: 'zone_remove', cabinet, uid }),

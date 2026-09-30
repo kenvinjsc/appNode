@@ -272,6 +272,8 @@ export function ZoneMenu() {
             <Item key={n} label={`Ngăn kéo × ${n}`} fn={() => drawers(n)} />
           ))}
           <Item label="Ngăn kéo × 2 (lọt lòng)" fn={() => drawers(2, 'INSET')} />
+          <Item label="Ngăn kéo trong × 2 (sau cánh)" fn={() => Commands.zoneAddDrawers({ cabinet, zones, count: 2, cols: 1, mount: 'INSET', with_box: true, inner: true })} />
+          <Item label="Mặt giả (tủ chậu, không hộc)" fn={() => Commands.zoneAddDrawers({ cabinet, zones, count: 1, cols: 1, mount: 'OVERLAY', with_box: false, false_front: true })} />
           <h5>Liên kết</h5>
           <Item label="Thanh treo oval" fn={() => Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL')} />
           <h5>Mẫu vùng (thư viện)</h5>

@@ -1160,3 +1160,37 @@ fn quote_linear_facade_and_cut_groups() {
     assert!(sides >= 6, "{sides}");
     assert!(c.result["cut_list"][0]["code"].as_str().unwrap().contains("Bếp") || c.result["cut_list"][0]["code"].as_str().unwrap().contains("PN1"));
 }
+
+#[test]
+fn inner_drawers_behind_doors_and_false_front() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 1000, "height": 2000, "shelves": 0, "doors": 2}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let zs = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let root = zs.result["zones"].as_array().unwrap().iter().find(|z| z["leaf"] == true).unwrap()["id"].as_u64().unwrap();
+    // Chia ảo phần dưới 400 rồi thêm 2 ngăn kéo trong vào khoang dưới (cánh vẫn phủ cả tủ).
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": root, "kind": "VIRTUAL_H", "formula": "400"}));
+    assert!(r.ok, "{:?}", r.error);
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let low = z.result["bays"].as_array().unwrap().iter().find(|b| b["zone"] == root && b["index"] == 0).unwrap()["child"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_drawers", "cabinet": cab, "zones": [low], "count": 2, "inner": true}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let doors: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("CửaĐôi")).collect();
+    let inner: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("MặtNgănTrong")).collect();
+    assert_eq!(doors.len(), 2, "doors still cover the cabinet");
+    assert_eq!(inner.len(), 2);
+    let door_back = doors[0].translation[2];
+    assert!(inner.iter().all(|p| p.translation[2] + p.size[2] < door_back - 20.0), "inner fronts sit behind the doors");
+    assert!(!l.parts.iter().any(|p| p.name.starts_with("TayNắm [Bộ")), "inner drawers have no handle");
+    assert!(l.parts.iter().any(|p| p.name.starts_with("ThànhTrái")), "inner drawers keep their box");
+    // Mặt giả tủ chậu: chỉ mặt, không hộc / ray / tay nắm.
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "doors": 0, "shelves": 0}}));
+    let sink: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let sroot = call(&mut e, json!({"cmd": "get_zones", "cabinet": sink})).result["zones"][0]["id"].as_u64().unwrap();
+    call(&mut e, json!({"cmd": "zone_add_drawers", "cabinet": sink, "zones": [sroot], "count": 1, "false_front": true}));
+    let l = e.doc.cabinet_layout(sink).unwrap();
+    assert!(l.parts.iter().any(|p| p.name.starts_with("MặtGiả")));
+    assert!(!l.parts.iter().any(|p| p.name.starts_with("ThànhTrái") || p.name.starts_with("RayBi") || p.name.starts_with("TayNắm")));
+    assert!(l.fittings.slides.is_empty());
+}

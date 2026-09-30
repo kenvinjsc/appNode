@@ -37,7 +37,7 @@ Tài liệu này gom toàn bộ kịch bản kiểm thử theo module: dùng cho
 | 03 Thao tác 3D (chọn, kéo khối, handle, bắt dính) | TC-03.1–03.7 | Rust `move_objects_…`, `resize_stretch_…`, E2E 06.2–06.3 | 03.1–03.7 |
 | 04 Sửa trực tiếp 2D | TC-04.1–04.7 | Rust `parametric_a/b/c/…`, E2E 06.1 | 04.2–04.7 |
 | 05 Khoang & tấm (Tạo tấm, Dựng nhanh, Chia khoang) | TC-05.1–05.6 | Rust `zone_workflow_…`, `split_zone_…`, E2E 02 | 05.1, 05.4 |
-| 06 Cánh, ngăn kéo, tay nắm, ray, tủ góc | TC-06.1–06.7 | Rust `drawer_heights_…`, `handle_types_…`, `blind_corner_…`, E2E 04.2 | 06.1, 06.6 |
+| 06 Cánh, ngăn kéo, tay nắm, ray, tủ góc | TC-06.1–06.9 | Rust `drawer_heights_…`, `handle_types_…`, `blind_corner_…`, `inner_drawers_…`, E2E 04.2, 08 | 06.1, 06.6 |
 | 07 Quan hệ tấm, ràng buộc, offset | TC-07.1–07.4 | Rust `relations_…`, `parametric_d_…` | 07.1–07.4 |
 | 08 Tool (bo góc, cắt, hợp, chia, contour) | TC-08.1–08.5 | Rust `shape_tools_…`, `chia_tam_…`, `contour_…` | 08.1–08.5 |
 | 09 Kết cấu & chuẩn xưởng | TC-09.1–09.9 | Rust `structure_tabs_…`, `shop_standard_…`, `shelves_snap_…`, `joint_types_…`, `base_types_…`, E2E 03 | 09.1, 09.9 |
@@ -123,6 +123,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-06.5 Loại ray** (Rust `handle_types_…`). Ray âm → hở hông 5, mã RAYAM; Tandem → không còn thành hộc gỗ, chỉ đáy + hậu hộc.
 - **TC-06.6 Tủ góc L mù** (E2E 04.2, Rust `blind_corner_…`). Tủ ▾ → Tủ góc L mù (góc phải) → tấm mù bên phải không bản lề / tay
   nắm, cánh 450 bên trái; khe giữa tấm mù và cánh ≈ khe cánh; cùng phòng với tủ đang chọn.
+- **TC-06.8 Ngăn kéo trong** (E2E 08, Rust `inner_drawers_behind_doors_and_false_front`). Chuột phải khoang → Ngăn kéo trong × 2 →
+  2 MặtNgănTrong nằm sau cánh ≥ 20 mm, không tay nắm, vẫn có hộc; một undo.
+- **TC-06.9 Mặt giả tủ chậu** (E2E 08). Chuột phải khoang → Mặt giả → chỉ MặtGiả, không hộc / ray / tay nắm.
 - **TC-06.7 Cánh rộng sai** (Rust `blind_corner_…`). Tủ góc 600 với cánh 500 → từ chối, thông báo tiếng Việt.
 
 ### 07. Quan hệ tấm, ràng buộc, offset
@@ -223,6 +226,6 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 
 1. `cargo test --workspace`, `cargo clippy --workspace --all-targets` không có cảnh báo mới.
 2. `cd app && npm test && npm run typecheck && npm run build`.
-3. `cd app && npm run e2e` — 20/20 qua.
+3. `cd app && npm run e2e` — tất cả qua.
 4. Chạy tay các kịch bản cột **Tay** của module có thay đổi, cộng TC-01.5, TC-03.2, TC-04.4, TC-13.5, TC-14.5.
 5. Ghi kết quả (bản, ngày, người test, kịch bản lỗi + ảnh) vào mô tả bản giao.

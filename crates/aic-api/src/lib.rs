@@ -319,8 +319,13 @@ impl Engine {
                 self.zone_set_front(cabinet, zones, Some(zones::default_door(kind, cols, rows, mount, hinge, thickness, stop)))?;
                 ok(json!({}))
             }
-            ZoneAddDrawers { cabinet, zones, count, cols, mount, thickness, with_box } => {
-                self.zone_set_front(cabinet, zones, Some(zones::default_drawers(count, cols, mount, thickness, with_box)))?;
+            ZoneAddDrawers { cabinet, zones, count, cols, mount, thickness, with_box, inner, false_front } => {
+                let mut f = zones::default_drawers(count, cols, mount, thickness, with_box && !false_front);
+                if let aic_domain::zone::Front::Drawers(d) = &mut f {
+                    d.inner = inner;
+                    d.false_front = false_front;
+                }
+                self.zone_set_front(cabinet, zones, Some(f))?;
                 ok(json!({}))
             }
             ZoneAddLink { cabinet, zones, kind, offset } => {
