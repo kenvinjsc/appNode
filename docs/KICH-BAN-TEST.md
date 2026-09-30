@@ -121,6 +121,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-05.4 Chia khoang trong 3D** (tay). Chọn tủ → K → bấm khoang trong 3D (khoang sáng lên khi rê) → chia đúng khoang đó.
 - **TC-05.5 Gộp khoang** (tay). Chuột phải khoang → Gộp với khoang kế bên → mất đường chia, khoang con gộp lại, một undo.
 - **TC-05.6 Mẫu vùng** (Rust `zone_preset_…`). Lưu vùng có vách + kệ + cánh + thanh treo → áp vào tủ khác → nội dung giống.
+- **TC-05.9 Kệ giày nghiêng** (E2E 15, Rust `tilted_shoe_shelves_and_partial_divider`). Chuột phải khoang TủQA01 → Kệ giày nghiêng
+  15° × 4 → thêm 4 ThanhChặnGót, kệ xoay [-75,0,0], không chốt kệ; Ctrl+Z bỏ cả nhóm. Đặt "Nghiêng trước-sau" = 0 cho một kệ →
+  mất thanh chặn của kệ đó. Vách ngăn đặt "Vách lửng: cao" = 400 → vách cao 400 từ đáy (−400: treo từ nóc).
 
 ### 06. Cánh, ngăn kéo, tay nắm, ray, tủ góc
 

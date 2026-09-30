@@ -116,6 +116,12 @@ Sáu nút tròn ở đầu tab lần lượt là: Tấm ngang, Tấm đứng, H�
 
 Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
 
+### 3.4 Kệ giày nghiêng, vách lửng
+- Chuột phải một khoang → **Kệ giày nghiêng 15° × 4**: kệ nghiêng thật (mép trước thấp hơn), dài theo độ nghiêng, có
+  **thanh chặn gót** ở mép trước; kệ nghiêng không khoan chốt kệ.
+- Chọn một kệ → Chỉnh tấm → **Nghiêng trước-sau (°)** (−45..45, 0 = kệ phẳng).
+- Chọn một vách ngăn → **Vách lửng: cao**: số dương = cao từ đáy, số âm = treo từ nóc, 0 = suốt chiều cao.
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 

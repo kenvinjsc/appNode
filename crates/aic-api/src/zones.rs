@@ -748,7 +748,7 @@ impl Engine {
             PartRef::Split(uid) => {
                 let v = value.to_string();
                 let n = name.to_string();
-                let handled = matches!(name, "pos_ratio" | "pos_start" | "pos_end" | "pos_lock" | "split_kind" | "thickness" | "tilt_fb" | "tilt_lr");
+                let handled = matches!(name, "pos_ratio" | "pos_start" | "pos_end" | "pos_lock" | "split_kind" | "thickness" | "tilt_fb" | "tilt_lr" | "extent");
                 if !handled {
                     return Ok(false);
                 }
@@ -820,7 +820,18 @@ impl Engine {
                             }
                             sp.thickness = t;
                         }
-                        "tilt_fb" => sp.tilt_deg[0] = num(&n, &v)?,
+                        "tilt_fb" => {
+                            let a = num(&n, &v)?;
+                            if !(-45.0..=45.0).contains(&a) {
+                                return Err(bad(&n, "tilt -45..45"));
+                            }
+                            sp.tilt_deg[0] = a;
+                        }
+                        "extent" => {
+                            // Vách lửng: 0 / trống = suốt khoang; dương = từ đáy; âm = từ nóc.
+                            let e = if v.trim().is_empty() { 0.0 } else { num(&n, &v)? };
+                            sp.extent = if e.abs() < 1.0 { None } else { Some(e) };
+                        }
                         _ => sp.tilt_deg[1] = num(&n, &v)?,
                     }
                     Ok(())

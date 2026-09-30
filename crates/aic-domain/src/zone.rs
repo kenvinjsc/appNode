@@ -133,9 +133,12 @@ pub struct SplitPanel {
     /// Value of the locked quantity (ratio 0..1 or mm). Ignored for `Even`.
     #[serde(default)]
     pub value: f64,
-    /// Tilt in degrees (front-back, side-side); presentation of slanted shelves.
+    /// Tilt in degrees [trước-sau, trái-phải]. Kệ: trước-sau > 0 = mép trước thấp (kệ giày).
     #[serde(default)]
     pub tilt_deg: [f64; 2],
+    /// Vách lửng: chiều cao vách (mm) — dương = tính từ đáy khoang, âm = từ nóc khoang. None = suốt khoang.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extent: Option<f64>,
 }
 
 /// Sizing mode of one bay (khoang) of a split.
@@ -667,7 +670,7 @@ impl ZoneTree {
         let child_ids: Vec<Uid> = (0..count).map(|_| self.alloc()).collect();
         let zone = self.zone_mut(zone_id).ok_or("zone not found")?;
         let lock = if count > 1 { Lock::Even } else { lock };
-        let make = |uid| SplitPanel { uid, kind, thickness, lock, value, tilt_deg: [0.0; 2] };
+        let make = |uid| SplitPanel { uid, kind, thickness, lock, value, tilt_deg: [0.0; 2], extent: None };
         match &mut zone.split {
             Some(s) if s.axis == kind.axis() => {
                 // Append into the existing split (new zones are empty).
@@ -714,7 +717,7 @@ impl ZoneTree {
         let zone = self.zone_mut(zone_id).unwrap();
         let mut children: Vec<Zone> = child_ids.iter().map(|c| Zone::new(*c)).collect();
         children[0].links = std::mem::take(&mut zone.links);
-        let panels = uids.iter().map(|&uid| SplitPanel { uid, kind, thickness: t, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] }).collect();
+        let panels = uids.iter().map(|&uid| SplitPanel { uid, kind, thickness: t, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2], extent: None }).collect();
         zone.split = Some(Box::new(Split { axis: kind.axis(), panels, children, bays }));
         Ok(uids)
     }
@@ -954,7 +957,7 @@ mod bay_tests {
     fn move_panel_changes_adjacent_bays_only() {
         let mut sp = Split { axis: 0, panels: vec![], children: vec![], bays: vec![] };
         for u in 0..2 {
-            sp.panels.push(SplitPanel { uid: u, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] });
+            sp.panels.push(SplitPanel { uid: u, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2], extent: None });
         }
         sp.bays = vec![Bay::lock(600.0), Bay::auto(), Bay::lock(400.0)];
         let sizes = [600.0, 500.0, 400.0];
@@ -973,7 +976,7 @@ mod bay_tests {
     #[test]
     fn typed_size_in_percent_split_goes_to_the_neighbour() {
         let mut sp = Split { axis: 0, panels: vec![], children: vec![], bays: vec![Bay::percent(50.0), Bay::percent(50.0)] };
-        sp.panels.push(SplitPanel { uid: 0, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2] });
+        sp.panels.push(SplitPanel { uid: 0, kind: SplitKind::Divider, thickness: 17.2, lock: Lock::Even, value: 0.0, tilt_deg: [0.0; 2], extent: None });
         let sizes = [774.2, 774.2];
         sp.set_bay(0, &sizes, Some(BayMode::Percent), Some(600.0 / 1548.4 * 100.0)).unwrap();
         let (s, ok) = solve_bays(1548.4 + 17.2, &[17.2], &sp.bays);

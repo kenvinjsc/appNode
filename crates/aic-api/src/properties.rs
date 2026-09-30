@@ -152,11 +152,15 @@ fn generated_groups(e: &mut Engine, id: ObjectId, editable: bool, groups: &mut V
                     0 => &[("DIVIDER", "HôngGiữa")],
                     _ => &[("BACK_SUB", "HậuPhụ")],
                 };
-                groups.push(Group {
-                    key: "zone_position",
-                    title: "Position",
-                    fields: vec![sel("split_kind", "Loại", &up(sp.kind), kinds, editable), r, s1, s2, cells],
-                });
+                let mut fields = vec![sel("split_kind", "Loại", &up(sp.kind), kinds, editable), r, s1, s2, cells];
+                match sp.kind.axis() {
+                    // Kệ nghiêng (kệ giày): mép trước thấp hơn, ≥ 5° có thanh chặn gót.
+                    1 => fields.push(numf("tilt_fb", "Nghiêng trước-sau (°)", sp.tilt_deg[0], editable)),
+                    // Vách lửng: cao từ đáy (dương) / từ nóc (âm), 0 = suốt khoang.
+                    0 => fields.push(numf("extent", "Vách lửng: cao (+ từ đáy, − từ nóc, 0 = suốt)", sp.extent.unwrap_or(0.0), editable)),
+                    _ => {}
+                }
+                groups.push(Group { key: "zone_position", title: "Position", fields });
             }
         }
         PartRef::Door(uid) => {

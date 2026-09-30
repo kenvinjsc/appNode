@@ -966,6 +966,11 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> Option<usize>
     let key = format!("p:{}", p.uid);
     let front = z + d;
     Some(match p.kind {
+        SplitKind::ShelfAdjustable if p.tilt_deg[0].abs() >= 0.5 => {
+            let sb = cx.v.shelf_setback.min(d / 2.0);
+            let c = cx.cab.rules.shop.shelf_clear.clamp(0.0, 10.0);
+            tilted_shelf(cx, p, key, name, PanelRole::Shelf, [x + c, y + st, front - sb], w - 2.0 * c, d - sb, t)
+        }
         SplitKind::ShelfAdjustable => {
             let sb = cx.v.shelf_setback.min(d / 2.0);
             let sr = cx.cab.rules.shop.clone();
@@ -1000,10 +1005,36 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> Option<usize>
             idx
         }
         SplitKind::VirtualH | SplitKind::VirtualV => unreachable!(),
+        SplitKind::ShelfFixed if p.tilt_deg[0].abs() >= 0.5 => tilted_shelf(cx, p, key, name, PanelRole::ShelfFixed, [x, y + st, front], w, d, t),
         SplitKind::ShelfFixed => cx.panel(key, name, PanelRole::ShelfFixed, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, d, t], [x, y + st, front], ROT_HORIZONTAL),
-        SplitKind::Divider => cx.panel(key, name, PanelRole::Divider, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, h, t], [x + st, y, front], ROT_SIDE),
+        SplitKind::Divider => match p.extent {
+            // Vách lửng: cao `extent` từ đáy khoang (dương) hoặc từ nóc (âm).
+            Some(e) if e.abs() >= 1.0 && e.abs() < h => {
+                let hh = e.abs();
+                let yy = if e > 0.0 { y } else { y + h - hh };
+                cx.panel(key, name, PanelRole::Divider, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, hh, t], [x + st, yy, front], ROT_SIDE)
+            }
+            _ => cx.panel(key, name, PanelRole::Divider, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, h, t], [x + st, y, front], ROT_SIDE),
+        },
         SplitKind::BackSub => cx.panel(key, name, PanelRole::BackSub, MaterialSlot::Back, GrainDirection::AlongHeight, [w, h, t], [x, y, z + st], [0.0; 3]),
     })
+}
+
+/// Kệ nghiêng (kệ giày): xoay quanh cạnh sau, mép trước thấp hơn; hình chiếu ngang vẫn bằng `depth`.
+/// Nghiêng ≥ 5° có thanh chặn gót cao 30 ở mép trước. Không khoan chốt tầng (đỡ bằng ke / thanh).
+#[allow(clippy::too_many_arguments)]
+fn tilted_shelf(cx: &mut Ctx, p: &SplitPanel, key: String, name: String, role: PanelRole, at: [f64; 3], w: f64, depth: f64, t: f64) -> usize {
+    let th = p.tilt_deg[0].clamp(-45.0, 45.0);
+    let r = th.to_radians();
+    let len = depth / r.cos();
+    let [x, y_back, zf] = at;
+    let y_front = y_back - len * r.sin();
+    let idx = cx.panel(key.clone(), name, role, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, len, t], [x, y_front, zf], [-90.0 + th, 0.0, 0.0]);
+    if th.abs() >= 5.0 {
+        let k = cx.next("ThanhChặnGót");
+        cx.panel(format!("{key}:heel"), format!("ThanhChặnGót_{k:02}"), PanelRole::Rail, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, 30.0, t], [x, y_front, zf - t], [0.0; 3]);
+    }
+    idx
 }
 
 fn hinge_cups(sr: &ShopRules, w: f64, h: f64, side: HingeSide) -> Vec<MachiningFeature> {
@@ -1552,7 +1583,7 @@ mod tests {
 
     #[test]
     fn split_positions_ratio_and_even() {
-        let p = |lock, value| SplitPanel { uid: 1, kind: SplitKind::ShelfAdjustable, thickness: 17.2, lock, value, tilt_deg: [0.0; 2] };
+        let p = |lock, value| SplitPanel { uid: 1, kind: SplitKind::ShelfAdjustable, thickness: 17.2, lock, value, tilt_deg: [0.0; 2], extent: None };
         // Zone 733.2 tall, 50% → 358 each side (spec P3).
         let s = solve_split(733.2, &[p(Lock::Ratio, 0.5)]);
         assert!((s[0] - 358.0).abs() < 1e-9);

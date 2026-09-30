@@ -1483,3 +1483,40 @@ fn align_distribute_rotate_and_snap_to_wall() {
     let r = call(&mut e, json!({"cmd": "align_objects", "ids": [ids[0]], "mode": "TOP"}));
     assert!(!r.ok, "needs two objects");
 }
+
+#[test]
+fn tilted_shoe_shelves_and_partial_divider() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 1200, "height": 1000, "depth": 350, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_panels", "cabinet": cab, "zones": [root], "kind": "SHELF_ADJUSTABLE", "count": 3, "tilt_deg": [15, 0]}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let shelves: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("KệDiĐộng")).collect();
+    assert_eq!(shelves.len(), 3);
+    let s = shelves[0];
+    assert_eq!(s.rotation_deg, [-75.0, 0.0, 0.0], "tilted 15°");
+    let sb = e.doc.param_value(cab, "shelf_setback").unwrap();
+    let depth = 350.0 - 8.6 - sb; // approx: horizontal projection inside the zone
+    assert!(s.size[1] > depth * 0.9 && s.size[1] * 15f64.to_radians().cos() < 350.0, "slope length {}", s.size[1]);
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("ThanhChặnGót")).count(), 3, "one heel stop per shelf");
+    assert_eq!(l.fittings.shelf_pins, 0, "tilted shelves sit on rails, no pins");
+    // Kệ nghiêng sửa được qua thuộc tính (tilt_fb), 0 → kệ phẳng, không thanh chặn.
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let sid: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"] == "KệDiĐộng_01").unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": sid, "name": "tilt_fb", "value": "0"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.cabinet_layout(cab).unwrap().parts.iter().filter(|p| p.name.starts_with("ThanhChặnGót")).count(), 2);
+    // Vách lửng: cao 400 từ đáy.
+    let w = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"height": 2000}}));
+    let wc: ObjectId = serde_json::from_value(w.result["id"].clone()).unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
+    let did: ObjectId = serde_json::from_value(all.iter().find(|k| k["name"] == "HôngGiữa_01" && k["id"].as_u64() > Some(wc.0)).unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": did, "name": "extent", "value": "400"}));
+    assert!(r.ok, "{:?}", r.error);
+    let d = e.doc.cabinet_layout(wc).unwrap().parts.into_iter().find(|p| p.name == "HôngGiữa_01").unwrap();
+    assert!((d.size[1] - 400.0).abs() < 1e-6, "{:?}", d.size);
+}

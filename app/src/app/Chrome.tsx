@@ -222,6 +222,7 @@ export function ZoneMenu() {
             <Item key={n} label={`Kệ di động × ${n}`} fn={() => shelves(n)} />
           ))}
           <Item label="Kệ cố định giữa" fn={() => shelves(1, 'SHELF_FIXED')} />
+          <Item label="Kệ giày nghiêng 15° × 4" fn={() => Commands.zoneAddPanels({ cabinet, zones, kind: 'SHELF_FIXED', count: 4, lock: 'EVEN', value: 50, tilt_deg: [15, 0] })} />
           <h5>Tấm đứng / hậu</h5>
           <Item label="Hông giữa (2 khoang)" fn={() => dividers(1)} />
           <Item label="Chia 3 khoang" fn={() => dividers(2)} />
