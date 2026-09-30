@@ -16,6 +16,7 @@ pub mod shape;
 mod templates;
 pub mod library;
 mod structure_api;
+mod runs;
 pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
@@ -90,7 +91,23 @@ impl Engine {
     }
 
     pub fn dispatch(&mut self, req: Request) -> Response {
-        let r = self.handle(req);
+        use Request::*;
+        // Dãy tủ theo tủ: lệnh sửa dữ liệu nào làm tủ trong dãy đổi hộp bao thì sinh lại
+        // tấm dãy trong cùng bước undo.
+        let sync = self.has_runs()
+            && !matches!(req, Undo | Redo | CreateProject { .. } | LoadProject { .. } | CreateRun { .. } | UpdateRun { .. } | DeleteRun { .. });
+        let mark = self.history.mark();
+        let mut r = self.handle(req);
+        if r.is_ok() && sync && self.history.mark() > mark {
+            let label = self.history.label_at(mark).unwrap_or_default();
+            match self.sync_runs() {
+                Ok(()) => self.history.squash(mark, &label),
+                Err(e) => {
+                    self.history.rollback(&mut self.doc, mark);
+                    r = Err(e);
+                }
+            }
+        }
         self.respond(r)
     }
 
@@ -193,6 +210,7 @@ impl Engine {
                 if let Some(v) = o.height { spec.height = v; }
                 if let Some(v) = o.depth { spec.depth = v; }
                 if let Some(v) = o.thickness { spec.thickness = v; }
+                if let Some(v) = o.plinth_height { spec.plinth_height = v.max(0.0); }
                 if let Some(v) = o.shelves { spec.shelves = v; }
                 if let Some(v) = o.doors { spec.doors = v; }
                 if let Some(v) = o.drawers { spec.drawers = v; }
@@ -354,6 +372,16 @@ impl Engine {
                 ok(json!({}))
             }
             MoveSplitPanel { id, before } => ok(self.move_split_panel(id, before)?),
+            CreateRun { ids, rules } => ok(self.create_run(ids, rules)?),
+            UpdateRun { name, rules } => {
+                self.update_run(&name, rules)?;
+                ok(json!({}))
+            }
+            DeleteRun { name } => {
+                self.delete_run(&name)?;
+                ok(json!({}))
+            }
+            GetRuns => ok(self.get_runs()),
             ShapeTool { ids, op } => ok(self.shape_tool(&ids, &op)?),
             MergePanels { ids } => ok(self.merge_panels(&ids)?),
             Undo => ok(json!({ "label": self.history.undo(&mut self.doc)? })),

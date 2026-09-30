@@ -9,6 +9,8 @@ pub enum MaterialKind {
     Particleboard,
     Hdf,
     SolidWood,
+    /// Đá (mặt bếp).
+    Stone,
 }
 
 /// Logical board material. `color`/`texture` are *render properties only* and are
@@ -56,5 +58,7 @@ pub fn default_materials() -> Vec<Material> {
         mat("PB18-WALNUT", "Ván dăm óc chó 18", Particleboard, 18.0, true, "#7a5237"),
         mat("PB25-WHITE", "Ván dăm trắng 25", Particleboard, 25.0, false, "#f5f5f2"),
         mat("HDF5-WHITE", "HDF hậu 5", Hdf, 5.0, false, "#e9e7e1"),
+        mat("STONE20-WHITE", "Đá thạch anh trắng 20", Stone, 20.0, false, "#e8e6e1"),
+        mat("STONE20-BLACK", "Đá granite đen 20", Stone, 20.0, false, "#2f3136"),
     ]
 }

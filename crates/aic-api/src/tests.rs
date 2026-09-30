@@ -1039,3 +1039,35 @@ fn base_types_plinth3_legs_hanging() {
     let c = call(&mut e, json!({"cmd": "get_costing"}));
     assert!(c.result["fittings"].as_array().unwrap().iter().any(|l| l["name"] == "Ke treo tủ"));
 }
+
+#[test]
+fn run_countertop_follows_cabinets_one_undo() {
+    let mut e = Engine::new();
+    let mut ids = Vec::new();
+    for (x, w) in [(0.0, 800.0), (800.0, 600.0), (1400.0, 900.0)] {
+        let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "position": [x, 0, 0], "overrides": {"width": w, "plinth_height": 100}}));
+        ids.push(serde_json::from_value::<ObjectId>(r.result["id"].clone()).unwrap());
+    }
+    let r = call(&mut e, json!({"cmd": "create_run", "ids": ids, "rules": {"countertop": true, "continuous_plinth": true, "filler_right": 50}}));
+    assert!(r.ok, "{:?}", r.error);
+    let part = |e: &Engine, name: &str| e.doc.objects.values().filter_map(|o| o.as_panel()).find(|p| p.name == name).map(|p| (p.width_mm, p.height_mm, p.thickness_mm));
+    assert_eq!(part(&e, "MặtĐá"), Some((2350.0, 620.0, 20.0)));
+    assert_eq!(part(&e, "LenChânDãy").map(|p| p.0), Some(2350.0));
+    assert!(part(&e, "TấmLấpPhải").is_some());
+    // Tủ trong dãy bỏ len riêng.
+    assert!(!e.doc.cabinet_layout(ids[0]).unwrap().parts.iter().any(|p| p.name == "ChânTủ"));
+    // Đổi rộng tủ giữa (đẩy dãy): mặt đá tự dài ra, một bước undo.
+    let r = call(&mut e, json!({"cmd": "resize_cabinet", "id": ids[1], "name": "width", "value": 700, "stretch": "KEEP"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(part(&e, "MặtĐá").map(|p| p.0), Some(2450.0));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(part(&e, "MặtĐá").map(|p| p.0), Some(2350.0));
+    assert_eq!(e.doc.param_value(ids[1], "width"), Some(600.0));
+    // Sửa luật: bỏ mặt đá; xóa dãy trả lại len riêng.
+    let r = call(&mut e, json!({"cmd": "update_run", "name": "Dãy 1", "rules": {"countertop": false, "continuous_plinth": true}}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(part(&e, "MặtĐá").is_none());
+    call(&mut e, json!({"cmd": "delete_run", "name": "Dãy 1"}));
+    assert!(part(&e, "LenChânDãy").is_none());
+    assert!(e.doc.cabinet_layout(ids[0]).unwrap().parts.iter().any(|p| p.name == "ChânTủ"));
+}

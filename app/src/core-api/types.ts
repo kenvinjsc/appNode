@@ -130,7 +130,7 @@ export interface RenderBatch {
 export interface Material {
   id: string;
   name: string;
-  kind: 'MDF' | 'PLYWOOD' | 'PARTICLEBOARD' | 'HDF' | 'SOLID_WOOD';
+  kind: 'MDF' | 'PLYWOOD' | 'PARTICLEBOARD' | 'HDF' | 'SOLID_WOOD' | 'STONE';
   thickness_mm: number;
   has_grain: boolean;
   sheet_width_mm: number;
@@ -475,4 +475,26 @@ export interface StructureInfo {
   tabs: { key: string; title: string; fields: StructureField[]; presets: string[] }[];
   /** Chuẩn xưởng đã lưu (mẫu gộp mọi tab, nhóm "all"). */
   standards: string[];
+}
+
+// ---- Dãy tủ ----
+export interface RunRules {
+  countertop: boolean;
+  top_thickness: number;
+  overhang_front: number;
+  overhang_left: number;
+  overhang_right: number;
+  top_material: string;
+  continuous_plinth: boolean;
+  plinth_setback: number;
+  filler_left: number;
+  filler_right: number;
+  ceiling: number;
+}
+
+export interface RunDef {
+  name: string;
+  cabinets: ObjectId[];
+  rules: RunRules;
+  parts: ObjectId[];
 }

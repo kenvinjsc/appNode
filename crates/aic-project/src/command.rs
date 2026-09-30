@@ -67,6 +67,8 @@ pub enum Command {
     SetTemplate { name: String, template: Option<Box<crate::document::CabinetTemplate>> },
     /// Add / replace / remove (None) a rule preset by name.
     SetRulePreset { name: String, preset: Option<crate::document::RulePreset> },
+    /// Tạo / sửa / xóa định nghĩa một dãy tủ (các tấm dãy đi bằng Create/DeletePanel).
+    SetRun { name: String, run: Option<crate::document::RunDef> },
     Batch { label: String, commands: Vec<Command> },
 }
 
@@ -94,6 +96,7 @@ impl Command {
             Command::SetPrice { .. } => "Đơn giá",
             Command::SetTemplate { .. } => "Template",
             Command::SetRulePreset { .. } => "Rule preset",
+            Command::SetRun { .. } => "Dãy tủ",
         }
     }
 
@@ -367,6 +370,15 @@ impl Command {
                 }
                 doc.mark_settings();
                 Ok(Command::SetRulePreset { name, preset: old })
+            }
+            Command::SetRun { name, run } => {
+                let list = &mut doc.settings.runs;
+                let old = list.iter().position(|t| t.name == name).map(|i| list.remove(i));
+                if let Some(r) = run {
+                    list.push(r);
+                }
+                doc.mark_settings();
+                Ok(Command::SetRun { name, run: old })
             }
             Command::Batch { label, commands } => {
                 let mut inverses = Vec::new();

@@ -429,6 +429,21 @@ export function ContextMenu() {
           {item('shelf', 'Dựng chi tiết (Tạo tấm)…', () => set({ designerTab: 'create' }))}
           {item('edit', 'Sửa kích thước…', () => set({ designerTab: 'edit' }))}
           {item('settings', 'Thuộc tính kết cấu (hậu, giằng, len chân…)', () => set({ structureOf: id }))}
+          {item('cabinet', 'Tạo dãy tủ (mặt đá, len chân liền, tấm lấp)…', () => {
+            const cabs = useUi.getState().selection.filter((s) => findNode(tree, s)?.node.kind === 'CABINET');
+            void Commands.createRun(cabs.length ? cabs : [id])
+              .then((r) => set({ runOf: r.name }))
+              .catch(() => undefined);
+          })}
+          {item('settings', 'Dãy tủ của tủ này…', () =>
+            void Commands.getRuns()
+              .then((r) => {
+                const run = r.runs.find((x) => x.cabinets.includes(id));
+                if (run) set({ runOf: run.name });
+                else useUi.getState().toast({ kind: 'info', title: 'Tủ này chưa thuộc dãy nào', detail: 'Chọn các tủ liền nhau → chuột phải → Tạo dãy tủ.' });
+              })
+              .catch(() => undefined),
+          )}
           {item('mirror', 'Lật gương trái ↔ phải', () => void Commands.mirrorCabinet(id).catch(() => undefined))}
           {item('duplicate', 'Nhân dãy tủ sang phải…', () =>
             set({ prompt: { title: 'Nhân dãy tủ', label: 'Số tủ thêm (đặt liền bên phải)', value: '1', ok: (v) => void Commands.arrayCabinet(id, Math.max(1, Math.round(Number(v)) || 1), 0, 0).catch(() => undefined) } }),

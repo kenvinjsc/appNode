@@ -589,3 +589,5 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .split-help code { background: #fff4e6; color: #d9480f; padding: 0 3px; border-radius: 3px; }
 .struct-std { background: #fff4e6; border-bottom: 1px solid #ffd8a8; padding-top: 6px; }
 .struct-std b { color: #d9480f; white-space: nowrap; }
+.run-dlg { right: 360px; top: 190px; }
+.run-dlg .btn.danger { margin-top: 8px; color: #c92a2a; border-color: #ffc9c9; }

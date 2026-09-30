@@ -14,6 +14,7 @@ pub struct CabinetOverrides {
     pub height: Option<f64>,
     pub depth: Option<f64>,
     pub thickness: Option<f64>,
+    pub plinth_height: Option<f64>,
     pub shelves: Option<u32>,
     pub doors: Option<u32>,
     pub drawers: Option<u32>,
@@ -239,6 +240,15 @@ pub enum Request {
     DeleteTemplate { name: String },
     /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
     GetStructure { cabinet: ObjectId },
+    /// Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần sinh theo các tủ đã chọn.
+    CreateRun {
+        ids: Vec<ObjectId>,
+        #[serde(default)]
+        rules: Option<aic_domain::run::RunRules>,
+    },
+    UpdateRun { name: String, rules: aic_domain::run::RunRules },
+    DeleteRun { name: String },
+    GetRuns,
     SaveGroupPreset { cabinet: ObjectId, group: String, name: String },
     ApplyGroupPreset { ids: Vec<ObjectId>, group: String, name: String },
     DeleteGroupPreset { group: String, name: String },

@@ -281,6 +281,14 @@ Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ
 Khi bật **Hàng lỗ hệ 32** + **Kéo kệ bắt vào lỗ**: mọi kệ di động (thêm mới, kéo, nhập số, chia khoang) tự nằm
 trên lỗ gần nhất (lệch tối đa nửa bước lỗ), nên kích thước khoang hiển thị là kích thước thật khi lắp.
 
+## 4j. Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần
+
+- Chọn các tủ liền nhau (Ctrl+click) → chuột phải → **Tạo dãy tủ**. Mặc định có **mặt đá** 20 mm phủ cả dãy, nhô trước 20.
+- Bảng **Dãy tủ**: vật liệu mặt (đá thạch anh trắng / granite đen…), dày, nhô trước / trái / phải; **len chân liền cả dãy**
+  (tủ trong dãy tự bỏ len riêng); **tấm lấp** trái / phải (mm); **cao độ trần** → tấm che trần từ đỉnh dãy lên trần.
+- Đổi rộng / cao / sâu hay dời tủ trong dãy: mặt đá, len chân, tấm lấp **tự sinh lại** trong cùng một bước undo.
+- Chuột phải tủ → **Dãy tủ của tủ này…** để mở lại bảng; **Xóa dãy** bỏ các tấm dãy và trả lại len chân riêng.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 

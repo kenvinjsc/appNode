@@ -36,6 +36,22 @@ pub struct ProjectSettings {
     /// Rule presets saved by the user (built-in ones live in code).
     #[serde(default)]
     pub presets: Vec<RulePreset>,
+    /// Dãy tủ (mặt đá, len chân liền, tấm lấp, che trần).
+    #[serde(default)]
+    pub runs: Vec<RunDef>,
+}
+
+/// Một dãy tủ: tủ thuộc dãy, luật và các tấm dãy đã sinh (tấm rời trong cây).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunDef {
+    pub name: String,
+    pub cabinets: Vec<ObjectId>,
+    pub rules: aic_domain::run::RunRules,
+    #[serde(default)]
+    pub parts: Vec<ObjectId>,
+    /// Hộp bao các tủ lúc sinh tấm dãy lần cuối (để biết khi nào cần sinh lại).
+    #[serde(default)]
+    pub sig: Vec<[f64; 6]>,
 }
 
 /// Template tủ: the logical definition (zones, bays, fronts, mods, rules, materials)
@@ -86,6 +102,7 @@ impl Default for ProjectSettings {
             prices: default_prices(),
             screws: ScrewRule::default(),
             templates: Vec::new(),
+            runs: Vec::new(),
             presets: Vec::new(),
         }
     }

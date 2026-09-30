@@ -29,6 +29,11 @@ impl History {
         self.undo.len()
     }
 
+    /// Nhãn của bước undo thứ `i` (0 = cũ nhất).
+    pub fn label_at(&self, i: usize) -> Option<String> {
+        self.undo.get(i).map(|(l, _)| l.clone())
+    }
+
     /// Merge every step since `mark` into one undo step (multi-edit = one Ctrl+Z).
     pub fn squash(&mut self, mark: usize, label: &str) {
         if self.undo.len() <= mark + 1 {

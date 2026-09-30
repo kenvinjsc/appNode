@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -35,6 +35,10 @@ export const Commands = {
   createCabinet: (kind: CabinetKind, position: Vec3 | null, overrides: Record<string, unknown> = {}, extra: { parent?: ObjectId; name?: string; room?: string; floor?: string; after?: ObjectId } = {}) =>
     command<{ id: ObjectId }>({ cmd: 'create_cabinet', kind, position: position ?? undefined, overrides, ...extra }),
   /** Chia khoang theo công thức (`500`, `500,300`, `30%,*`, `3*400`, `/3`). */
+  createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
+  updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
+  deleteRun: (name: string) => command({ cmd: 'delete_run', name }),
+  getRuns: () => command<{ runs: RunDef[] }>({ cmd: 'get_runs' }),
   splitZone: (p: { cabinet: ObjectId; zone: number; kind: SplitKind; formula: string; from_end: boolean }) => command<{ uids: number[] }>({ cmd: 'split_zone', ...p }),
   zoneAddPanels: (p: { cabinet: ObjectId; zones: number[]; kind: SplitKind; count: number; thickness?: number; lock: Lock; value: number; tilt_deg?: [number, number] }) =>
     command<{ uids: number[] }>({ cmd: 'zone_add_panels', ...p }),

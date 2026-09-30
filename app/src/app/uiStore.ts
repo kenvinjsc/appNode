@@ -88,6 +88,8 @@ interface UiState {
   stretchMode: 'KEEP' | 'PROPORTIONAL' | 'EDGE';
   /** Bảng Thuộc tính kết cấu đang mở cho tủ này. */
   structureOf: ObjectId | null;
+  /** Bảng Dãy tủ đang mở (tên dãy). */
+  runOf: string | null;
   renaming: ObjectId | null;
   cursor: [number, number, number] | null;
   mfgPanel: ObjectId | null;
@@ -155,6 +157,7 @@ export const useUi = create<UiState>((set, get) => ({
   zoneMenu: null,
   prompt: null,
   splitTool: null,
+  runOf: null,
   resizeMode: 'constrained',
   stretchMode: 'PROPORTIONAL',
   structureOf: null,
