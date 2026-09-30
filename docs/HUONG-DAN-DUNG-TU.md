@@ -208,6 +208,12 @@ phần phía trước mặt cắt được bỏ đi.
   Kệ, cánh, ngăn kéo (cả chiều cao từng ngăn khi đổi chiều cao) tự dãn theo khoang — không phải chỉnh tay.
 - Tủ đứng liền trong cùng dãy tự dịch theo.
 
+**Nhập số khi kéo** (tay kéo W/H/D 3D, kéo vách/kệ, đường chia ngăn kéo, cạnh tấm trên 2D):
+- Đang giữ chuột kéo mà gõ số → dùng đúng số đó (nhãn hiện `1800▌ mm`).
+- Thả chuột → ô nhập mở ngay tại chỗ, điền sẵn giá trị vừa kéo; gõ số chính xác rồi **Enter** (hoặc bấm ra
+  ngoài) để áp, **Esc** để hủy. Kéo vách/kệ: số là khoảng trống của khoang phía trước/dưới tấm; kéo cạnh tấm: số là
+  kích thước mới của tấm.
+
 ## 4f. Thuộc tính kết cấu và mẫu dùng lại
 ![Hậu](screenshots/12-thuoc-tinh-hau.png) ![Thanh giằng](screenshots/13-thuoc-tinh-giang.png)
 

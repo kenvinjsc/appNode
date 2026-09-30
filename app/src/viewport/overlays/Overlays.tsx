@@ -7,6 +7,7 @@ import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import { Queries, transformOf } from '../../core-api/queries';
 import type { AssemblyRelation, ObjectId, SnapHint, Vec3 } from '../../core-api/types';
+import { listenTyped, typedNumber, ValueBox } from '../../shared/typedValue';
 import { CONTACT_LABEL, ORIENT_LABEL, REGION_LABEL, fmt } from '../../shared/i18n';
 import type { ViewportEngine } from '../renderer/ViewportEngine';
 import { expandSubtrees, useSceneRevision } from '../viewportBus';
@@ -274,7 +275,9 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
   useFrame(engine);
   const rev = useSceneRevision((s) => s.rev);
   const [frame, setFrame] = useState<{ world: THREE.Matrix4; dims: { width: number; height: number; depth: number } } | null>(null);
-  const [drag, setDrag] = useState<{ key: 'width' | 'height' | 'depth'; value: number } | null>(null);
+  const [drag, setDrag] = useState<{ key: 'width' | 'height' | 'depth'; value: number; typed?: string } | null>(null);
+  // After the drag: exact value box at the handle (pre-filled with the dragged value).
+  const [pending, setPending] = useState<{ key: 'width' | 'height' | 'depth'; value: number; start: number } | null>(null);
   useEffect(() => {
     let alive = true;
     Promise.all([transformOf(id), Queries.properties(id)])
@@ -292,6 +295,7 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
   if (!frame) return null;
   const dims = { ...frame.dims };
   if (drag) dims[drag.key] = drag.value;
+  if (pending) dims[pending.key] = pending.value;
   const L = (x: number, y: number, z: number) => engine.toScreen(new THREE.Vector3(x, y, z).applyMatrix4(frame.world));
   const { width: w, height: h, depth: d } = dims;
   const handles: { key: 'width' | 'height' | 'depth'; p: P; label: string }[] = [
@@ -312,7 +316,17 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
     const sx = e.clientX;
     const sy = e.clientY;
     let value = start;
+    let typed = '';
+    setPending(null);
+    // Digits typed while dragging give the exact value.
+    const stopTyping = listenTyped((t) => {
+      typed = t;
+      const v = typedNumber(t);
+      if (v !== null && v > 0) value = v;
+      setDrag({ key, value, typed: t });
+    });
     const move = (ev: PointerEvent) => {
+      if (typed) return;
       const mm = (((ev.clientX - sx) * ax.x + (ev.clientY - sy) * ax.y) / pxPer100 / pxPer100) * 100;
       value = Math.max(50, Math.round((start + mm) / 5) * 5);
       setDrag({ key, value });
@@ -320,8 +334,10 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      stopTyping();
       setDrag(null);
-      if (value !== start) void Commands.resizeCabinet(id, key, value, useUi.getState().stretchMode, 'END').catch(() => undefined);
+      // Open the exact-value box (Enter / click away = apply, Esc = cancel).
+      if (value !== start) setPending({ key, value, start });
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -348,13 +364,30 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
               <g transform={`translate(${hd.p.x + 12} ${hd.p.y - 26})`}>
                 <rect width={86} height={22} rx={4} className="handle-tag" />
                 <text x={43} y={15} textAnchor="middle" className="handle-tag-text">
-                  {fmt(drag.value, 0)} mm
+                  {drag.typed ? `${drag.typed}▌` : fmt(drag.value, 0)} mm
                 </text>
               </g>
             )}
           </g>
         ) : null,
       )}
+      {pending &&
+        (() => {
+          const hd = handles.find((x) => x.key === pending.key);
+          if (!hd || !hd.p.visible) return null;
+          return (
+            <ValueBox
+              x={hd.p.x + 60}
+              y={hd.p.y - 24}
+              value={pending.value}
+              onDone={(v) => {
+                const p = pending;
+                setPending(null);
+                if (v !== null && v > 0 && v !== p.start) void Commands.resizeCabinet(id, p.key, v, useUi.getState().stretchMode, 'END').catch(() => undefined);
+              }}
+            />
+          );
+        })()}
     </g>
   );
 }

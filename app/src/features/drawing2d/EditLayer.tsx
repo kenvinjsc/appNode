@@ -7,6 +7,7 @@ import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import type { BayInfo, BayMode, FrontBay, ObjectId, PanelSide, Vec3, ZonesInfo } from '../../core-api/types';
 import { fmt } from '../../shared/i18n';
+import { listenTyped, typedNumber, ValueBox } from '../../shared/typedValue';
 import type { Item } from './Drawing2D';
 
 interface Rect {
@@ -51,7 +52,14 @@ interface Drag {
 
 export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: Item[]; unit: number; svg: SVGSVGElement | null }) {
   const { pinned, set, select, selection, tree, resizeMode } = useUi();
-  type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number };
+  type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number; size0: number };
+  // Exact value box opened where a drag ended (Enter / click away = apply, Esc = cancel).
+  const [pend, setPend] = useState<{ x: number; y: number; value: number; commit: (v: number) => void } | null>(null);
+  const typing = useRef<(() => void) | null>(null);
+  const stopTyping = () => {
+    typing.current?.();
+    typing.current = null;
+  };
   const [edrag, setEdrag] = useState<EDrag | null>(null);
   const edragRef = useRef<EDrag | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
@@ -239,6 +247,15 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               const d = { uid, index: i, base: f.size, total: f.size + next.size, from: toSvg(e).y, before: f.size, moved: false };
               fdragRef.current = d;
               setFdrag(d);
+              setPend(null);
+              typing.current = listenTyped((t) => {
+                const cur = fdragRef.current;
+                const v = typedNumber(t);
+                if (!cur || v === null) return;
+                const n2 = { ...cur, before: Math.min(Math.max(v, 1), cur.total - 1), moved: true };
+                fdragRef.current = n2;
+                setFdrag(n2);
+              });
             }}
             onPointerMove={(e) => {
               const d = fdragRef.current;
@@ -252,11 +269,19 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               fdragRef.current = n2;
               setFdrag(n2);
             }}
-            onPointerUp={() => {
+            onPointerUp={(e) => {
               const d = fdragRef.current;
               fdragRef.current = null;
               setFdrag(null);
-              if (d && d.moved && Math.abs(d.before - d.base) > 0.01) void Commands.moveDrawerDivider(info.cabinet, d.uid, d.index, d.before).catch(() => undefined);
+              stopTyping();
+              if (!d || !d.moved) return;
+              const p = toSvg(e);
+              setPend({
+                x: p.x + unit * 6,
+                y: p.y,
+                value: d.before,
+                commit: (v) => Math.abs(v - d.base) > 0.01 && void Commands.moveDrawerDivider(info.cabinet, d.uid, d.index, v).catch(() => undefined),
+              });
             }}
           >
             <title>Kéo để đổi chiều cao 2 ngăn kề (Shift: bước 10 mm)</title>
@@ -293,9 +318,20 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
           e.stopPropagation();
           (e.target as Element).setPointerCapture(e.pointerId);
           const p = toSvg(e);
-          const v: EDrag = { id: it.id, side, from: side === 'LEFT' || side === 'RIGHT' ? p.x : p.y, delta: 0 };
+          const size0 = side === 'LEFT' || side === 'RIGHT' ? it.x1 - it.x0 : it.y1 - it.y0;
+          const v: EDrag = { id: it.id, side, from: side === 'LEFT' || side === 'RIGHT' ? p.x : p.y, delta: 0, size0 };
           edragRef.current = v;
           setEdrag(v);
+          setPend(null);
+          // Typed digits = the panel's new size along that side.
+          typing.current = listenTyped((t) => {
+            const cur = edragRef.current;
+            const n = typedNumber(t);
+            if (!cur || n === null) return;
+            const nv = { ...cur, delta: n - cur.size0 };
+            edragRef.current = nv;
+            setEdrag(nv);
+          });
         }}
         onPointerMove={(e) => {
           const v = edragRef.current;
@@ -309,15 +345,22 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
           edragRef.current = n;
           setEdrag(n);
         }}
-        onPointerUp={() => {
+        onPointerUp={(e) => {
           const v = edragRef.current;
           edragRef.current = null;
           setEdrag(null);
-          if (v && Math.abs(v.delta) > 0.01) {
-            // 2D "bottom" is −Y in the cabinet: map svg sides to cabinet sides.
-            const side3: PanelSide = v.side === 'TOP' ? 'TOP' : v.side === 'BOTTOM' ? 'BOTTOM' : v.side;
-            void Commands.resizePanelSide(v.id, side3, v.delta, resizeMode === 'constrained').catch(() => undefined);
-          }
+          stopTyping();
+          if (!v || Math.abs(v.delta) < 0.01) return;
+          const p = toSvg(e);
+          setPend({
+            x: p.x,
+            y: p.y - unit * 2.5,
+            value: v.size0 + v.delta,
+            commit: (size) => {
+              const delta = size - v.size0;
+              if (Math.abs(delta) > 0.01) void Commands.resizePanelSide(v.id, v.side, delta, resizeMode === 'constrained').catch(() => undefined);
+            },
+          });
         }}
       >
         <title>{`Kéo cạnh ${side === 'LEFT' ? 'trái' : side === 'RIGHT' ? 'phải' : side === 'TOP' ? 'trên' : 'dưới'} (${resizeMode === 'constrained' ? 'giữ ràng buộc' : 'tự do'}; Shift: bước 10 mm)`}</title>
@@ -367,6 +410,16 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               const d: Drag = { id, axis, base: pos.cell_before, total: pos.cell_before + pos.cell_after, from: axis === 0 ? p.x : p.y, before: pos.cell_before, moved: false };
               dragRef.current = d;
               setDrag(d);
+              setPend(null);
+              // Typed digits = the clear size of the bay before the panel.
+              typing.current = listenTyped((t) => {
+                const cur = dragRef.current;
+                const v = typedNumber(t);
+                if (!cur || v === null) return;
+                const n2 = { ...cur, before: Math.min(Math.max(v, 1), cur.total - 1), moved: true };
+                dragRef.current = n2;
+                setDrag(n2);
+              });
             }}
             onPointerMove={(e) => {
               const d = dragRef.current;
@@ -386,12 +439,19 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
               const d = dragRef.current;
               dragRef.current = null;
               setDrag(null);
+              stopTyping();
               if (!d) return;
               if (!d.moved) {
                 select([id], e.ctrlKey ? 'toggle' : 'replace');
                 return;
               }
-              if (Math.abs(d.before - d.base) > 0.01) void Commands.moveSplitPanel(id, d.before).catch(() => undefined);
+              const p = toSvg(e);
+              setPend({
+                x: p.x + (d.axis === 0 ? 0 : unit * 6),
+                y: p.y - (d.axis === 0 ? unit * 3 : 0),
+                value: d.before,
+                commit: (v) => Math.abs(v - d.base) > 0.01 && void Commands.moveSplitPanel(id, v).catch(() => undefined),
+              });
             }}
           >
             <title>{axis === 0 ? 'Kéo ngang để dời vách (Shift: bước 10 mm)' : 'Kéo dọc để dời kệ (Shift: bước 10 mm)'}</title>
@@ -435,6 +495,21 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
       {chains}
       {fronts}
       {edges}
+      {pend && (
+        <ValueBox
+          x={pend.x}
+          y={pend.y}
+          w={unit * 14}
+          h={unit * 3.6}
+          fontSize={unit * 2}
+          value={pend.value}
+          onDone={(v) => {
+            const p = pend;
+            setPend(null);
+            if (v !== null && v > 0) p.commit(v);
+          }}
+        />
+      )}
       {/* Cabinet W / H (editable). */}
       <g className="d2e-cab">
         <line x1={cab.x0} y1={cab.y0 - unit * 2.5} x2={cab.x1} y2={cab.y0 - unit * 2.5} markerStart="url(#d2a)" markerEnd="url(#d2a)" />
