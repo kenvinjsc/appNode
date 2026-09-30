@@ -1,6 +1,6 @@
 # Trạng thái & việc tiếp theo
 
-Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUONG-DAN-DUNG-TU.md).
+Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUONG-DAN-DUNG-TU.md). Kịch bản test: [KICH-BAN-TEST.md](KICH-BAN-TEST.md) (`cd app && npm run e2e`).
 
 ## Đã xong
 

@@ -19,6 +19,7 @@ cargo test --workspace && cargo clippy --workspace --all-targets
 cargo run -p aic-dev-server --release          # core cho trình duyệt, :8787
 cd app && npm run dev                          # UI :5173 (proxy /api)
 cd app && npm test && npm run typecheck && npm run build
+cd app && npm run e2e                          # kịch bản E2E (docs/KICH-BAN-TEST.md), tự bật core + Vite
 cd app/src-tauri && cargo check                # vỏ desktop (cần WebKitGTK)
 ```
 UI viết tiếng Việt, gọn, sáng, nhấn màu cam `#e8590c`, icon SVG trong `app/src/shared/icons.tsx` (không dùng emoji).
