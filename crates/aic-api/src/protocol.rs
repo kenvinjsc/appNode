@@ -145,7 +145,14 @@ pub enum Request {
     /// Tủ góc bếp L mù: phần mù (tấm cố định) phía góc, phần cánh phía ngoài.
     CreateCorner {
         /// LEFT = góc bên trái (phần mù bên trái), RIGHT = góc bên phải.
+        /// Tủ góc chéo: bản lề trái (LEFT) / phải (RIGHT).
         hand: String,
+        /// `BLIND` (mặc định, L mù) hoặc `DIAGONAL` (góc chéo).
+        #[serde(default)]
+        kind: Option<String>,
+        /// Tủ góc treo (bếp trên).
+        #[serde(default)]
+        wall: bool,
         #[serde(default)]
         width: Option<f64>,
         #[serde(default)]

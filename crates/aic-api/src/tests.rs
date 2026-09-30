@@ -1233,3 +1233,42 @@ fn material_sets_apply_to_a_room_one_undo() {
     let r = call(&mut e, json!({"cmd": "apply_material_set", "ids": [ids[0]], "name": "không có"}));
     assert!(!r.ok);
 }
+
+#[test]
+fn diagonal_corner_cabinet_pentagon_panels_and_45_degree_door() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_corner", "hand": "LEFT", "kind": "DIAGONAL", "width": 900, "depth": 580}));
+    assert!(r.ok, "{:?}", r.error);
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    let part = |name: &str| l.parts.iter().find(|p| p.name.starts_with(name)).unwrap_or_else(|| panic!("{name}"));
+    // Đáy / nóc / kệ 5 cạnh.
+    for n in ["Đáy", "Nóc", "KệCốĐịnh"] {
+        match &part(n).kind {
+            aic_domain::PartKind::Panel { features, .. } => assert!(features.iter().any(|f| matches!(f, aic_domain::MachiningFeature::Contour(c) if !c.inner && c.polygon.points.len() == 5)), "{n}"),
+            _ => panic!(),
+        }
+    }
+    // Cánh chéo 45°, rộng = √2 × (900 − 580) − 2 khe.
+    let door = part("CửaChéo");
+    assert_eq!(door.rotation_deg, [0.0, 45.0, 0.0]);
+    let gap = e.doc.param_value(cab, "door_gap").unwrap();
+    assert!((door.size[0] - (2f64.sqrt() * 320.0 - 2.0 * gap)).abs() < 1e-6);
+    assert!(l.fittings.hinges >= 2);
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("Hậu")).count(), 2, "two backs against the walls");
+    // Bảng kết cấu có tab Tủ góc chéo; đổi số kệ.
+    let s = call(&mut e, json!({"cmd": "get_structure", "cabinet": cab}));
+    assert_eq!(s.result["tabs"][0]["key"], "diagonal");
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "dg_shelves", "value": "2"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.cabinet_layout(cab).unwrap().parts.iter().filter(|p| p.name.starts_with("KệCốĐịnh")).count(), 2);
+    // Danh sách cắt có đường bao.
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(c.result["cut_list"].as_array().unwrap().iter().any(|r| r["name"] == "Đáy" && r["machining"].as_array().unwrap().iter().any(|m| m.as_str().unwrap().contains("Đường bao"))));
+    // Sâu tay quá lớn → từ chối; một undo xóa tủ.
+    let r = call(&mut e, json!({"cmd": "create_corner", "hand": "LEFT", "kind": "DIAGONAL", "width": 700, "depth": 600}));
+    assert!(!r.ok);
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(!e.doc.objects.contains_key(&cab));
+}

@@ -94,7 +94,19 @@ impl Engine {
             aic_domain::structure::SlideType::Undermount => "UNDERMOUNT",
             aic_domain::structure::SlideType::Tandem => "TANDEM",
         };
-        Ok(vec![
+        let mut extra = Vec::new();
+        if let Some(dg) = &r.diagonal {
+            extra.push((
+                "diagonal".to_string(),
+                "Tủ góc chéo".to_string(),
+                vec![
+                    num("dg_shelves", "Số kệ 5 cạnh", dg.shelves as f64),
+                    num("dg_shelf_setback", "Kệ lùi sau cánh", dg.shelf_setback),
+                    flag("dg_hinge_left", "Bản lề bên trái", dg.hinge_left),
+                ],
+            ));
+        }
+        let mut tabs = vec![
             ("general".into(), "Thông số chung".into(), vec![num("width", "Rộng", p("width")), num("height", "Cao", p("height")), num("depth", "Sâu", p("depth")), num("thickness", "Dày ván", p("thickness"))]),
             (
                 "joints".into(),
@@ -245,7 +257,9 @@ impl Engine {
                     num("s_slide_margin", "Ray ngắn hơn sâu khoang", sh.slide_margin),
                 ],
             ),
-        ])
+        ];
+        tabs.splice(0..0, extra);
+        Ok(tabs)
     }
 
     pub(crate) fn get_structure(&self, cab: ObjectId) -> Result<Value, CoreError> {

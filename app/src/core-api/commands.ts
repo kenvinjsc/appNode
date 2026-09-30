@@ -37,6 +37,8 @@ export const Commands = {
   /** Chia khoang theo công thức (`500`, `500,300`, `30%,*`, `3*400`, `/3`). */
   /** Tủ góc bếp L mù (phần mù phía góc + 1 cánh). */
   createCorner: (hand: 'LEFT' | 'RIGHT', after?: ObjectId, width?: number, door_width?: number) => command<{ id: ObjectId }>({ cmd: 'create_corner', hand, after, width, door_width }),
+  /** Tủ góc chéo (mặt cánh xiên 45°), bếp dưới hoặc bếp trên. */
+  createDiagonalCorner: (wall: boolean, after?: ObjectId) => command<{ id: ObjectId }>({ cmd: 'create_corner', kind: 'DIAGONAL', hand: 'LEFT', wall, after }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */

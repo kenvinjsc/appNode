@@ -452,10 +452,77 @@ impl<'a> Ctx<'a> {
 /// Build all parts of a cabinet.
 pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default() };
+    if let Some(dg) = cab.rules.diagonal.clone() {
+        diagonal_corner(&mut cx, &dg);
+        apply_mods(&mut cx.out, &cab.mods);
+        return cx.out;
+    }
     let root = carcass(&mut cx);
     zone(&mut cx, &cab.zones.root, root, 0);
     apply_mods(&mut cx.out, &cab.mods);
     cx.out
+}
+
+/// Đa giác (tọa độ local tấm) → feature đường bao ngoài.
+fn outline(pts: &[(f64, f64)], t: f64) -> MachiningFeature {
+    MachiningFeature::Contour(crate::ContourFeature {
+        polygon: aic_math::Polygon2D::new(pts.iter().map(|(x, y)| aic_math::Point2::new(*x, *y)).collect()),
+        inner: false,
+        depth: t,
+    })
+}
+
+/// Tủ góc chéo (mặt bằng): góc tường ở (x = 0, z = 0), hai tường theo trục x và z, dài `w`;
+/// hai hồi vuông góc tường ở hai đầu (sâu `d`), mặt cánh chéo từ (w, d) tới (d, w).
+/// Nóc / đáy / kệ là tấm 5 cạnh (đường bao ngoài), cánh xoay 45° quanh trục đứng.
+fn diagonal_corner(cx: &mut Ctx, dg: &crate::structure::DiagonalCorner) {
+    let v = cx.v;
+    let (w, h, d, t, bt, p) = (v.width, v.height, v.depth.min(v.width - 150.0).max(200.0), v.thickness, v.back_thickness, v.plinth_height);
+    let hi = h - p - 2.0 * t;
+    // Hồi phải (đầu dãy tường x) và hồi trái (đầu dãy tường z), đặt trên đáy, dưới nóc.
+    cx.panel("c:right".into(), "HồiPhải".into(), PanelRole::RightSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, hi, t], [w - t, p + t, d], ROT_SIDE);
+    cx.panel("c:left".into(), "HồiTrái".into(), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, hi, t], [0.0, p + t, w - t], [0.0; 3]);
+    // Nóc / đáy 5 cạnh: tấm vuông w × w (local x = x, local y = w − z), cắt góc chéo.
+    let penta = [(0.0, 0.0), (d, 0.0), (w, w - d), (w, w), (0.0, w)];
+    let b = cx.panel("c:bottom".into(), "Đáy".into(), PanelRole::Bottom, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, w, t], [0.0, p, w], ROT_HORIZONTAL);
+    cx.add_features(b, vec![outline(&penta, t)]);
+    let top = cx.panel("c:top".into(), "Nóc".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, w, t], [0.0, h - t, w], ROT_HORIZONTAL);
+    cx.add_features(top, vec![outline(&penta, t)]);
+    // Hai hậu áp tường, giữa đáy và nóc.
+    if cx.cab.back_panel {
+        cx.panel("c:back".into(), "Hậu".into(), PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [w - t, hi, bt], [0.0, p + t, 0.0], [0.0; 3]);
+        cx.panel("c:back2".into(), "Hậu_02".into(), PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [w - t - bt, hi, bt], [0.0, p + t, w - t], ROT_SIDE);
+    }
+    // Kệ cố định 5 cạnh, lùi sau mặt cánh.
+    let (x0, x1) = (bt, w - t);
+    let s = dg.shelf_setback.max(0.0) * std::f64::consts::SQRT_2;
+    let diag = w + d - s; // x + z ≤ diag
+    let n = dg.shelves.min(8);
+    for i in 0..n {
+        let y = p + t + hi * (i + 1) as f64 / (n + 1) as f64 - t / 2.0;
+        let sz = x1 - x0;
+        // local (x − x0, x1 − z)
+        let pts = [(0.0, 0.0), (diag - x1 - x0, 0.0), (sz, sz - (diag - x1 - x0)), (sz, sz), (0.0, sz)];
+        let k = cx.next("KệCốĐịnh");
+        let idx = cx.panel(format!("p:dg{i}"), format!("KệCốĐịnh_{k:02}"), PanelRole::ShelfFixed, MaterialSlot::Carcass, GrainDirection::AlongWidth, [sz, sz, t], [x0, y, x1], ROT_HORIZONTAL);
+        cx.add_features(idx, vec![outline(&pts, t)]);
+    }
+    // Cánh chéo: mặt sau nằm trên đường x + z = w + d, local x chạy từ (d, w) tới (w, d).
+    let gap = cx.v.door_gap;
+    let dt = cx.v.door_thickness;
+    let len = std::f64::consts::SQRT_2 * (w - d) - 2.0 * gap;
+    let dh = h - p - 2.0 * gap;
+    let u = std::f64::consts::FRAC_1_SQRT_2;
+    let (sx, sz) = (d + gap * u, w - gap * u);
+    let hinge = if dg.hinge_left { HingeSide::Left } else { HingeSide::Right };
+    let door = cx.panel("d:dg".into(), "CửaChéo".into(), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [len, dh, dt], [sx, p + gap, sz], [0.0, 45.0, 0.0]);
+    let sr = cx.cab.rules.shop.clone();
+    cx.add_features(door, hinge_cups(&sr, len, dh, hinge));
+    if let PartKind::Panel { hinge: hs, .. } = &mut cx.out.parts[door].kind {
+        *hs = Some(to_edge(hinge));
+    }
+    cx.out.fittings.hinges += sr.hinge_count(dh);
+    cx.out.zones.push(ZoneBox { id: cx.cab.zones.root.id, min: [bt, p + t, bt], size: [w - t - bt, hi, w - t - bt], leaf: true, depth: 0, has_front: true });
 }
 
 /// Chân tủ: len chân (trước / 3 mặt), chân nhựa, ke treo.

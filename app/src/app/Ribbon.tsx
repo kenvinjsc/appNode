@@ -60,6 +60,21 @@ function CabinetMenu() {
               <Icon name="cabinet" size={16} /> Tủ góc L mù ({hand === 'LEFT' ? 'góc trái' : 'góc phải'})
             </button>
           ))}
+          {[false, true].map((wall) => (
+            <button
+              key={`dg${wall}`}
+              onClick={() => {
+                setOpen(false);
+                const s = useUi.getState();
+                const after = s.selection.find((id) => findNode(s.tree, id)?.node.kind === 'CABINET');
+                void Commands.createDiagonalCorner(wall, after)
+                  .then((r) => s.select([r.id]))
+                  .catch(() => undefined);
+              }}
+            >
+              <Icon name="cabinet" size={16} /> Tủ góc chéo ({wall ? 'bếp trên' : 'bếp dưới'})
+            </button>
+          ))}
         </div>
       )}
     </div>

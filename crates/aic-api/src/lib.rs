@@ -378,7 +378,41 @@ impl Engine {
             }
             MoveSplitPanel { id, before } => ok(self.move_split_panel(id, before)?),
             CreateRun { ids, rules } => ok(self.create_run(ids, rules)?),
-            CreateCorner { hand, width, height, depth, door_width, position, room, floor, after } => {
+            CreateCorner { hand, kind, wall, width, height, depth, door_width: _, position, room, floor, after } if kind.as_deref().is_some_and(|k| k.eq_ignore_ascii_case("DIAGONAL")) => {
+                let hinge_left = !hand.eq_ignore_ascii_case("RIGHT");
+                let w = width.unwrap_or(if wall { 600.0 } else { 900.0 });
+                let d = depth.unwrap_or(if wall { 320.0 } else { 580.0 });
+                if d > w - 150.0 {
+                    return Err(CoreError::ConstraintViolated { constraint: "CORNER_DIAGONAL".into(), message: format!("depth {d} in {w}") });
+                }
+                let (room, floor) = match after.and_then(|a| self.doc.objects.get(&a)).and_then(|o| o.as_cabinet()) {
+                    Some(c) => (room.or_else(|| Some(c.room.clone())), floor.or_else(|| Some(c.floor.clone()))),
+                    None => (room, floor),
+                };
+                let mark = self.history.mark();
+                let res = (|| -> Result<Value, CoreError> {
+                    let overrides = protocol::CabinetOverrides { width: Some(w), height, depth: Some(d), doors: Some(0), shelves: Some(0), ..Default::default() };
+                    let kind = if wall { aic_domain::CabinetKind::Wall } else { aic_domain::CabinetKind::Base };
+                    let r = self.handle(Request::CreateCabinet { kind, position, parent: None, overrides, name: Some(if wall { "BếpTrênGócChéo".into() } else { "BếpGócChéo".into() }), room, floor, after })?;
+                    let cab: ObjectId = serde_json::from_value(r["id"].clone()).map_err(|_| CoreError::NotFound { id: ObjectId(0) })?;
+                    self.edit_cabinet(cab, "Tủ góc chéo", |c| {
+                        c.rules.diagonal = Some(aic_domain::structure::DiagonalCorner { hinge_left, ..Default::default() });
+                        Ok(())
+                    })?;
+                    Ok(json!({ "id": cab }))
+                })();
+                match res {
+                    Ok(v) => {
+                        self.history.squash(mark, "Tủ góc chéo");
+                        ok(v)
+                    }
+                    Err(e) => {
+                        self.history.rollback(&mut self.doc, mark);
+                        Err(e)
+                    }
+                }
+            }
+            CreateCorner { hand, width, height, depth, door_width, position, room, floor, after, .. } => {
                 let left = match hand.to_ascii_uppercase().as_str() {
                     "LEFT" => true,
                     "RIGHT" => false,

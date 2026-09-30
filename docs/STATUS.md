@@ -22,7 +22,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D02 | Hàng lỗ chốt hệ 32, kệ di động bắt lỗ | hình học chỉ vẽ vòng tròn khi > 16 lỗ |
 | D04/D05 | Loại tay nắm (thanh/núm/push-open/không), khoan lỗ tay nắm, đế bản lề trên hồi; ray bi / âm / tandem | chưa: catalog phụ kiện riêng (ngăn kéo trong, mặt giả: đã có) |
 | D06 | Liên kết chốt gỗ / cam + chốt / vít / ke, lỗ thật theo tủ; báo giá đếm theo lỗ | khoan cạnh vẫn là cảnh báo CNC |
-| D07 | Tủ góc L mù (trái / phải) | chưa: góc chéo, mâm xoay |
+| D07 | Tủ góc L mù (trái / phải), tủ góc chéo (bếp dưới / trên, tấm 5 cạnh, cánh 45°) | chưa: mâm xoay, tay nắm cánh chéo |
 | D08 | Chân tủ: len trước / 3 mặt, chân nhựa (+ len kẹp), tủ treo | |
 | D09 | Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần; tự sinh lại khi tủ đổi | chưa khoét chậu / bếp trên mặt đá |
 | D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | bộ vật liệu (dựng sẵn + tự lưu, áp cả phòng), vật liệu VN (MFC, MFC lõi xanh, Acrylic, Laminate, Veneer) |

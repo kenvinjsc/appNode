@@ -300,6 +300,9 @@ trên lỗ gần nhất (lệch tối đa nửa bước lỗ), nên kích thư�
 - **Tủ góc L mù**: Trang đầu → **Tủ ▾ → Tủ góc L mù (góc trái / góc phải)**. Tủ 1100 có **tấm mù** cố định phía góc (không
   bản lề, không tay nắm) và **1 cánh 450** phía ngoài, mở ra phía ngoài góc. Chọn sẵn một tủ thì tủ góc đặt liền bên phải,
   cùng phòng / tầng. Có thể sửa rộng tủ, kéo đường chia giữa tấm mù và cánh trên 2D như khoang thường.
+- **Tủ góc chéo**: Tủ ▾ → **Tủ góc chéo (bếp dưới / bếp trên)**. Hai cạnh áp tường dài = Rộng (900 / 600), sâu tay = Sâu
+  (580 / 320); đáy, nóc, kệ là tấm 5 cạnh (có đường bao trong danh sách cắt, CNC), 2 hậu áp tường, cánh xiên 45° rộng
+  √2 × (Rộng − Sâu). Bảng kết cấu có tab **Tủ góc chéo**: số kệ, kệ lùi sau cánh, bản lề trái / phải.
 - Chuột phải tủ → **Dãy tủ của tủ này…** để mở lại bảng; **Xóa dãy** bỏ các tấm dãy và trả lại len chân riêng.
 
 ## 5. Tool (tab Tool bên trái)

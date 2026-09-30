@@ -46,3 +46,18 @@ test('TC-04.2 tủ góc L mù góc phải cạnh tủ đang chọn', async ({ pa
   const props = await api(page, { cmd: 'get_properties', id: cab });
   expect(JSON.stringify(props)).toContain('Bếp');
 });
+
+test('TC-06.10 tủ góc chéo bếp dưới: đáy / nóc 5 cạnh, cánh 45°, đổi số kệ', async ({ page }) => {
+  await freshSample(page);
+  await pick(page, 'BếpDưới03');
+  await page.getByText('Tủ ▾').click();
+  await page.getByText('Tủ góc chéo (bếp dưới)').click();
+  await expect.poll(() => countNamed(page, 'BếpGócChéo')).toBe(1);
+  const cab = await idOf(page, 'BếpGócChéo');
+  expect(await countNamed(page, 'CửaChéo', cab)).toBe(1);
+  expect(await countNamed(page, 'Hậu', cab)).toBe(2);
+  const s = await api(page, { cmd: 'get_structure', cabinet: cab });
+  expect(s.tabs[0].title).toBe('Tủ góc chéo');
+  await api(page, { cmd: 'set_parameter', id: cab, name: 'dg_shelves', value: '3' });
+  expect(await countNamed(page, 'KệCốĐịnh', cab)).toBe(3);
+});

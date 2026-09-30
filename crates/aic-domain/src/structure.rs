@@ -294,6 +294,24 @@ pub enum PricingMode {
     FacadeM2,
 }
 
+/// Tủ góc chéo: hai cạnh áp tường dài = rộng tủ, sâu tay = sâu tủ, mặt cánh xiên 45°.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DiagonalCorner {
+    /// Số kệ cố định 5 cạnh.
+    pub shelves: u32,
+    /// Bản lề phía trái (nhìn từ trước mặt cánh), ngược lại phải.
+    pub hinge_left: bool,
+    /// Kệ lùi so với mặt cánh.
+    pub shelf_setback: f64,
+}
+
+impl Default for DiagonalCorner {
+    fn default() -> Self {
+        Self { shelves: 1, hinge_left: true, shelf_setback: 20.0 }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StructureRules {
     #[serde(default)]
@@ -318,6 +336,9 @@ pub struct StructureRules {
     /// Cách báo giá tủ.
     #[serde(default)]
     pub pricing: PricingMode,
+    /// Tủ góc chéo (None = tủ hộp thường).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagonal: Option<DiagonalCorner>,
     /// Chuẩn xưởng (kệ, chốt, bản lề, tay nắm, ngăn kéo).
     #[serde(default)]
     pub shop: ShopRules,
@@ -329,7 +350,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, shop: ShopRules::default() }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default() }
     }
 }
 
