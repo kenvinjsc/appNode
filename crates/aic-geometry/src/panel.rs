@@ -115,7 +115,14 @@ fn rect_edges(m: &mut MeshData, x: f64, y: f64, w: f64, h: f64, z: f64, id: u32)
 pub fn build_panel_mesh<K: GeometryKernel>(k: &K, input: &PanelGeometryInput) -> Result<MeshData> {
     let [w, h, t] = input.size;
     let mut solid = k.make_box(w, h, t)?;
+    // Hàng lỗ chốt hệ 32 có hàng trăm lỗ Ø5: khoét bằng CSG rất chậm và không cần cho hiển thị,
+    // nên chỉ vẽ vòng tròn (dữ liệu khoan cho CNC không đổi).
+    let is_pin = |f: &MachiningFeature| matches!(f, MachiningFeature::Drill(d) if d.purpose == aic_domain::DrillPurpose::ShelfPin);
+    let skip_pins = input.features.iter().filter(|f| is_pin(f)).count() > 16;
     for (i, f) in input.features.iter().enumerate() {
+        if skip_pins && is_pin(f) {
+            continue;
+        }
         if let Some(tool) = feature_tool(k, f, input.size)? {
             let tool = k.tag_faces(&tool, face_ids::FEATURE_BASE + i as u32);
             solid = k.cut(&solid, &tool)?;

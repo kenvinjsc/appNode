@@ -473,4 +473,6 @@ export interface StructureInfo {
   name: string;
   rails_active: boolean;
   tabs: { key: string; title: string; fields: StructureField[]; presets: string[] }[];
+  /** Chuẩn xưởng đã lưu (mẫu gộp mọi tab, nhóm "all"). */
+  standards: string[];
 }

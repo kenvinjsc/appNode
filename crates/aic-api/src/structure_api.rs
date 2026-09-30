@@ -25,6 +25,32 @@ fn select(key: &str, label: &str, v: &str, opts: &[(&str, &str)]) -> Value {
     json!({ "key": key, "label": label, "kind": "select", "value": v, "options": opts.iter().map(|(v, l)| json!({ "value": v, "label": l })).collect::<Vec<_>>() })
 }
 
+/// Nhóm mẫu "Chuẩn xưởng": giá trị của mọi tab kết cấu.
+pub(crate) const SHOP_GROUP: &str = "all";
+
+/// Đặt một field `s_*` của chuẩn xưởng (kiểu lấy theo giá trị hiện có).
+pub(crate) fn set_shop_field(shop: &mut aic_domain::structure::ShopRules, key: &str, value: &str) -> Result<(), CoreError> {
+    let field = key.strip_prefix("s_").ok_or_else(|| bad(key, "not a shop field"))?;
+    let mut map = serde_json::to_value(&*shop).map_err(|e| bad(key, e.to_string()))?;
+    let obj = map.as_object_mut().ok_or_else(|| bad(key, "shop"))?;
+    let cur = obj.get(field).ok_or_else(|| bad(key, "unknown field"))?;
+    let v = value.trim();
+    let new = match cur {
+        Value::Bool(_) => Value::Bool(matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes")),
+        Value::Number(_) => {
+            let n: f64 = v.replace(',', ".").parse().map_err(|_| bad(key, "number"))?;
+            if !n.is_finite() || n < 0.0 {
+                return Err(bad(key, "must be ≥ 0"));
+            }
+            json!(n)
+        }
+        _ => Value::String(if field.starts_with("pin_row") || field.starts_with("handle_pos") { v.to_ascii_uppercase() } else { v.to_string() }),
+    };
+    obj.insert(field.to_string(), new);
+    *shop = serde_json::from_value(map).map_err(|_| bad(key, "invalid value"))?;
+    Ok(())
+}
+
 impl Engine {
     /// Tabs (key, title, fields) of the construction options of a cabinet.
     pub(crate) fn structure_tabs(&self, cab: ObjectId) -> Result<Vec<(String, String, Vec<Value>)>, CoreError> {
@@ -34,6 +60,14 @@ impl Engine {
         let st = |s: aic_domain::JoinStyle| format!("{s:?}").to_uppercase();
         let rail = |rs: &aic_domain::structure::RailSet| if rs.size > 0.0 { rs.size } else { p("rail_width") };
         let tr = &r.top_rails;
+        let sh = &r.shop;
+        let pin_row = if sh.pin_row == aic_domain::structure::PinRow::Row32 { "ROW_32" } else { "AT_SHELF" };
+        let handle_pos = match sh.handle_pos {
+            aic_domain::structure::HandlePos::Auto => "AUTO",
+            aic_domain::structure::HandlePos::Center => "CENTER",
+            aic_domain::structure::HandlePos::Top => "TOP",
+            aic_domain::structure::HandlePos::Bottom => "BOTTOM",
+        };
         Ok(vec![
             ("general".into(), "Thông số chung".into(), vec![num("width", "Rộng", p("width")), num("height", "Cao", p("height")), num("depth", "Sâu", p("depth")), num("thickness", "Dày ván", p("thickness"))]),
             (
@@ -84,7 +118,54 @@ impl Engine {
                 ],
             ),
             ("plinth".into(), "Len chân".into(), vec![num("plinth_height", "Cao chân", p("plinth_height")), num("plinth_setback", "Chân giật vào", r.plinth_setback)]),
-            ("shelves".into(), "Lùi đợt".into(), vec![num("shelf_setback", "Kệ di động lùi trước", p("shelf_setback"))]),
+            (
+                "shelves".into(),
+                "Kệ & chốt tầng".into(),
+                vec![
+                    num("shelf_setback", "Kệ di động lùi trước", p("shelf_setback")),
+                    num("s_shelf_clear", "Hở kệ mỗi bên", sh.shelf_clear),
+                    select("s_pin_row", "Lỗ chốt tầng", pin_row, &[("AT_SHELF", "Chỉ tại vị trí kệ"), ("ROW_32", "Hàng lỗ hệ 32")]),
+                    num("s_pin_edge", "Lỗ cách mép trước kệ", sh.pin_edge),
+                    num("s_pin_edge_back", "Lỗ cách mép sau", sh.pin_edge_back),
+                    num("s_pin_below", "Lỗ dưới mặt kệ", sh.pin_below),
+                    num("s_pin_d", "Đường kính lỗ", sh.pin_d),
+                    num("s_pin_depth", "Sâu lỗ", sh.pin_depth),
+                    section("Hàng lỗ hệ 32"),
+                    num("s_pin_pitch", "Bước lỗ", sh.pin_pitch),
+                    num("s_pin_start", "Lỗ đầu cách đáy khoang", sh.pin_start),
+                    num("s_pin_end", "Lỗ cuối cách nóc khoang", sh.pin_end),
+                    flag("s_pin_snap", "Kéo kệ bắt vào lỗ", sh.pin_snap),
+                ],
+            ),
+            (
+                "doors".into(),
+                "Cánh & tay nắm".into(),
+                vec![
+                    text("s_hinge_table", "Số bản lề theo cao cánh", &sh.hinge_table, "900=2, 1600=3, 4 → ≤900: 2 · ≤1600: 3 · còn lại: 4"),
+                    num("s_hinge_edge", "Tâm chén cách mép cánh", sh.hinge_edge),
+                    num("s_hinge_end", "Chén đầu cách đầu cánh", sh.hinge_end),
+                    num("s_cup_d", "Đường kính chén", sh.cup_d),
+                    num("s_cup_depth", "Sâu chén", sh.cup_depth),
+                    section("Tay nắm"),
+                    num("s_handle_len", "Dài tay nắm", sh.handle_len),
+                    select("s_handle_pos", "Vị trí trên cánh", handle_pos, &[("AUTO", "Theo loại tủ (bếp dưới: trên, bếp trên: dưới)"), ("CENTER", "Giữa"), ("TOP", "Trên"), ("BOTTOM", "Dưới")]),
+                    num("s_handle_from_end", "Cách đầu cánh (trên / dưới)", sh.handle_from_end),
+                    num("s_handle_edge", "Cách mép mở", sh.handle_edge),
+                    section("Cửa lùa"),
+                    num("s_slide_overlap", "Chồng cánh lùa", sh.slide_overlap),
+                ],
+            ),
+            (
+                "drawers".into(),
+                "Ngăn kéo".into(),
+                vec![
+                    num("s_box_top_gap", "Hộc thấp hơn ô (trên)", sh.box_top_gap),
+                    num("s_box_bottom_gap", "Đáy hộc cách đáy ô", sh.box_bottom_gap),
+                    num("s_box_min", "Cao hộc tối thiểu", sh.box_min),
+                    num("s_box_max", "Cao hộc tối đa", sh.box_max),
+                    num("s_slide_margin", "Ray ngắn hơn sâu khoang", sh.slide_margin),
+                ],
+            ),
         ])
     }
 
@@ -99,7 +180,8 @@ impl Engine {
             })
             .collect();
         let rails_active = def.top_style == aic_domain::JoinStyle::Rails;
-        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active }))
+        let standards: Vec<&str> = self.library.groups.iter().filter(|g| g.group == SHOP_GROUP).map(|g| g.name.as_str()).collect();
+        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards }))
     }
 
     /// Lưu mẫu tab: the tab's current values under `name` in the shared library.
@@ -108,7 +190,16 @@ impl Engine {
         if name.is_empty() {
             return Err(bad("template", "name required"));
         }
-        let (_, _, fields) = self.structure_tabs(cab)?.into_iter().find(|t| t.0 == group).ok_or_else(|| bad("group", "unknown tab"))?;
+        // "all" = Chuẩn xưởng: every tab except the cabinet's size (thickness kept).
+        let fields: Vec<Value> = if group == SHOP_GROUP {
+            self.structure_tabs(cab)?
+                .into_iter()
+                .flat_map(|t| t.2)
+                .filter(|f| !matches!(f["key"].as_str(), Some("width" | "height" | "depth")))
+                .collect()
+        } else {
+            self.structure_tabs(cab)?.into_iter().find(|t| t.0 == group).ok_or_else(|| bad("group", "unknown tab"))?.2
+        };
         let values: Map<String, Value> = fields.into_iter().filter(|f| f["kind"] != "section").map(|f| (f["key"].as_str().unwrap_or("").to_string(), f["value"].clone())).collect();
         self.library.groups.retain(|g| !(g.group == group && g.name == name));
         self.library.groups.push(GroupPreset { group: group.into(), name: name.into(), values });

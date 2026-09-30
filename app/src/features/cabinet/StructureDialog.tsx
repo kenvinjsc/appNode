@@ -13,6 +13,7 @@ export function StructureDialog() {
   const [info, setInfo] = useState<StructureInfo | null>(null);
   const [tab, setTab] = useState('back');
   const [preset, setPreset] = useState('');
+  const [standard, setStandard] = useState('');
   useEffect(() => {
     if (structureOf === null) return setInfo(null);
     Commands.getStructure(structureOf)
@@ -33,6 +34,54 @@ export function StructureDialog() {
         <button className="icon-btn" title="Đóng" onClick={() => set({ structureOf: null })}>
           <Icon name="x" size={14} />
         </button>
+      </div>
+      <div className="struct-presets struct-std" title="Chuẩn xưởng = giá trị của mọi tab (trừ kích thước tủ), dùng lại cho mọi dự án">
+        <b>Chuẩn xưởng</b>
+        <select value={standard} onChange={(e) => setStandard(e.target.value)}>
+          <option value="">— chọn —</option>
+          {info.standards.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn tiny"
+          disabled={!standard}
+          onClick={() =>
+            void Commands.applyGroupPreset(targets, 'all', standard)
+              .then(() => useUi.getState().toast({ kind: 'success', title: `Đã áp chuẩn “${standard}” cho ${targets.length} tủ` }))
+              .catch(() => undefined)
+          }
+        >
+          Áp
+        </button>
+        <button
+          className="btn tiny on"
+          onClick={() =>
+            set({
+              prompt: {
+                title: 'Lưu chuẩn xưởng',
+                label: 'Tên chuẩn (ví dụ: Xưởng MFC 18) — lưu mọi tab của tủ này',
+                value: '',
+                ok: (v) =>
+                  void Commands.saveGroupPreset(info.cabinet, 'all', v)
+                    .then(() => {
+                      setStandard(v);
+                      useUi.getState().toast({ kind: 'success', title: `Đã lưu chuẩn “${v}”` });
+                    })
+                    .catch(() => undefined),
+              },
+            })
+          }
+        >
+          Lưu chuẩn
+        </button>
+        {standard && (
+          <button className="icon-btn danger" title="Xóa chuẩn" onClick={() => void Commands.deleteGroupPreset('all', standard).then(() => setStandard('')).catch(() => undefined)}>
+            <Icon name="x" size={12} />
+          </button>
+        )}
       </div>
       <div className="struct-tabs">
         {info.tabs.map((t) => (

@@ -61,20 +61,18 @@ pub fn rule_features(panel: &Panel, hinge_left: Option<bool>) -> Vec<MachiningFe
     }
     let mut out = Vec::new();
     if panel.role == PanelRole::Door {
+        // Same hinge table as the cabinet generator (chuẩn xưởng mặc định).
+        let sr = aic_domain::structure::ShopRules::default();
         let left = hinge_left.unwrap_or(true);
-        let x = if left { 22.5 } else { panel.width_mm - 22.5 };
+        let x = if left { sr.hinge_edge } else { panel.width_mm - sr.hinge_edge };
         let h = panel.height_mm;
-        let mut ys = vec![100.0, h - 100.0];
-        if h > 1500.0 {
-            ys.insert(1, h / 2.0);
-        }
-        for y in ys {
+        for y in sr.hinge_positions(h) {
             if y > 0.0 && y < h {
                 out.push(MachiningFeature::Drill(DrillFeature {
                     x,
                     y,
-                    diameter: 35.0,
-                    depth: 13.0,
+                    diameter: sr.cup_d,
+                    depth: sr.cup_depth,
                     side: FaceSide::B,
                     purpose: DrillPurpose::HingeCup,
                 }));

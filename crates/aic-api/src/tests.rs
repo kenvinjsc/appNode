@@ -871,3 +871,41 @@ fn b_child(e: &mut Engine, cab: ObjectId, zone: u64, index: u64) -> u64 {
     let z = call(e, json!({"cmd": "get_zones", "cabinet": cab}));
     z.result["bays"].as_array().unwrap().iter().find(|x| x["zone"] == zone && x["index"] == index).unwrap()["child"].as_u64().unwrap()
 }
+
+#[test]
+fn shop_standard_fields_saved_and_applied() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 1000, "height": 2000}}));
+    let a: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let pins = |e: &Engine, cab| e.doc.cabinet_layout(cab).unwrap().parts.iter().filter_map(|p| match &p.kind { aic_domain::PartKind::Panel { features, .. } => Some(features), _ => None }).map(|fs| fs.iter().filter(|f| matches!(f, aic_domain::MachiningFeature::Drill(d) if d.purpose == aic_domain::DrillPurpose::ShelfPin)).count()).sum::<usize>();
+    let before = pins(&e, a);
+    assert!(before > 0);
+    // Hàng lỗ 32 → nhiều lỗ hơn hẳn; bản lề 5 cái cho cánh cao.
+    for (k, v) in [("s_pin_row", "row_32"), ("s_hinge_table", "900=2,1600=3,1800=4,5"), ("s_handle_pos", "TOP")] {
+        let r = call(&mut e, json!({"cmd": "set_parameter", "id": a, "name": k, "value": v}));
+        assert!(r.ok, "{k}: {:?}", r.error);
+    }
+    assert!(pins(&e, a) > before * 3, "32-mm rows");
+    let hinges = e.doc.cabinet_layout(a).unwrap().fittings.hinges;
+    assert!(hinges % 5 == 0 && hinges > 0, "{hinges}");
+    let s = call(&mut e, json!({"cmd": "get_structure", "cabinet": a}));
+    let shelves = s.result["tabs"].as_array().unwrap().iter().find(|t| t["key"] == "shelves").unwrap().clone();
+    assert!(shelves["fields"].as_array().unwrap().iter().any(|f| f["key"] == "s_pin_row" && f["value"] == "ROW_32"));
+    // Lưu Chuẩn xưởng (mọi tab) rồi áp lên tủ khác: một bước undo.
+    let r = call(&mut e, json!({"cmd": "save_group_preset", "cabinet": a, "group": "all", "name": "Xưởng A"}));
+    assert!(r.ok, "{:?}", r.error);
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "overrides": {"width": 800, "height": 2000}}));
+    let b: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let b_before = pins(&e, b);
+    let r = call(&mut e, json!({"cmd": "apply_group_preset", "ids": [b], "group": "all", "name": "Xưởng A"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(pins(&e, b) > b_before * 3);
+    assert_eq!(e.doc.param_value(b, "width"), Some(800.0), "size is not part of the standard");
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(pins(&e, b), b_before);
+    // Giá trị sai bị từ chối.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": a, "name": "s_pin_row", "value": "abc"}));
+    assert!(!r.ok);
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": a, "name": "s_pin_d", "value": "-3"}));
+    assert!(!r.ok);
+}

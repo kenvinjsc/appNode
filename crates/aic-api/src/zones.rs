@@ -480,6 +480,10 @@ impl Engine {
                     })
                     .map(|_| true)
                 }
+                k if k.starts_with("s_") => {
+                    let (k, v) = (k.to_string(), value.to_string());
+                    self.edit_cabinet_checked(id, "Chuẩn xưởng", move |c| crate::structure_api::set_shop_field(&mut c.rules.shop, &k, &v)).map(|_| true)
+                }
                 "anchor_w" | "anchor_h" | "anchor_d" => self.edit_cabinet(id, "Neo kích thước", |c| {
                     let a = match value.trim().to_ascii_uppercase().as_str() {
                         "START" | "LEFT" | "BOTTOM" | "BACK" => aic_domain::Anchor::Start,

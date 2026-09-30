@@ -7,6 +7,7 @@
 
 use crate::cabinet::{MaterialSlot, ROT_HORIZONTAL, ROT_SIDE};
 use crate::zone::*;
+use crate::structure::{HandlePos, PinRow, ShopRules};
 use crate::{
     Axis2, Cabinet, CabinetKind, DrillFeature, DrillPurpose, EdgeSide, FaceSide, GrainDirection, GrooveFeature, HardwareKind,
     JoinStyle, MachiningFeature, PanelRole,
@@ -372,6 +373,8 @@ struct Ctx<'a> {
     out: Layout,
     counters: BTreeMap<&'static str, u32>,
     drawer_sets: u32,
+    /// Hàng lỗ chốt 32 đã khoan (part, y0, h) — không khoan trùng khi nhiều kệ cùng khoang.
+    pin_rows: std::collections::HashSet<(usize, i64, i64)>,
 }
 
 const STD_SLIDES: [f64; 8] = [250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0];
@@ -430,7 +433,7 @@ impl<'a> Ctx<'a> {
 
 /// Build all parts of a cabinet.
 pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
-    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0 };
+    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default() };
     let root = carcass(&mut cx);
     zone(&mut cx, &cab.zones.root, root, 0);
     apply_mods(&mut cx.out, &cab.mods);
@@ -739,21 +742,32 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> Option<usize>
     Some(match p.kind {
         SplitKind::ShelfAdjustable => {
             let sb = cx.v.shelf_setback.min(d / 2.0);
-            let idx = cx.panel(key, name, PanelRole::Shelf, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w - 1.0, d - sb, t], [x + 0.5, y + st, front - sb], ROT_HORIZONTAL);
+            let sr = cx.cab.rules.shop.clone();
+            let c = sr.shelf_clear.clamp(0.0, 10.0);
+            let idx = cx.panel(key, name, PanelRole::Shelf, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w - 2.0 * c, d - sb, t], [x + c, y + st, front - sb], ROT_HORIZONTAL);
             cx.out.fittings.shelf_pins += 4;
-            // Shelf pins (chốt tầng) in the side / divider on each side of the shelf.
-            let pin_y = y + st - 5.0;
-            let zs = [front - sb - 37.0, z + 37.0];
+            // Shelf pins (chốt tầng) in the side / divider on each side of the shelf:
+            // 4 holes under the shelf, or the whole 32-mm row of the zone.
+            let pin_y = y + st - sr.pin_below;
+            let zs = [front - sb - sr.pin_edge, z + sr.pin_edge_back];
+            let ys: Vec<f64> = match sr.pin_row {
+                PinRow::AtShelf => vec![pin_y],
+                PinRow::Row32 => sr.pin_grid(y, y + h),
+            };
             for (nb, face) in [(b.nb[0], FaceSide::A), (b.nb[1], FaceSide::B)] {
                 let Some(pi) = nb.part else { continue };
+                if sr.pin_row == PinRow::Row32 && !cx.pin_rows.insert((pi, (y * 10.0).round() as i64, (h * 10.0).round() as i64)) {
+                    continue;
+                }
                 let part = &cx.out.parts[pi];
                 if part.rotation_deg != ROT_SIDE {
                     continue;
                 }
                 let (tz, ty) = (part.translation[2], part.translation[1]);
-                let feats = zs
+                let feats = ys
                     .iter()
-                    .map(|wz| MachiningFeature::Drill(DrillFeature { x: tz - wz, y: pin_y - ty, diameter: 5.0, depth: 10.0, side: face, purpose: DrillPurpose::ShelfPin }))
+                    .flat_map(|py| zs.iter().map(move |wz| (*py, *wz)))
+                    .map(|(py, wz)| MachiningFeature::Drill(DrillFeature { x: tz - wz, y: py - ty, diameter: sr.pin_d, depth: sr.pin_depth, side: face, purpose: DrillPurpose::ShelfPin }))
                     .collect();
                 cx.add_features(pi, feats);
             }
@@ -766,31 +780,19 @@ fn split_panel(cx: &mut Ctx, p: &SplitPanel, b: &ZBox, st: f64) -> Option<usize>
     })
 }
 
-fn hinge_count(h: f64) -> u32 {
-    if h <= 900.0 {
-        2
-    } else if h <= 1600.0 {
-        3
-    } else {
-        4
-    }
-}
-
-fn hinge_cups(w: f64, h: f64, side: HingeSide) -> Vec<MachiningFeature> {
+fn hinge_cups(sr: &ShopRules, w: f64, h: f64, side: HingeSide) -> Vec<MachiningFeature> {
     let along = if matches!(side, HingeSide::Left | HingeSide::Right) { h } else { w };
-    let n = hinge_count(along);
-    let edge = 22.5;
-    let inset = 100.0f64.min(along / 4.0);
-    (0..n)
-        .map(|i| {
-            let s = inset + (along - 2.0 * inset) * i as f64 / (n - 1) as f64;
+    let edge = sr.hinge_edge;
+    sr.hinge_positions(along)
+        .into_iter()
+        .map(|s| {
             let (x, y) = match side {
                 HingeSide::Left => (edge, s),
                 HingeSide::Right => (w - edge, s),
                 HingeSide::Top => (s, h - edge),
                 HingeSide::Bottom => (s, edge),
             };
-            MachiningFeature::Drill(DrillFeature { x, y, diameter: 35.0, depth: 13.0, side: FaceSide::B, purpose: DrillPurpose::HingeCup })
+            MachiningFeature::Drill(DrillFeature { x, y, diameter: sr.cup_d, depth: sr.cup_depth, side: FaceSide::B, purpose: DrillPurpose::HingeCup })
         })
         .collect()
 }
@@ -844,7 +846,7 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
     let rows = spec.rows.max(1);
     if spec.kind == DoorKind::Sliding {
         let n = cols.max(2);
-        let overlap = 30.0;
+        let overlap = cx.cab.rules.shop.slide_overlap.max(0.0);
         let total = x1 - x0;
         let lw = (total + (n - 1) as f64 * overlap) / n as f64;
         let hgt = y1 - y0;
@@ -880,21 +882,37 @@ fn doors(cx: &mut Ctx, spec: &DoorSpec, b: &ZBox) {
             let dx = x0 + c as f64 * (cw + gap);
             let dy = y0 + r as f64 * (ch + gap);
             let idx = cx.panel(format!("d:{}:{r}:{c}", spec.uid), format!("{base}_{k:02}"), PanelRole::Door, MaterialSlot::Front, GrainDirection::AlongHeight, [cw, ch, t], [dx, dy, z], [0.0; 3]);
-            cx.add_features(idx, hinge_cups(cw, ch, hinge));
+            let sr = cx.cab.rules.shop.clone();
+            cx.add_features(idx, hinge_cups(&sr, cw, ch, hinge));
             if let PartKind::Panel { hinge: hs, .. } = &mut cx.out.parts[idx].kind {
                 *hs = Some(to_edge(hinge));
             }
-            cx.out.fittings.hinges += hinge_count(if matches!(hinge, HingeSide::Left | HingeSide::Right) { ch } else { cw });
+            cx.out.fittings.hinges += sr.hinge_count(if matches!(hinge, HingeSide::Left | HingeSide::Right) { ch } else { cw });
             if cx.cab.handles {
-                // Handle on the opening side, vertical bar 160.
+                // Handle on the opening side; height by the shop rule (bếp dưới → trên, bếp trên → dưới).
+                let l = sr.handle_len.clamp(10.0, ch.max(10.0));
+                let e = sr.handle_edge;
+                let pos = match sr.handle_pos {
+                    HandlePos::Auto => match cx.cab.kind {
+                        CabinetKind::Base | CabinetKind::Drawer => HandlePos::Top,
+                        CabinetKind::Wall => HandlePos::Bottom,
+                        _ => HandlePos::Center,
+                    },
+                    p => p,
+                };
+                let vy = match pos {
+                    HandlePos::Top => dy + ch - sr.handle_from_end - l,
+                    HandlePos::Bottom => dy + sr.handle_from_end,
+                    _ => dy + ch / 2.0 - l / 2.0,
+                };
                 let (hx, hy, size) = match hinge {
-                    HingeSide::Left => (dx + cw - 40.0 - 6.0, dy + ch / 2.0 - 80.0, [12.0, 160.0, 30.0]),
-                    HingeSide::Right => (dx + 40.0 - 6.0, dy + ch / 2.0 - 80.0, [12.0, 160.0, 30.0]),
-                    HingeSide::Bottom => (dx + cw / 2.0 - 80.0, dy + ch - 46.0, [160.0, 12.0, 30.0]),
-                    HingeSide::Top => (dx + cw / 2.0 - 80.0, dy + 34.0, [160.0, 12.0, 30.0]),
+                    HingeSide::Left => (dx + cw - e - 6.0, vy, [12.0, l, 30.0]),
+                    HingeSide::Right => (dx + e - 6.0, vy, [12.0, l, 30.0]),
+                    HingeSide::Bottom => (dx + cw / 2.0 - l / 2.0, dy + ch - e - 6.0, [l, 12.0, 30.0]),
+                    HingeSide::Top => (dx + cw / 2.0 - l / 2.0, dy + e - 6.0, [l, 12.0, 30.0]),
                 };
                 let k = cx.next("TayNắm");
-                cx.hardware(format!("h:{}:{r}:{c}", spec.uid), format!("TayNắm_{k:02}"), HardwareKind::Handle, "HDL-BAR-160", size, [hx, hy, z + t]);
+                cx.hardware(format!("h:{}:{r}:{c}", spec.uid), format!("TayNắm_{k:02}"), HardwareKind::Handle, &format!("HDL-BAR-{}", l.round()), size, [hx, hy, z + t]);
                 cx.out.fittings.handles += 1;
             }
         }
@@ -945,7 +963,8 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
     let [zx, zy, _] = b.min;
     let [zw, zh, zd] = b.size;
     let cw = (zw - (cols - 1) as f64 * cx.v.thickness) / cols as f64;
-    let slide = STD_SLIDES.iter().copied().filter(|l| *l <= zd - 10.0).fold(STD_SLIDES[0], f64::max);
+    let sr = cx.cab.rules.shop.clone();
+    let slide = STD_SLIDES.iter().copied().filter(|l| *l <= zd - sr.slide_margin).fold(STD_SLIDES[0], f64::max);
     let zf = if spec.mount == Mount::Overlay { d } else { d - ft };
     for c in 0..cols {
         for i in 0..n {
@@ -957,7 +976,8 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             let key = |part: &str| format!("w:{}:{c}:{i}:{part}", spec.uid);
             cx.panel(key("front"), format!("MặtNgăn [Bộ {set}]"), PanelRole::DrawerFront, MaterialSlot::Front, GrainDirection::AlongWidth, [fw, fh, ft], [fx, fy, z], [0.0; 3]);
             if cx.cab.handles {
-                cx.hardware(key("handle"), format!("TayNắm [Bộ {set}]"), HardwareKind::Handle, "HDL-BAR-160", [160.0, 12.0, 30.0], [fx + fw / 2.0 - 80.0, fy + fh / 2.0 - 6.0, z + ft]);
+                let l = cx.cab.rules.shop.handle_len.clamp(10.0, fw.max(10.0));
+                cx.hardware(key("handle"), format!("TayNắm [Bộ {set}]"), HardwareKind::Handle, &format!("HDL-BAR-{}", l.round()), [l, 12.0, 30.0], [fx + fw / 2.0 - l / 2.0, fy + fh / 2.0 - 6.0, z + ft]);
                 cx.out.fittings.handles += 1;
             }
             *cx.out.fittings.slides.entry(slide as u32).or_default() += 1;
@@ -974,8 +994,8 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
             let bb = spec.bottom_thickness;
             let sc = spec.slide_clearance;
             let bw = (cw - 2.0 * sc).max(2.0 * bt + 10.0);
-            let hb = (cell_h - 40.0).clamp(60.0, 250.0);
-            let by = cell_y0 + 15.0;
+            let hb = (cell_h - sr.box_top_gap).clamp(sr.box_min.max(10.0), sr.box_max.max(sr.box_min.max(10.0)));
+            let by = cell_y0 + sr.box_bottom_gap;
             let bx = bxz + sc;
             cx.panel(key("sideL"), format!("ThànhTrái [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [slide, hb, bt], [bx, by, zf], ROT_SIDE);
             cx.panel(key("sideR"), format!("ThànhPhải [Bộ {set}]"), PanelRole::DrawerSide, MaterialSlot::Carcass, GrainDirection::AlongWidth, [slide, hb, bt], [bx + bw - bt, by, zf], ROT_SIDE);
