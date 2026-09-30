@@ -566,6 +566,12 @@ pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     zone(&mut cx, &cab.zones.root, root, 0);
     backs(&mut cx);
     trims(&mut cx);
+    if let Some(isl) = cab.rules.island {
+        // Mặt đá bàn đảo: phủ cả tủ, nhô trước / hai bên và nhô sau phía ghế.
+        let (w, h, d) = (cx.v.width, cx.v.height, cx.v.depth);
+        let (o, s, t) = (isl.top_overhang.max(0.0), isl.seat_overhang.max(0.0), isl.top_thickness.max(5.0));
+        cx.panel("c:island_top".into(), "MặtĐáBànĐảo".into(), PanelRole::Top, MaterialSlot::Front, GrainDirection::AlongWidth, [w + 2.0 * o, d + o + s, t], [-o, h, d + o], ROT_HORIZONTAL);
+    }
     apply_mods(&mut cx.out, &cab.mods);
     cx.out
 }
@@ -1150,7 +1156,24 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
                     cb.nb[hi] = Neighbor { t: s.panels[i].thickness, outer: false, part: part_idx[i] };
                 }
             }
-            zone(cx, c, cb, level + 1);
+            if a == 2 && i == 0 && cx.cab.rules.island.is_some() {
+                // Bàn đảo: khoang sau dựng như một tủ có mặt trước ở mép sau của khoang,
+                // rồi xoay 180° quanh tâm khoang → cánh / ngăn kéo quay ra phía sau.
+                let start = cx.out.parts.len();
+                let saved = cx.v.depth;
+                cx.v.depth = cb.min[2] + cb.size[2];
+                zone(cx, c, cb, level + 1);
+                cx.v.depth = saved;
+                let (xc, zc) = (cb.min[0] + cb.size[0] / 2.0, cb.min[2] + cb.size[2] / 2.0);
+                let rot = aic_math::Transform3D::new([2.0 * xc, 0.0, 2.0 * zc], [0.0, 180.0, 0.0]);
+                for part in &mut cx.out.parts[start..] {
+                    let t = rot.compose(&aic_math::Transform3D::new(part.translation, part.rotation_deg));
+                    part.translation = t.translation;
+                    part.rotation_deg = t.rotation_deg;
+                }
+            } else {
+                zone(cx, c, cb, level + 1);
+            }
             if i < s.panels.len() {
                 cursor = starts[i] + s.panels[i].thickness;
             }

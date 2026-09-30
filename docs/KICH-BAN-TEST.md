@@ -88,6 +88,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.10 Mẫu dựng sẵn** (E2E 26, Rust `builtin_templates_insert_with_params_one_undo_each`). Tủ ▾ → Mẫu dựng sẵn → Phòng ngủ →
   Tủ áo 4 cánh 1800 → Rộng 2000, bật Kịch trần (trần 2700, che trần 50) → Chèn: tủ 2000 × 2650, 2 khoang đều, tầng trên 400,
   4 cánh dưới rộng đều, 2 khoang treo, 6 ngăn kéo trong; Ctrl+Z bỏ cả mẫu. Chèn lần lượt cả 14 mẫu: không mẫu nào lỗi khoang.
+- **TC-02.11 Bàn đảo** (E2E 27, Rust `island_front_drawers_rear_doors_face_back_no_back_panel`). Mẫu dựng sẵn → Bàn đảo 1800 →
+  không tấm hậu, vách giữa (HậuPhụ) chia khoang trước / sau; ngăn kéo khoang trước ở mặt trước, cánh khoang sau quay ra sau;
+  mặt đá nhô 300 phía ghế; ốp hông 2 bên; đứng trước dãy bếp (không chồng tủ).
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

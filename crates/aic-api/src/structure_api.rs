@@ -95,6 +95,18 @@ impl Engine {
             aic_domain::structure::SlideType::Tandem => "TANDEM",
         };
         let mut extra = Vec::new();
+        if let Some(isl) = &r.island {
+            extra.push((
+                "island".to_string(),
+                "Bàn đảo".to_string(),
+                vec![
+                    section("Khoang trước / khoang sau: ghim khoang trong 3D (khoang sau quay ra sau)"),
+                    num("island_seat_overhang", "Mặt đá nhô phía ghế", isl.seat_overhang),
+                    num("island_top_overhang", "Mặt đá nhô trước / hai bên", isl.top_overhang),
+                    num("island_top_thickness", "Dày mặt đá", isl.top_thickness),
+                ],
+            ));
+        }
         if let Some(prod) = &r.product {
             extra.extend(Engine::product_tabs(prod));
         }

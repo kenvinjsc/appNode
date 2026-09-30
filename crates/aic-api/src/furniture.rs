@@ -45,11 +45,14 @@ impl Engine {
     /// Tạo sản phẩm: một tủ nền (không hậu, không kệ / cánh) mang `rules.product`, một undo.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_furniture(&mut self, kind: &str, size: [Option<f64>; 3], position: Option<[f64; 3]>, name: Option<String>, room: Option<String>, floor: Option<String>, options: BTreeMap<String, String>) -> Result<Value, CoreError> {
+        if kind.eq_ignore_ascii_case("ISLAND") {
+            return self.create_island(size, position, name, room, floor, options);
+        }
         let (product, def_size, def_name) = match kind.to_ascii_uppercase().as_str() {
             "BED" => (Product::Bed(BedSpec::default()), [1600.0, 1000.0, 2000.0], "Giường"),
             "DESK" => (Product::Desk(DeskSpec::default()), [1200.0, 750.0, 600.0], "Bàn"),
             "CLADDING" => (Product::Cladding(CladdingSpec::default()), [3000.0, 2700.0, 60.0], "VáchỐp"),
-            _ => return Err(bad("kind", "BED | DESK | CLADDING")),
+            _ => return Err(bad("kind", "BED | DESK | CLADDING | ISLAND")),
         };
         let [w, h, d] = [0, 1, 2].map(|i| size[i].unwrap_or(def_size[i]));
         if def_name == "Giường" && !(800.0..=2200.0).contains(&w) {
@@ -73,6 +76,52 @@ impl Engine {
         match res {
             Ok(v) => {
                 self.history.squash(mark, def_name);
+                Ok(v)
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
+    }
+
+    /// Bàn đảo (D23): tủ dưới không hậu, vách giữa theo chiều sâu chia khoang trước / sau
+    /// (khoang sau quay ra sau), mặt đá nhô phía ghế; một undo.
+    #[allow(clippy::too_many_arguments)]
+    fn create_island(&mut self, size: [Option<f64>; 3], position: Option<[f64; 3]>, name: Option<String>, room: Option<String>, floor: Option<String>, options: BTreeMap<String, String>) -> Result<Value, CoreError> {
+        let [w, h, d] = [size[0].unwrap_or(1800.0), size[1].unwrap_or(900.0), size[2].unwrap_or(900.0)];
+        // Không chỉ vị trí: đứng giữa phòng, cách mặt trước các tủ của phòng 1000 (lối đi).
+        let position = position.or_else(|| {
+            let room = room.as_deref()?;
+            let mut b = aic_math::Aabb::empty();
+            for (id, o) in &self.doc.objects {
+                if o.as_cabinet().is_some_and(|c| c.room == room) {
+                    b = b.union(&self.doc.world_aabb(*id));
+                }
+            }
+            (!b.is_empty()).then(|| [b.min[0], 0.0, b.max[2] + 1000.0])
+        });
+        let mark = self.history.mark();
+        let res = (|| -> Result<Value, CoreError> {
+            let overrides = protocol::CabinetOverrides { width: Some(w), height: Some(h), depth: Some(d), plinth_height: Some(100.0), doors: Some(0), shelves: Some(0), drawers: Some(0), ..Default::default() };
+            let r = self.handle(Request::CreateCabinet { kind: aic_domain::CabinetKind::Base, position, parent: None, overrides, name: Some(name.unwrap_or_else(|| "BànĐảo".into())), room, floor, after: None })?;
+            let cab: ObjectId = serde_json::from_value(r["id"].clone()).map_err(|_| CoreError::NotFound { id: ObjectId(0) })?;
+            self.edit_cabinet(cab, "Bàn đảo", |c| {
+                c.back_panel = false;
+                c.rules.island = Some(Default::default());
+                c.mods.entry("c:island_top".into()).or_default().material = Some("STONE20-WHITE".into());
+                Ok(())
+            })?;
+            let root = self.cabinet_def(cab)?.zones.root.id;
+            self.split_zone(protocol::SplitZone { cabinet: cab, zone: root, kind: aic_domain::zone::SplitKind::BackSub, formula: "50%,*".into(), from_end: false, thickness: None })?;
+            for (k, v) in &options {
+                self.set_zone_property(cab, k, v)?;
+            }
+            Ok(json!({ "id": cab }))
+        })();
+        match res {
+            Ok(v) => {
+                self.history.squash(mark, "Bàn đảo");
                 Ok(v)
             }
             Err(e) => {

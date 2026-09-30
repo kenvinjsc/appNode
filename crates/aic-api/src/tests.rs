@@ -1922,3 +1922,33 @@ fn builtin_templates_insert_with_params_one_undo_each() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(!e.doc.objects.contains_key(&id));
 }
+
+#[test]
+fn island_front_drawers_rear_doors_face_back_no_back_panel() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_furniture", "kind": "ISLAND", "width": 1800, "height": 900, "depth": 900}));
+    assert!(r.ok, "{:?}", r.error);
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let zs = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"].clone();
+    let leaves: Vec<Value> = zs.as_array().unwrap().iter().filter(|z| z["leaf"] == true).cloned().collect();
+    assert_eq!(leaves.len(), 2);
+    let (rear, front) = if leaves[0]["min"][2].as_f64() < leaves[1]["min"][2].as_f64() { (&leaves[0], &leaves[1]) } else { (&leaves[1], &leaves[0]) };
+    let (rear, front) = (rear["id"].as_u64().unwrap(), front["id"].as_u64().unwrap());
+    assert!(call(&mut e, json!({"cmd": "zone_add_drawers", "cabinet": cab, "zones": [front], "count": 3})).ok);
+    assert!(call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": cab, "zones": [rear], "kind": "DOUBLE", "cols": 2})).ok);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    assert!(!l.parts.iter().any(|p| p.key.starts_with("c:back")), "no back panel");
+    assert!(l.parts.iter().any(|p| p.name.starts_with("HậuPhụ")), "vách giữa");
+    let aabb = |p: &aic_domain::Part| aic_math::Obb::new(p.size, aic_math::Transform3D::new(p.translation, p.rotation_deg)).aabb();
+    let fronts: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("MặtNgăn")).collect();
+    assert_eq!(fronts.len(), 3);
+    assert!(fronts.iter().all(|p| aabb(p).min[2] > 800.0), "drawers at the front");
+    let doors: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("CửaĐôi")).collect();
+    assert_eq!(doors.len(), 2);
+    assert!(doors.iter().all(|p| aabb(p).max[2] < 50.0), "rear doors face the back: {:?}", doors.iter().map(|p| aabb(p)).collect::<Vec<_>>());
+    // Mặt đá nhô phía ghế 300.
+    let top = l.parts.iter().find(|p| p.key == "c:island_top").unwrap();
+    let tb = aabb(top);
+    assert!((tb.min[2] + 300.0).abs() < 1e-6 && (tb.max[2] - 920.0).abs() < 1e-6, "{tb:?}");
+    assert_eq!(call(&mut e, json!({"cmd": "get_structure", "cabinet": cab})).result["tabs"][0]["key"], "island");
+}

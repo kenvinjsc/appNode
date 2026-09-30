@@ -414,6 +414,9 @@ pub struct StructureRules {
     /// Phào & ốp (D13).
     #[serde(default)]
     pub trim: TrimRules,
+    /// Bàn đảo / quầy bar: tủ mở 2 mặt (khoang sau quay ra sau), mặt đá nhô phía ghế.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub island: Option<Island>,
     /// Sản phẩm ngoài tủ hộp (giường, bàn, vách ốp …); None = tủ hộp.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub product: Option<crate::product::Product>,
@@ -498,7 +501,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default(), trim: TrimRules::default(), product: None }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, pricing: PricingMode::Auto, diagonal: None, shop: ShopRules::default(), trim: TrimRules::default(), island: None, product: None }
     }
 }
 
@@ -527,5 +530,22 @@ mod tests {
         assert_eq!(g.first(), Some(&64.0));
         assert!(g.windows(2).all(|w| (w[1] - w[0] - 32.0).abs() < 1e-9));
         assert!(*g.last().unwrap() <= 336.0);
+    }
+}
+
+/// Bàn đảo (D23): gốc khoang chia theo chiều sâu (vách giữa), khoang sau quay ra sau.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Island {
+    /// Mặt đá nhô phía ghế ngồi (sau).
+    pub seat_overhang: f64,
+    /// Mặt đá nhô trước / hai bên.
+    pub top_overhang: f64,
+    pub top_thickness: f64,
+}
+
+impl Default for Island {
+    fn default() -> Self {
+        Self { seat_overhang: 300.0, top_overhang: 20.0, top_thickness: 20.0 }
     }
 }

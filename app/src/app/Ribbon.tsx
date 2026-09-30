@@ -138,6 +138,7 @@ const FURNITURE: { label: string; kind: string; size: { width?: number; height?:
   { label: 'Bàn học 1200 (hộc phải, kệ trên)', kind: 'DESK', size: { width: 1200, height: 750, depth: 600 }, options: { desk_hutch_h: '600', desk_hutch_shelves: '2' } },
   { label: 'Bàn làm việc 1400', kind: 'DESK', size: { width: 1400, height: 750, depth: 700 }, options: { desk_support_left: 'LEG', desk_support_right: 'LEG', desk_keyboard_tray: 'on' } },
   { label: 'Bàn trang điểm 1000', kind: 'DESK', size: { width: 1000, height: 750, depth: 450 }, options: { desk_support_left: 'PANEL', desk_unit_drawers: '2', desk_mirror_w: '600', desk_cable_d: '0', desk_modesty: 'off' } },
+  { label: 'Bàn đảo 1800 (mở 2 mặt)', kind: 'ISLAND', size: { width: 1800, height: 900, depth: 900 } },
   { label: 'Vách TV 3000 × 2700', kind: 'CLADDING', size: { width: 3000, height: 2700 }, options: { cl_cols: '/5' } },
   { label: 'Vách lam 1200 × 2700', kind: 'CLADDING', size: { width: 1200, height: 2700 }, options: { cl_boards: 'off', cl_frame: 'on', cl_batten: 'on' } },
 ];

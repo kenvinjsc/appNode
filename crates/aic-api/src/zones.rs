@@ -552,6 +552,7 @@ impl Engine {
                 k if k.starts_with("back_") && !matches!(k, "back_groove" | "back_thickness" | "back_offset" | "back_panel" | "back_material")
                     || k.starts_with("rt_")
                     || k.starts_with("tr_")
+                    || k.starts_with("island_")
                     || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback" | "base_type" | "plinth_side_setback" | "leg_count" | "hang_rail" | "pricing" | "dg_shelves" | "dg_hinge_left" | "dg_shelf_setback") =>
                 {
                     let (k, v) = (k.to_string(), value.trim().to_string());
@@ -577,6 +578,15 @@ impl Engine {
                             "hang_rail" => r.hang_rail = on,
                             "tr_cornice" => {
                                 r.trim.cornice = serde_json::from_value(serde_json::Value::String(v.to_ascii_uppercase())).map_err(|_| bad(&k, "NONE | FRONT | FRONT_LEFT | FRONT_RIGHT | 3_SIDES"))?
+                            }
+                            "island_seat_overhang" | "island_top_overhang" | "island_top_thickness" => {
+                                let isl = r.island.as_mut().ok_or_else(|| bad(&k, "not an island"))?;
+                                let x = n(&v)?.clamp(0.0, 600.0);
+                                match k.as_str() {
+                                    "island_seat_overhang" => isl.seat_overhang = x,
+                                    "island_top_overhang" => isl.top_overhang = x,
+                                    _ => isl.top_thickness = x.max(5.0),
+                                }
                             }
                             "tr_cornice_h" => r.trim.cornice_h = n(&v)?.clamp(20.0, 200.0),
                             "tr_cornice_overhang" => r.trim.cornice_overhang = n(&v)?.clamp(0.0, 100.0),

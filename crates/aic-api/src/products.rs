@@ -52,6 +52,7 @@ pub const PRODUCTS: &[Product] = &[
     Product { key: "TV_HANGING_1800", name: "Kệ TV treo 1800", room: "Phòng khách", summary: "1800 × 350 × 400 · treo · /3: 2 ngăn kéo push-open + khoang mở · khoét dây Ø60", size: [1800.0, 350.0, 400.0], params: &[] },
     Product { key: "SHOE_1200", name: "Tủ giày 1200", room: "Phòng khách", summary: "1200 × 1000 × 350 · /2 · mỗi khoang 4 kệ nghiêng 15° · khoét thông gió", size: [1200.0, 1000.0, 350.0], params: &[num("tilt", "Nghiêng kệ (°)", "15")] },
     Product { key: "DESK_1200", name: "Bàn học 1200", room: "Phòng ngủ", summary: "1200 × 750 × 600 · mặt 25 · hộc phải 3 ngăn · kệ trên 2 tầng · khoét dây", size: [1200.0, 750.0, 600.0], params: &[flag("hutch", "Kệ trên", "on")] },
+    Product { key: "ISLAND_1800", name: "Bàn đảo 1800", room: "Bếp", summary: "1800 × 900 × 900 · mở 2 mặt: trước 1 cánh + 3 ngăn kéo, sau kệ mở · mặt đá nhô 300 phía ghế · ốp hông", size: [1800.0, 900.0, 900.0], params: &[num("seat", "Mặt đá nhô phía ghế", "300")] },
     Product { key: "LAVABO_800", name: "Tủ lavabo treo 800", room: "WC", summary: "800 × 500 × 480 · treo · cánh đôi + mặt ngăn giả · khoét ống Ø60 · chống ẩm", size: [800.0, 500.0, 480.0], params: &[] },
 ];
 
@@ -351,6 +352,26 @@ impl Engine {
                 self.zone_add_panels(ZoneAddPanels { cabinet: cab, zones: halves, kind: SplitKind::ShelfFixed, count: 4, thickness: None, lock: Lock::Even, value: 0.0, tilt_deg: Some([tilt, 0.0]) })?;
                 self.doors(cab, vec![root], DoorKind::Double, 2, HingeSide::Left)?;
                 self.handle(Request::SetBackCutouts { cabinet: cab, cutouts: vec![aic_domain::structure::BackCutout { kind: aic_domain::structure::CutoutKind::Vent, anchor: aic_domain::structure::HAnchor::Center, x: 0.0, y: h - 80.0 - 2.0 * 17.2 - 60.0, w: (w - 200.0).clamp(100.0, 600.0), h: 40.0, r: 10.0 }] })?;
+                cab
+            }
+            "ISLAND_1800" => {
+                let mut opts = std::collections::BTreeMap::new();
+                opts.insert("island_seat_overhang".to_string(), param("seat"));
+                opts.insert("tr_end_left".to_string(), "on".to_string());
+                opts.insert("tr_end_right".to_string(), "on".to_string());
+                opts.insert("base_type".to_string(), "LEGS_PLINTH".to_string());
+                let r = self.create_furniture("ISLAND", [Some(w), Some(h), Some(d)], p.position, None, p.room.clone().or_else(|| Some("Bếp".into())), p.floor.clone(), opts)?;
+                let cab: ObjectId = serde_json::from_value(r["id"].clone()).map_err(|_| CoreError::NotFound { id: ObjectId(0) })?;
+                let root = self.root_zone(cab)?;
+                let rf = self.kids(cab, root)?;
+                if let [rear, front] = rf[..] {
+                    let cols = self.split(cab, front, SplitKind::Divider, "*,600", false)?;
+                    if let [a, b] = cols[..] {
+                        self.doors(cab, vec![a], DoorKind::Single, 1, HingeSide::Left)?;
+                        self.drawers(cab, b, 3, false)?;
+                    }
+                    self.shelves(cab, vec![rear], 1)?;
+                }
                 cab
             }
             "LAVABO_800" => {
