@@ -1715,7 +1715,7 @@ fn link(cx: &mut Ctx, l: &Link, b: &ZBox, zid: Uid) {
             let k = cx.next("ThiếtBị");
             cx.hardware(format!("l:{}", l.uid), format!("{}_{k:02}", a.name.replace(' ', "")), HardwareKind::Glass, a.code, [aw.min(w + 40.0), ah.min(h), ad.min(d)], [x + (w - aw.min(w + 40.0)) / 2.0, y0, z + d - ad.min(d)]);
             if a.vent > 0.0 {
-                cx.vents.push([x + w / 2.0, (y0 + ah + a.vent / 2.0).min(y + h - a.vent / 2.0), (w - 100.0).max(100.0).min(500.0), a.vent]);
+                cx.vents.push([x + w / 2.0, (y0 + ah + a.vent / 2.0).min(y + h - a.vent / 2.0), (w - 100.0).clamp(100.0, 500.0), a.vent]);
             }
             *cx.out.fittings.appliances.entry(a.code.to_string()).or_insert(0) += 1;
         }
