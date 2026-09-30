@@ -1010,3 +1010,32 @@ fn joint_types_generate_real_holes_and_costing() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(fit(&mut e, "Vít liên kết") > 0.0);
 }
+
+#[test]
+fn base_types_plinth3_legs_hanging() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 900}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let names = |e: &Engine| e.doc.cabinet_layout(cab).unwrap().parts.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+    let set = |e: &mut Engine, k: &str, v: &str| {
+        let r = call(e, json!({"cmd": "set_parameter", "id": cab, "name": k, "value": v}));
+        assert!(r.ok, "{k}={v}: {:?}", r.error);
+    };
+    set(&mut e, "plinth_height", "100");
+    assert!(names(&e).contains(&"ChânTủ".to_string()), "AUTO keeps the old front plinth");
+    set(&mut e, "bottom_style", "OVERLAY");
+    set(&mut e, "base_type", "PLINTH_3");
+    let n = names(&e);
+    assert!(n.contains(&"ChânHôngTrái".to_string()) && n.contains(&"ChânHôngPhải".to_string()), "{n:?}");
+    set(&mut e, "base_type", "LEGS_PLINTH");
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    assert_eq!(l.fittings.legs, 6, "900 wide → 6 legs");
+    assert!(names(&e).contains(&"ChânTủ".to_string()));
+    set(&mut e, "base_type", "HANGING");
+    set(&mut e, "hang_rail", "on");
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    assert_eq!((l.fittings.legs, l.fittings.hangers), (0, 2));
+    assert!(names(&e).contains(&"ThanhTreoTường".to_string()) && !names(&e).contains(&"ChânTủ".to_string()));
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(c.result["fittings"].as_array().unwrap().iter().any(|l| l["name"] == "Ke treo tủ"));
+}

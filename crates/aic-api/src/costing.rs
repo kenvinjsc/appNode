@@ -260,6 +260,12 @@ impl Engine {
                 add("knob".into(), "Núm tay nắm".into(), f.knobs as f64, "Cái");
                 handles += f.knobs as f64;
             }
+            if f.legs > 0 {
+                add("leg".into(), "Chân nhựa tăng chỉnh".into(), f.legs as f64, "Cái");
+            }
+            if f.hangers > 0 {
+                add("hanger".into(), "Ke treo tủ".into(), f.hangers as f64, "Cái");
+            }
             if f.push_latches > 0 {
                 add("push_open".into(), "Nhấn mở (push-open)".into(), f.push_latches as f64, "Bộ");
             }

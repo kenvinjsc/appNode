@@ -270,6 +270,10 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab mới:
   khoảng cách tối đa, Ø và độ sâu chốt, cam (Ø15, sâu 12.5, tâm cách mặt hồi 34), lỗ chốt cam trên cạnh. Lỗ khoan sinh thật
   trên tấm (xem ở Sản xuất → Gia công), báo giá đếm riêng Chốt gỗ / Cam / Vít liên kết / Ke góc.
 
+- **Chân / treo** (tab thay cho Len chân): kiểu chân *theo loại tủ / không chân / len chân trước / len 3 mặt (trước + 2 hông,
+  cho tủ đầu dãy, dùng khi đáy phủ hồi) / chân nhựa tăng chỉnh (hồi đứng trên chân; 4/6/8 chân theo rộng) / chân nhựa + len kẹp /
+  tủ treo (2 ke treo + thanh treo tường 17 × 60 tùy chọn)*. Báo giá có chân nhựa, ke treo.
+
 Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của tủ này (trừ Rộng/Cao/Sâu) vào thư viện dùng chung;
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.
 Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ).

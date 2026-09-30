@@ -258,6 +258,27 @@ impl ShopRules {
     }
 }
 
+/// Chân tủ / cách đặt tủ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BaseType {
+    /// Như cũ: tủ áo / bếp dưới / ngăn kéo có len chân trước khi `plinth_height` > 0.
+    #[default]
+    Auto,
+    /// Không chân.
+    None,
+    /// Len chân trước.
+    Plinth,
+    /// Len chân 3 mặt (trước + 2 hông), cho tủ đầu dãy / đứng độc lập.
+    Plinth3,
+    /// Chân nhựa tăng chỉnh.
+    Legs,
+    /// Chân nhựa + len chân kẹp phía trước.
+    LegsPlinth,
+    /// Tủ treo: ke treo (+ thanh treo tường).
+    Hanging,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StructureRules {
     #[serde(default)]
@@ -267,6 +288,18 @@ pub struct StructureRules {
     /// Len chân: set-back of the plinth board from the front (mm).
     #[serde(default = "plinth_setback")]
     pub plinth_setback: f64,
+    /// Chân tủ.
+    #[serde(default)]
+    pub base_type: BaseType,
+    /// Len hông lùi vào so với mặt ngoài hồi (len 3 mặt).
+    #[serde(default)]
+    pub plinth_side_setback: f64,
+    /// Số chân (0 = tự động theo rộng: ≤ 600 → 4, ≤ 1200 → 6, còn lại 8).
+    #[serde(default)]
+    pub leg_count: u32,
+    /// Tủ treo: thanh treo tường 17 × 60 sau hậu.
+    #[serde(default)]
+    pub hang_rail: bool,
     /// Chuẩn xưởng (kệ, chốt, bản lề, tay nắm, ngăn kéo).
     #[serde(default)]
     pub shop: ShopRules,
@@ -278,7 +311,7 @@ fn plinth_setback() -> f64 {
 
 impl Default for StructureRules {
     fn default() -> Self {
-        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), shop: ShopRules::default() }
+        Self { back: BackRule::default(), top_rails: TopRails::default(), plinth_setback: plinth_setback(), base_type: BaseType::Auto, plinth_side_setback: 0.0, leg_count: 0, hang_rail: false, shop: ShopRules::default() }
     }
 }
 

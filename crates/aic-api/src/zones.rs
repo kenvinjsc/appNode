@@ -439,7 +439,7 @@ impl Engine {
                 }).map(|_| true),
                 k if k.starts_with("back_") && !matches!(k, "back_groove" | "back_thickness" | "back_offset" | "back_panel" | "back_material")
                     || k.starts_with("rt_")
-                    || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback") =>
+                    || matches!(k, "top_covers_back" | "bottom_covers_back" | "plinth_setback" | "base_type" | "plinth_side_setback" | "leg_count" | "hang_rail") =>
                 {
                     let (k, v) = (k.to_string(), value.trim().to_string());
                     let on = matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes");
@@ -457,6 +457,22 @@ impl Engine {
                             "top_covers_back" => r.back.top_covers = Some(on),
                             "bottom_covers_back" => r.back.bottom_covers = Some(on),
                             "plinth_setback" => r.plinth_setback = n(&v)?,
+                            "plinth_side_setback" => r.plinth_side_setback = n(&v)?.max(0.0),
+                            "leg_count" => r.leg_count = n(&v)?.clamp(0.0, 16.0) as u32,
+                            "hang_rail" => r.hang_rail = on,
+                            "base_type" => {
+                                use aic_domain::structure::BaseType as B;
+                                r.base_type = match v.to_ascii_uppercase().as_str() {
+                                    "AUTO" => B::Auto,
+                                    "NONE" => B::None,
+                                    "PLINTH" => B::Plinth,
+                                    "PLINTH_3" | "PLINTH3" => B::Plinth3,
+                                    "LEGS" => B::Legs,
+                                    "LEGS_PLINTH" => B::LegsPlinth,
+                                    "HANGING" => B::Hanging,
+                                    _ => return Err(bad(&k, "AUTO | NONE | PLINTH | PLINTH_3 | LEGS | LEGS_PLINTH | HANGING")),
+                                }
+                            }
                             _ => {
                                 // rt_{front|back|extra}_{count|size|horizontal|offset}
                                 let mut it = k.splitn(3, '_').skip(1);

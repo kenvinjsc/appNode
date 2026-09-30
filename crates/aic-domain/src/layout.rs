@@ -7,7 +7,7 @@
 
 use crate::cabinet::{MaterialSlot, ROT_HORIZONTAL, ROT_SIDE};
 use crate::zone::*;
-use crate::structure::{HandlePos, HandleType, PinRow, ShopRules, SlideType};
+use crate::structure::{BaseType, HandlePos, HandleType, PinRow, ShopRules, SlideType};
 use crate::{
     Axis2, Cabinet, CabinetKind, DrillFeature, DrillPurpose, EdgeSide, FaceSide, GrainDirection, GrooveFeature, HardwareKind,
     JoinStyle, MachiningFeature, PanelRole,
@@ -311,6 +311,12 @@ pub struct Fittings {
     /// Hộp kim loại tandem (dài → bộ).
     #[serde(default)]
     pub tandem: BTreeMap<u32, u32>,
+    /// Chân nhựa tăng chỉnh.
+    #[serde(default)]
+    pub legs: u32,
+    /// Ke treo tủ.
+    #[serde(default)]
+    pub hangers: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -452,6 +458,61 @@ pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
     cx.out
 }
 
+/// Chân tủ: len chân (trước / 3 mặt), chân nhựa, ke treo.
+fn base(cx: &mut Ctx, side_y: f64, inner_w: f64) {
+    let v = cx.v;
+    let (w, h, d, t, p) = (v.width, v.height, v.depth, v.thickness, v.plinth_height);
+    let rules = cx.cab.rules.clone();
+    let kind = match rules.base_type {
+        BaseType::Auto => {
+            if matches!(cx.cab.kind, CabinetKind::Wardrobe | CabinetKind::Drawer | CabinetKind::Base) && p > 1.0 {
+                BaseType::Plinth
+            } else {
+                BaseType::None
+            }
+        }
+        k => k,
+    };
+    let sb = rules.plinth_setback;
+    let front_z = d - sb - t;
+    let has_plinth = matches!(kind, BaseType::Plinth | BaseType::Plinth3 | BaseType::LegsPlinth) && p > 1.0;
+    if has_plinth {
+        // Hồi chạm sàn: len nằm giữa 2 hồi; hồi đặt trên đáy phủ: len chạy suốt rộng tủ.
+        let (pw, px) = if side_y > 0.0 { (w - 2.0 * rules.plinth_side_setback, rules.plinth_side_setback) } else { (inner_w, t) };
+        cx.panel("c:plinth".into(), "ChânTủ".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [pw, p, t], [px, 0.0, front_z], [0.0; 3]);
+        if kind == BaseType::Plinth3 && side_y > 0.0 {
+            let len = front_z.max(1.0);
+            let ss = rules.plinth_side_setback;
+            cx.panel("c:plinth_l".into(), "ChânHôngTrái".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [len, p, t], [ss, 0.0, front_z], ROT_SIDE);
+            cx.panel("c:plinth_r".into(), "ChânHôngPhải".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [len, p, t], [w - t - ss, 0.0, front_z], ROT_SIDE);
+        }
+    }
+    if matches!(kind, BaseType::Legs | BaseType::LegsPlinth) && p > 1.0 {
+        let n = if rules.leg_count > 0 { rules.leg_count.clamp(4, 16) } else if w <= 600.0 { 4 } else if w <= 1200.0 { 6 } else { 8 };
+        let cols = (n / 2).max(2);
+        let dia = 30.0;
+        let zs = [60.0, (front_z - 40.0).max(60.0)];
+        let mut k = 0;
+        for c in 0..cols {
+            let x = 50.0 + (w - 100.0 - dia) * c as f64 / (cols - 1) as f64;
+            for z in zs {
+                k += 1;
+                cx.hardware(format!("c:leg:{k}"), format!("ChânNhựa_{k:02}"), HardwareKind::Leg, "LEG-ADJ-100", [dia, p, dia], [x, 0.0, z - dia / 2.0]);
+            }
+        }
+        cx.out.fittings.legs += k;
+    }
+    if kind == BaseType::Hanging {
+        // 2 ke treo ở hai góc sau trên, thanh treo tường (tùy chọn) chạy trong lòng tủ.
+        cx.hardware("c:hang:l".into(), "KeTreo_01".into(), HardwareKind::Hinge, "HANGER", [30.0, 60.0, 40.0], [t, h - t - 70.0, 0.0]);
+        cx.hardware("c:hang:r".into(), "KeTreo_02".into(), HardwareKind::Hinge, "HANGER", [30.0, 60.0, 40.0], [w - t - 30.0, h - t - 70.0, 0.0]);
+        cx.out.fittings.hangers += 2;
+        if rules.hang_rail {
+            cx.panel("c:hang_rail".into(), "ThanhTreoTường".into(), PanelRole::Rail, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, 60.0, t], [t, h - t - 70.0, -t], [0.0; 3]);
+        }
+    }
+}
+
 /// Carcass parts; returns the interior root zone box.
 fn carcass(cx: &mut Ctx) -> ZBox {
     let v = cx.v;
@@ -477,7 +538,9 @@ fn carcass(cx: &mut Ctx) -> ZBox {
     } else {
         (if rules.back.top_covers == Some(true) { 0.0 } else { bt }, if rules.back.bottom_covers == Some(true) { 0.0 } else { bt })
     };
-    let side_y = if bottom_overlay { p + t } else { 0.0 };
+    // Hồi đứng trên chân nhựa (không chạm sàn) khi dùng chân nhựa.
+    let on_legs = matches!(rules.base_type, crate::structure::BaseType::Legs | crate::structure::BaseType::LegsPlinth);
+    let side_y = if bottom_overlay { p + t } else if on_legs { p } else { 0.0 };
     let side_h = h - side_y - if top_overlay { t } else { 0.0 };
 
     let l = cx.panel("c:left".into(), "HồiTrái".into(), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, side_h, t], [0.0, side_y, d], ROT_SIDE);
@@ -532,9 +595,7 @@ fn carcass(cx: &mut Ctx) -> ZBox {
         }
     }
 
-    if matches!(cab.kind, CabinetKind::Wardrobe | CabinetKind::Drawer | CabinetKind::Base) && p > 1.0 {
-        cx.panel("c:plinth".into(), "ChânTủ".into(), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [inner_w, p, t], [t, 0.0, d - rules.plinth_setback - t], [0.0; 3]);
-    }
+    base(cx, side_y, inner_w);
 
     let outer = |part| Neighbor { t, outer: true, part };
     ZBox {

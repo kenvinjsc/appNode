@@ -108,6 +108,8 @@ pub fn default_prices() -> BTreeMap<String, f64> {
         ("fit:push_open", 60_000.0),
         ("fit:slide_um", 250_000.0),
         ("fit:tandem", 900_000.0),
+        ("fit:leg", 12_000.0),
+        ("fit:hanger", 25_000.0),
         ("fit:shelf_pin", 3_000.0),
         ("fit:oval_cup", 15_000.0),
         ("fit:oval_rail", 15_000.0),

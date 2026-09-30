@@ -74,6 +74,15 @@ impl Engine {
             aic_domain::structure::HandleType::PushOpen => "PUSH_OPEN",
             aic_domain::structure::HandleType::None => "NONE",
         };
+        let base_type = match r.base_type {
+            aic_domain::structure::BaseType::Auto => "AUTO",
+            aic_domain::structure::BaseType::None => "NONE",
+            aic_domain::structure::BaseType::Plinth => "PLINTH",
+            aic_domain::structure::BaseType::Plinth3 => "PLINTH_3",
+            aic_domain::structure::BaseType::Legs => "LEGS",
+            aic_domain::structure::BaseType::LegsPlinth => "LEGS_PLINTH",
+            aic_domain::structure::BaseType::Hanging => "HANGING",
+        };
         let joint_type = match sh.joint_type {
             aic_domain::structure::JointType::Dowel => "DOWEL",
             aic_domain::structure::JointType::CamDowel => "CAM_DOWEL",
@@ -145,7 +154,18 @@ impl Engine {
                     flag("rt_extra_horizontal", "Ngang", tr.extra.horizontal),
                 ],
             ),
-            ("plinth".into(), "Len chân".into(), vec![num("plinth_height", "Cao chân", p("plinth_height")), num("plinth_setback", "Chân giật vào", r.plinth_setback)]),
+            (
+                "plinth".into(),
+                "Chân / treo".into(),
+                vec![
+                    select("base_type", "Kiểu chân", base_type, &[("AUTO", "Theo loại tủ"), ("NONE", "Không chân"), ("PLINTH", "Len chân trước"), ("PLINTH_3", "Len chân 3 mặt"), ("LEGS", "Chân nhựa tăng chỉnh"), ("LEGS_PLINTH", "Chân nhựa + len kẹp"), ("HANGING", "Tủ treo (ke treo)")]),
+                    num("plinth_height", "Cao chân", p("plinth_height")),
+                    num("plinth_setback", "Chân giật vào", r.plinth_setback),
+                    num("plinth_side_setback", "Len hông lùi vào", r.plinth_side_setback),
+                    num("leg_count", "Số chân (0 = tự động)", r.leg_count as f64),
+                    flag("hang_rail", "Thanh treo tường (tủ treo)", r.hang_rail),
+                ],
+            ),
             (
                 "shelves".into(),
                 "Kệ & chốt tầng".into(),
