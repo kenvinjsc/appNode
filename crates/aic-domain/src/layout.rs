@@ -10,7 +10,7 @@ use crate::zone::*;
 use crate::structure::{BaseType, HandlePos, HandleType, PinRow, ShopRules, SlideType};
 use crate::{
     Axis2, Cabinet, CabinetKind, DrillFeature, DrillPurpose, EdgeSide, FaceSide, GrainDirection, GrooveFeature, HardwareKind,
-    JoinStyle, MachiningFeature, PanelRole,
+    JoinStyle, MachiningFeature, PanelRole, PocketFeature,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -69,6 +69,72 @@ pub struct PartMod {
     /// Chia tấm: the part becomes `count` pieces along an axis with a gap between them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split: Option<PartSplit>,
+    /// Gia công theo tham số (khấu góc, khấu bề mặt neo góc, rãnh LED / V-bit): tính lại theo kích
+    /// thước tấm mỗi lần dựng, nên tấm đổi cỡ thì vị trí vẫn đúng.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub param_features: Vec<ParamFeature>,
+}
+
+/// Góc / điểm neo trên tấm (local: x sang phải, y lên trên).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PanelAnchor {
+    #[default]
+    Bl,
+    Br,
+    Tl,
+    Tr,
+    Center,
+}
+
+/// Gia công tham số của tool (lưu ý định, không lưu tọa độ tuyệt đối).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ParamFeature {
+    /// Khấu góc xuyên tấm `width × depth` tại một góc.
+    Notch { corner: PanelAnchor, width: f64, depth: f64 },
+    /// Khấu bề mặt: hốc cách điểm neo (x, y) — với góc phải / trên, x / y đo vào trong từ cạnh đó.
+    Pocket { anchor: PanelAnchor, x: f64, y: f64, width: f64, height: f64, depth: f64, side: FaceSide },
+    /// Rãnh chạy suốt tấm (LED, V-bit), cách mép đầu (hoặc mép cuối) `offset`.
+    GrooveLine { direction: Axis2, offset: f64, #[serde(default)] from_end: bool, width: f64, depth: f64, side: FaceSide },
+}
+
+impl ParamFeature {
+    /// Feature gia công cho tấm kích thước (w, h, t).
+    pub fn resolve(&self, w: f64, h: f64, t: f64) -> MachiningFeature {
+        match *self {
+            ParamFeature::Notch { corner, width, depth } => {
+                let (x, y) = match corner {
+                    PanelAnchor::Bl => (0.0, 0.0),
+                    PanelAnchor::Br => (w - width, 0.0),
+                    PanelAnchor::Tl => (0.0, h - depth),
+                    PanelAnchor::Tr => (w - width, h - depth),
+                    PanelAnchor::Center => ((w - width) / 2.0, (h - depth) / 2.0),
+                };
+                MachiningFeature::Pocket(PocketFeature { x, y, width, height: depth, depth: t + 1.0, side: FaceSide::A, corner_radius: 0.0 })
+            }
+            ParamFeature::Pocket { anchor, x, y, width, height, depth, side } => {
+                let (px, py) = match anchor {
+                    PanelAnchor::Bl => (x, y),
+                    PanelAnchor::Br => (w - x - width, y),
+                    PanelAnchor::Tl => (x, h - y - height),
+                    PanelAnchor::Tr => (w - x - width, h - y - height),
+                    PanelAnchor::Center => ((w - width) / 2.0 + x, (h - height) / 2.0 + y),
+                };
+                MachiningFeature::Pocket(PocketFeature { x: px, y: py, width, height, depth, side, corner_radius: 0.0 })
+            }
+            ParamFeature::GrooveLine { direction, offset, from_end, width, depth, side } => match direction {
+                Axis2::X => {
+                    let y = if from_end { h - offset - width } else { offset };
+                    MachiningFeature::Groove(GrooveFeature { x: 0.0, y, length: w, width, depth, direction, side })
+                }
+                Axis2::Y => {
+                    let x = if from_end { w - offset - width } else { offset };
+                    MachiningFeature::Groove(GrooveFeature { x, y: 0.0, length: h, width, depth, direction, side })
+                }
+            },
+        }
+    }
 }
 
 /// Which face of the target an anchored edge follows.
@@ -1374,6 +1440,8 @@ fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
                 p.size[2] = pos(tk);
             }
             features.extend(m.features.iter().cloned());
+            let [w, h, t] = p.size;
+            features.extend(m.param_features.iter().map(|f| f.resolve(w, h, t)));
         }
     }
     solve_anchors(out, mods);

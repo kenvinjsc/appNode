@@ -472,6 +472,7 @@ impl Engine {
                 ok(json!({}))
             }
             GetRuns => ok(self.get_runs()),
+            ToolFeature { ids, tool, feature } => ok(json!({ "panels": self.tool_feature(&ids, &tool, feature)? })),
             GetMaterialSets => ok(self.material_sets_info()),
             SaveMaterialSet { cabinet, name } => {
                 self.save_material_set(cabinet, &name)?;

@@ -385,6 +385,7 @@ impl Engine {
             if patch.clear_tools {
                 m.extend = [0.0; 4];
                 m.features.clear();
+                m.param_features.clear();
                 m.tools.clear();
             }
             if let Some(f) = patch.add_features {
@@ -400,6 +401,41 @@ impl Engine {
             }
             Ok(())
         })
+    }
+
+    /// Tool gia công theo tham số (khấu góc, khấu bề mặt, rãnh LED / V-bit) cho nhiều tấm: tấm của tủ lưu
+    /// ý định trong `PartMod.param_features` (tính lại theo kích thước), tấm rời thêm feature theo kích thước
+    /// hiện tại. Một bước undo.
+    pub(crate) fn tool_feature(&mut self, ids: &[ObjectId], tool: &str, feature: aic_domain::ParamFeature) -> Result<usize, CoreError> {
+        let mark = self.history.mark();
+        let mut n = 0;
+        let res = (|| -> Result<(), CoreError> {
+            for &id in ids {
+                if let Some((cab, key)) = self.part_ref(id) {
+                    let (f, t) = (feature.clone(), tool.to_string());
+                    self.edit_cabinet(cab, "Tool", move |c| {
+                        let m = c.mods.entry(key).or_default();
+                        m.param_features.push(f);
+                        if !t.is_empty() && !m.tools.contains(&t) {
+                            m.tools.push(t);
+                        }
+                        Ok(())
+                    })?;
+                    n += 1;
+                } else if let Some(p) = self.doc.panel(id) {
+                    let f = feature.resolve(p.width_mm, p.height_mm, p.thickness_mm);
+                    self.exec_cmd(Command::AddFeature { id, feature: f, index: None })?;
+                    n += 1;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(e) = res {
+            self.history.rollback(&mut self.doc, mark);
+            return Err(e);
+        }
+        self.history.squash(mark, tool);
+        Ok(n)
     }
 
     /// Delete commands for generated parts: zone parts are removed from the

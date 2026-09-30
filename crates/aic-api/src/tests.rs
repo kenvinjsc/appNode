@@ -1272,3 +1272,43 @@ fn diagonal_corner_cabinet_pentagon_panels_and_45_degree_door() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(!e.doc.objects.contains_key(&cab));
 }
+
+#[test]
+fn tool_features_are_parametric_and_one_undo() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "depth": 560}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let id = |n: &str| serde_json::from_value::<ObjectId>(kids.iter().find(|k| k["name"] == n).unwrap()["id"].clone()).unwrap();
+    let (l, rgt) = (id("HồiTrái"), id("HồiPhải"));
+    let r = call(&mut e, json!({"cmd": "tool_feature", "ids": [l, rgt], "tool": "03. Khấu góc tủ", "feature": {"type": "NOTCH", "corner": "TR", "width": 100, "depth": 100}}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.result["panels"], 2);
+    let notch = |e: &Engine| {
+        let layout = e.doc.cabinet_layout(cab).unwrap();
+        let p = layout.parts.iter().find(|p| p.name == "HồiTrái").unwrap();
+        let f = match &p.kind {
+            aic_domain::PartKind::Panel { features, .. } => features.iter().find_map(|f| match f {
+                aic_domain::MachiningFeature::Pocket(pk) if pk.width == 100.0 => Some(pk.clone()),
+                _ => None,
+            }),
+            _ => None,
+        };
+        (p.size[0], f)
+    };
+    let (w0, f0) = notch(&e);
+    assert!((f0.unwrap().x - (w0 - 100.0)).abs() < 1e-6);
+    // Đổi sâu tủ → hồi rộng hơn, khấu vẫn ở góc trên phải.
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "depth", "value": "600"}));
+    let (w1, f1) = notch(&e);
+    assert!((w1 - w0 - 40.0).abs() < 1e-6);
+    assert!((f1.unwrap().x - (w1 - 100.0)).abs() < 1e-6, "notch follows the corner");
+    // 2 tấm = 1 undo (sau khi undo đổi sâu).
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(notch(&e).1.is_none());
+    // Rãnh LED cách mép cuối 50 theo chiều cao.
+    let r = call(&mut e, json!({"cmd": "tool_feature", "ids": [l], "tool": "16. LED", "feature": {"type": "GROOVE_LINE", "direction": "Y", "offset": 50, "from_end": true, "width": 10, "depth": 8, "side": "A"}}));
+    assert!(r.ok, "{:?}", r.error);
+}

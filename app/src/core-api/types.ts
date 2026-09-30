@@ -551,3 +551,10 @@ export interface MaterialSet {
   edge_front?: string | null;
   edge_carcass?: string | null;
 }
+
+// ---- Gia công tham số của tool (core tính tọa độ theo kích thước tấm) ----
+export type PanelAnchor = 'BL' | 'BR' | 'TL' | 'TR' | 'CENTER';
+export type ParamFeature =
+  | { type: 'NOTCH'; corner: PanelAnchor; width: number; depth: number }
+  | { type: 'POCKET'; anchor: PanelAnchor; x: number; y: number; width: number; height: number; depth: number; side: FaceSide }
+  | { type: 'GROOVE_LINE'; direction: 'X' | 'Y'; offset: number; from_end: boolean; width: number; depth: number; side: FaceSide };

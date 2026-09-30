@@ -144,6 +144,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-08.2 Cắt tự do, cắt theo tấm** (Rust `cut_line_…`, `cut_by_box_…`). Tấm bị cắt giữ phần lớn hơn.
 - **TC-08.3 Hợp tấm** (Rust `shape_tools_corner_cut_merge`). 2 tấm cùng mặt phẳng, cùng dày → thành 1 tấm; khác dày → từ chối.
 - **TC-08.4 Chia tấm** (Rust `chia_tam_splits_a_part_into_pieces`). Chia 3, khe 3 → 3 tấm đúng kích thước.
+- **TC-08.6 Tool theo tham số** (E2E 10, Rust `tool_features_are_parametric_and_one_undo`). Khấu góc TR 100 × 100 trên 2 hồi →
+  một undo; đổi sâu tủ 560 → 600 → khấu vẫn ở góc trên phải; khấu bề mặt neo góc phải / trên; rãnh LED tính từ mép cuối.
 - **TC-08.5 Contour cung / đa giác** (Rust `contour_arc_and_free_polygon_on_a_part`). Đa giác tự cắt → báo lỗi tiếng Việt.
 
 ### 09. Kết cấu & chuẩn xưởng

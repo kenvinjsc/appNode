@@ -5,7 +5,7 @@ import { useUi } from '../../app/uiStore';
 import { Actions } from '../../app/actions';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
-import type { Corner, EdgeSide, FaceSide, FlatPanel, MachiningFeature, ObjectId, RelationKind } from '../../core-api/types';
+import type { Corner, EdgeSide, FaceSide, FlatPanel, ObjectId, PanelAnchor, RelationKind } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { Num, Radio, Steps } from '../../shared/ui';
 import { cabinetOf } from '../cabinet/useZones';
@@ -150,36 +150,13 @@ function HideTool() {
   );
 }
 
-/** Apply generated features to every selected panel through the core's part mods. */
-async function addFeatures(ids: number[], tool: string, make: (w: number, h: number, t: number) => MachiningFeature[]) {
-  for (const id of ids) {
-    const sheet = await Queries.properties(id).catch(() => null);
-    if (!sheet || sheet.kind !== 'PANEL') continue;
-    const v = (k: string) => Number(sheet.groups.flatMap((g) => g.fields).find((f) => f.key === k)?.value ?? 0);
-    await Commands.setPartMod(id, { add_features: make(v('width'), v('height'), v('thickness')), tool }).catch(() =>
-      Commands.addFeature(id, make(v('width'), v('height'), v('thickness'))[0]).catch(() => undefined),
-    );
-  }
-}
-
 function NotchTool() {
   const { selection } = useTargets();
   const [corner, setCorner] = useState<'TL' | 'TR' | 'BL' | 'BR'>('TR');
   const [w, setW] = useState(100);
   const [d, setD] = useState(100);
-  const apply = () =>
-    void addFeatures(selection, '03. Khấu góc tủ', (pw, ph, t) => [
-      {
-        type: 'POCKET',
-        x: corner.endsWith('L') ? 0 : pw - w,
-        y: corner.startsWith('B') ? 0 : ph - d,
-        width: w,
-        height: d,
-        depth: t + 1,
-        side: 'A',
-        corner_radius: 0,
-      },
-    ]);
+  // Core tính vị trí theo kích thước tấm lúc dựng: tấm đổi cỡ thì khấu vẫn ở đúng góc.
+  const apply = () => void Commands.toolFeature(selection, '03. Khấu góc tủ', { type: 'NOTCH', corner, width: w, depth: d }).catch(() => undefined);
   return (
     <div className="tool-form">
       <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
@@ -195,16 +172,18 @@ function PocketTool() {
   const { selection } = useTargets();
   const [p, setP] = useState({ x: 50, y: 50, width: 100, height: 40, depth: 8 });
   const [side, setSide] = useState<FaceSide>('A');
-  const apply = () => void addFeatures(selection, '08. Khấu bề mặt', () => [{ type: 'POCKET', ...p, side, corner_radius: 0 }]);
+  const [anchor, setAnchor] = useState<PanelAnchor>('BL');
+  const apply = () => void Commands.toolFeature(selection, '08. Khấu bề mặt', { type: 'POCKET', anchor, ...p, side }).catch(() => undefined);
   return (
     <div className="tool-form">
       <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
       {(['x', 'y', 'width', 'height', 'depth'] as const).map((k) => (
         <div className="form-row" key={k}>
-          <label>{{ x: 'Cách trái', y: 'Cách dưới', width: 'Rộng', height: 'Cao', depth: 'Sâu' }[k]}</label>
+          <label>{{ x: anchor.endsWith('R') ? 'Cách phải' : 'Cách trái', y: anchor.startsWith('T') ? 'Cách trên' : 'Cách dưới', width: 'Rộng', height: 'Cao', depth: 'Sâu' }[k]}</label>
           <Num value={p[k]} onCommit={(v) => setP({ ...p, [k]: v })} />
         </div>
       ))}
+      <Radio value={anchor} onChange={setAnchor} options={[['BL', 'Neo góc dưới trái'], ['BR', 'Neo góc dưới phải'], ['TL', 'Neo góc trên trái'], ['TR', 'Neo góc trên phải'], ['CENTER', 'Neo giữa tấm']]} />
       <Radio value={side} onChange={setSide} options={[['A', 'Mặt A'], ['B', 'Mặt B']]} />
       <button className="btn primary" disabled={!selection.length} onClick={apply}>Khấu bề mặt</button>
     </div>
@@ -320,17 +299,14 @@ function GrooveLineTool({ tool, defaults }: { tool: string; defaults: { width: n
   const [g, setG] = useState(defaults);
   const [dir, setDir] = useState<'X' | 'Y'>('X');
   const [side, setSide] = useState<FaceSide>('A');
-  const apply = () =>
-    void addFeatures(selection, tool, (w, h) => [
-      dir === 'X'
-        ? { type: 'GROOVE', x: 0, y: g.offset, length: w, width: g.width, depth: g.depth, direction: 'X', side }
-        : { type: 'GROOVE', x: g.offset, y: 0, length: h, width: g.width, depth: g.depth, direction: 'Y', side },
-    ]);
+  const [fromEnd, setFromEnd] = useState(false);
+  const apply = () => void Commands.toolFeature(selection, tool, { type: 'GROOVE_LINE', direction: dir, offset: g.offset, from_end: fromEnd, width: g.width, depth: g.depth, side }).catch(() => undefined);
   return (
     <div className="tool-form">
       <Steps steps={[{ label: 'Chọn tấm', done: selection.length > 0, detail: `Đã chọn ${selection.length}` }]} />
       <Radio value={dir} onChange={setDir} options={[['X', 'Chạy theo chiều rộng'], ['Y', 'Chạy theo chiều cao']]} />
       <div className="form-row"><label>Cách mép</label><Num value={g.offset} onCommit={(v) => setG({ ...g, offset: v })} /></div>
+      <Radio value={fromEnd ? 'E' : 'S'} onChange={(v) => setFromEnd(v === 'E')} options={[['S', dir === 'X' ? 'Tính từ mép dưới' : 'Tính từ mép trái'], ['E', dir === 'X' ? 'Tính từ mép trên' : 'Tính từ mép phải']]} />
       <div className="form-row"><label>Rộng</label><Num value={g.width} onCommit={(v) => setG({ ...g, width: v })} /></div>
       <div className="form-row"><label>Sâu</label><Num value={g.depth} onCommit={(v) => setG({ ...g, depth: v })} /></div>
       <Radio value={side} onChange={setSide} options={[['A', 'Mặt A'], ['B', 'Mặt B']]} />

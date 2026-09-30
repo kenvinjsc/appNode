@@ -275,6 +275,8 @@ pub enum Request {
     DeleteTemplate { name: String },
     /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
     GetStructure { cabinet: ObjectId },
+    /// Tool gia công theo tham số cho nhiều tấm (khấu góc, khấu bề mặt, rãnh LED / V-bit).
+    ToolFeature { ids: Vec<ObjectId>, #[serde(default)] tool: String, feature: aic_domain::ParamFeature },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.
     GetMaterialSets,
     SaveMaterialSet { cabinet: ObjectId, name: String },

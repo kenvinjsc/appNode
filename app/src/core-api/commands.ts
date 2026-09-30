@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet, ParamFeature } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -44,6 +44,8 @@ export const Commands = {
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */
   applyMaterialSet: (name: string, ids: ObjectId[], room?: string) => command<{ cabinets: number }>({ cmd: 'apply_material_set', name, ids, room }),
   deleteMaterialSet: (name: string) => command({ cmd: 'delete_material_set', name }),
+  /** Tool gia công theo tham số cho nhiều tấm (một undo). */
+  toolFeature: (ids: ObjectId[], tool: string, feature: ParamFeature) => command<{ panels: number }>({ cmd: 'tool_feature', ids, tool, feature }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),
