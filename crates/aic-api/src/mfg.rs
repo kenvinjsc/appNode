@@ -79,13 +79,14 @@ impl Engine {
             .objects
             .iter()
             .filter_map(|(id, o)| {
-                let joints = match self.doc.cabinet_of(*id).and_then(|c| match self.doc.objects.get(&c) {
-                    Some(aic_domain::DomainObject::Cabinet(cab)) => Some(JointSettings::from_shop(&cab.rules.shop)),
-                    _ => None,
-                }) {
-                    Some(j) => j,
-                    None => JointSettings::default(),
-                };
+                let joints = self
+                    .doc
+                    .cabinet_of(*id)
+                    .and_then(|c| match self.doc.objects.get(&c) {
+                        Some(aic_domain::DomainObject::Cabinet(cab)) => Some(JointSettings::from_shop(&cab.rules.shop)),
+                        _ => None,
+                    })
+                    .unwrap_or_default();
                 o.as_panel().map(|p| (*id, PanelPlacement { panel: p, world: self.doc.scene.world(*id), joints }))
             })
             .collect()
