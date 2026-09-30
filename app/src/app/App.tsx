@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ArrayDialog } from '../features/cabinet/ArrayDialog';
 import { TemplateGallery } from '../features/cabinet/TemplateGallery';
 import { setErrorNotifier } from '../core-api/commands';
 import { onHistoryStatus } from '../core-api/events';
@@ -92,6 +93,7 @@ export function App() {
       <PromptDialog />
       <StructureDialog />
       <TemplateGallery />
+      <ArrayDialog />
       <SplitDialog />
       <RunDialog />
       <Toasts />

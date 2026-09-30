@@ -232,7 +232,7 @@ Màu số: xanh dương = AUTO, đỏ = KHÓA, xanh lá = %. Nếu thay đổi l
   lại: khoang KHÓA giữ mm, khoang AUTO lấy phần còn lại. Nếu không đủ chỗ thì báo và không tạo.
 - **Rule preset**: "AIC Wardrobe Standard" (17.2 / hậu 8.6 / rãnh 13 / khe cánh 2 / lùi kệ 30), "AIC Bếp dưới", hoặc
   *Lưu từ tủ*. Áp khi tạo tủ (tab Khung) hoặc cho tủ đang chọn (Cài đặt).
-- **Chuột phải tủ**: Lật gương trái ↔ phải (khoang, bản lề), Nhân dãy tủ sang phải, Sửa kích thước, Báo cáo.
+- **Chuột phải tủ**: Lật gương trái ↔ phải (khoang, bản lề), Nhân dãy tủ…, Sửa kích thước, Báo cáo.
 - **Chuột phải kệ / vách**: Nhân tấm (thêm n tấm giống, chia đều), Chia đều lại.
 
 ## 4d. Quan hệ 2 tấm, kéo cạnh, mặt cắt

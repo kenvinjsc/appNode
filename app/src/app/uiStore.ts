@@ -90,6 +90,8 @@ interface UiState {
   structureOf: ObjectId | null;
   /** Hộp Mẫu dựng sẵn đang mở. */
   gallery: boolean;
+  /** Hộp Nhân dãy tủ đang mở cho tủ này. */
+  arrayOf: ObjectId | null;
   /** Bảng Dãy tủ đang mở (tên dãy). */
   runOf: string | null;
   renaming: ObjectId | null;
@@ -164,6 +166,7 @@ export const useUi = create<UiState>((set, get) => ({
   stretchMode: 'PROPORTIONAL',
   structureOf: null,
   gallery: false,
+  arrayOf: null,
   renaming: null,
   cursor: null,
   mfgPanel: null,

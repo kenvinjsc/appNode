@@ -613,7 +613,7 @@ impl Engine {
                 ok(json!({}))
             }
             ArraySplitPanel { id, count } => ok(self.array_split_panel(id, count)?),
-            ArrayCabinet { id, count, axis, gap } => ok(self.array_cabinet(id, count, axis, gap)?),
+            ArrayCabinet { id, count, axis, gap, sizes } => ok(self.array_cabinet(id, count, axis, gap, sizes.as_deref())?),
             MirrorCabinet { id } => {
                 self.mirror_cabinet(id)?;
                 ok(json!({}))

@@ -91,7 +91,7 @@ export const Commands = {
   deleteRulePreset: (name: string) => command({ cmd: 'delete_rule_preset', name }),
   applyRulePreset: (ids: ObjectId[], name: string) => command({ cmd: 'apply_rule_preset', ids, name }),
   arraySplitPanel: (id: ObjectId, count: number) => command({ cmd: 'array_split_panel', id, count }),
-  arrayCabinet: (id: ObjectId, count: number, axis: 0 | 1 | 2, gap: number) => command({ cmd: 'array_cabinet', id, count, axis, gap }),
+  arrayCabinet: (id: ObjectId, count: number, axis: 0 | 1 | 2, gap: number, sizes?: string) => command<{ created?: ObjectId[] }>({ cmd: 'array_cabinet', id, count, axis, gap, sizes }),
   mirrorCabinet: (id: ObjectId) => command({ cmd: 'mirror_cabinet', id }),
   /** Multi-edit: one undo step, all or nothing. */
   setParameterMulti: (ids: ObjectId[], name: string, value: string) => command({ cmd: 'set_parameter_multi', ids, name, value }),

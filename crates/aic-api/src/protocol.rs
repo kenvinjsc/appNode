@@ -399,7 +399,9 @@ pub enum Request {
     /// Nhân tấm: `count` more shelves / dividers like this one, bays equal.
     ArraySplitPanel { id: ObjectId, count: u32 },
     /// Nhân dãy tủ: `count` copies along axis 0/1/2 with a gap.
-    ArrayCabinet { id: ObjectId, count: u32, #[serde(default)] axis: usize, #[serde(default)] gap: f64 },
+    /// Nhân dãy tủ theo trục X / Y / Z với khe; `sizes` = công thức kích thước từng tủ mới theo trục
+    /// (`400,600,800`, `3*600`), khi có thì số tủ = số giá trị.
+    ArrayCabinet { id: ObjectId, count: u32, #[serde(default)] axis: usize, #[serde(default)] gap: f64, #[serde(default)] sizes: Option<String> },
     MirrorCabinet { id: ObjectId },
     /// Multi-edit: the same parameter on many objects, one undo step, all or nothing.
     SetParameterMulti { ids: Vec<ObjectId>, name: String, value: String },

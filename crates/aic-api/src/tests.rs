@@ -1979,3 +1979,25 @@ fn export_machine_files_dxf_layers_mpr_cix() {
     }
     assert!(!call(&mut e, json!({"cmd": "export_machine", "ids": [ids[0]], "format": "XYZ"})).ok);
 }
+
+#[test]
+fn array_cabinet_by_size_formula_on_any_axis() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "overrides": {"width": 600}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "array_cabinet", "id": cab, "count": 3, "axis": 0, "gap": 0, "sizes": "400,600,800"}));
+    assert!(r.ok, "{:?}", r.error);
+    let ids: Vec<ObjectId> = serde_json::from_value(r.result["created"].clone()).unwrap();
+    assert_eq!(ids.len(), 3);
+    let widths: Vec<f64> = ids.iter().map(|i| e.doc.param_value(*i, "width").unwrap()).collect();
+    assert_eq!(widths, vec![400.0, 600.0, 800.0]);
+    let x: Vec<f64> = ids.iter().map(|i| e.doc.world_aabb(*i).min[0]).collect();
+    let x0 = e.doc.world_aabb(cab).min[0];
+    assert!((x[0] - (x0 + 600.0)).abs() < 1e-6 && (x[1] - (x0 + 1000.0)).abs() < 1e-6 && (x[2] - (x0 + 1600.0)).abs() < 1e-6, "{x:?}");
+    // Một undo bỏ cả 3; trục Y (chồng tủ) với khe 10.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(ids.iter().all(|i| !e.doc.objects.contains_key(i)));
+    let r = call(&mut e, json!({"cmd": "array_cabinet", "id": cab, "count": 2, "axis": 1, "gap": 10}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(!call(&mut e, json!({"cmd": "array_cabinet", "id": cab, "count": 1, "sizes": "abc"})).ok);
+}

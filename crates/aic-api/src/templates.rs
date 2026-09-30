@@ -261,7 +261,10 @@ impl Engine {
     }
 
     /// Array cabinets: `count` copies along an axis with a gap (clones the full definition).
-    pub(crate) fn array_cabinet(&mut self, id: ObjectId, count: u32, axis: usize, gap: f64) -> Result<Value, CoreError> {
+    pub(crate) fn array_cabinet(&mut self, id: ObjectId, count: u32, axis: usize, gap: f64, sizes: Option<&str>) -> Result<Value, CoreError> {
+        if let Some(f) = sizes.filter(|f| !f.trim().is_empty()) {
+            return self.array_sized(id, axis, gap, f);
+        }
         if !(1..=50).contains(&count) || axis > 2 {
             return Err(bad("array", "count 1–50, axis 0–2"));
         }
@@ -275,6 +278,63 @@ impl Engine {
             .collect();
         self.exec_cmd(Command::Batch { label: "Nhân dãy tủ".into(), commands: cmds })?;
         Ok(json!({}))
+    }
+
+    /// Nhân dãy theo công thức kích thước: mỗi tủ mới có rộng / cao / sâu (theo trục) riêng,
+    /// đặt liền nhau (cộng khe), một bước undo.
+    fn array_sized(&mut self, id: ObjectId, axis: usize, gap: f64, formula: &str) -> Result<Value, CoreError> {
+        if axis > 2 {
+            return Err(bad("axis", "0–2"));
+        }
+        let mut sizes = Vec::new();
+        for tok in formula.split([',', ';', ' ']).filter(|t| !t.trim().is_empty()) {
+            let (n, v) = match tok.split_once('*') {
+                Some((n, v)) => (n.trim().parse::<u32>().map_err(|_| bad("sizes", "n*giá trị"))?, v),
+                None => (1, tok),
+            };
+            let v: f64 = v.trim().replace(',', ".").parse().map_err(|_| bad("sizes", format!("không hiểu “{tok}”")))?;
+            if !(v > 50.0 && v < 5000.0) {
+                return Err(bad("sizes", "kích thước 50–5000 mm"));
+            }
+            sizes.extend(std::iter::repeat_n(v, n as usize));
+        }
+        if sizes.is_empty() || sizes.len() > 50 {
+            return Err(bad("sizes", "1–50 tủ"));
+        }
+        let key = ["width", "height", "depth"][axis];
+        let base = self.doc.param_value(id, key).ok_or_else(|| bad("array", "not a cabinet"))?;
+        let mark = self.history.mark();
+        let res = (|| -> Result<Vec<ObjectId>, CoreError> {
+            let mut at = base + gap;
+            let mut out = Vec::new();
+            for s in &sizes {
+                let before: std::collections::BTreeSet<ObjectId> = self.doc.objects.keys().copied().collect();
+                let mut off = [0.0; 3];
+                off[axis] = at;
+                self.exec_cmd(Command::DuplicateObject { id, offset: Some(off) })?;
+                let new = self.doc.objects.keys().copied().find(|k| !before.contains(k) && self.doc.objects.get(k).is_some_and(|o| o.as_cabinet().is_some())).ok_or_else(|| bad("array", "duplicate failed"))?;
+                // Đổi kích thước giữ mép đầu (neo trái / dưới / sau).
+                let anchor = format!("anchor_{}", ["w", "h", "d"][axis]);
+                let a = self.cabinet_def(new)?.anchors;
+                let old = format!("{:?}", [a.width, a.height, a.depth][axis]).to_uppercase();
+                self.set_parameter_pub(new, &anchor, "START")?;
+                self.set_parameter_pub(new, key, &s.to_string())?;
+                self.set_parameter_pub(new, &anchor, &old)?;
+                out.push(new);
+                at += s + gap;
+            }
+            Ok(out)
+        })();
+        match res {
+            Ok(ids) => {
+                self.history.squash(mark, "Nhân dãy tủ");
+                Ok(json!({ "created": ids }))
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
     }
 
     /// Lật gương trái ↔ phải (zone tree, hinges, left/right mods).

@@ -69,7 +69,7 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 
 - **TC-02.1 Tạo tủ bằng click** (tay). Tủ ▾ → Tủ bếp dưới → nhấp sàn → popup nhập W/H/D → tủ đúng kích thước, đúng phòng.
 - **TC-02.2 TAB tạo tủ nối dãy** (tay). Chọn tủ → TAB → tủ mới liền bên phải, cùng cao / sâu.
-- **TC-02.3 Nhân dãy** (Rust `parametric_f_…`). Chuột phải tủ → Nhân dãy tủ sang phải 3 → 3 tủ liền nhau, một undo.
+- **TC-02.3 Nhân dãy** (Rust `parametric_f_…`). Chuột phải tủ → Nhân dãy tủ… → 3 → 3 tủ liền nhau, một undo.
 - **TC-02.4 Template** (E2E 06.4). Lưu tủ áo làm template → chèn 1200 × 2200 × 580 → khoang giữ chế độ KHÓA / AUTO / %, cánh,
   kệ tính lại theo kích thước mới.
 - **TC-02.6 Mẫu bếp dựng sẵn** (E2E 11, Rust `kitchen_products_insert_with_one_undo`). Tủ ▾ → Tủ lò 600 kịch trần cạnh BếpDưới03 →
@@ -91,6 +91,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.11 Bàn đảo** (E2E 27, Rust `island_front_drawers_rear_doors_face_back_no_back_panel`). Mẫu dựng sẵn → Bàn đảo 1800 →
   không tấm hậu, vách giữa (HậuPhụ) chia khoang trước / sau; ngăn kéo khoang trước ở mặt trước, cánh khoang sau quay ra sau;
   mặt đá nhô 300 phía ghế; ốp hông 2 bên; đứng trước dãy bếp (không chồng tủ).
+- **TC-02.12 Nhân dãy tủ** (E2E 29, Rust `array_cabinet_by_size_formula_on_any_axis`). Chuột phải BếpTrên01 → Nhân dãy tủ… →
+  Kích thước từng tủ `400,600,800` → 3 tủ mới liền bên phải, rộng đúng thứ tự; Ctrl+Z bỏ cả 3. Trục Y (chồng lên) khe 10 được;
+  công thức sai → báo lỗi.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

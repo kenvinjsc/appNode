@@ -486,9 +486,7 @@ export function ContextMenu() {
               .catch(() => undefined),
           )}
           {item('mirror', 'Lật gương trái ↔ phải', () => void Commands.mirrorCabinet(id).catch(() => undefined))}
-          {item('duplicate', 'Nhân dãy tủ sang phải…', () =>
-            set({ prompt: { title: 'Nhân dãy tủ', label: 'Số tủ thêm (đặt liền bên phải)', value: '1', ok: (v) => void Commands.arrayCabinet(id, Math.max(1, Math.round(Number(v)) || 1), 0, 0).catch(() => undefined) } }),
-          )}
+          {item('duplicate', 'Nhân dãy tủ…', () => set({ arrayOf: id }))}
           {item('save', 'Lưu làm template…', () =>
             set({
               prompt: {

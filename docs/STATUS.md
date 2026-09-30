@@ -43,6 +43,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D29 | Bản vẽ in A3/A4 có khung tên: core chiếu mặt đứng theo hướng tường, mặt bằng, chi tiết tủ (trước ẩn cánh + bên), chuỗi kích thước, nét mở cánh, tỷ lệ chuẩn tự chọn, xếp trang; UI in SVG | chưa: mặt cắt trong bản vẽ in, mẫu khung tên tuỳ chỉnh |
 | D23 | Bàn đảo / quầy bar: tủ mở 2 mặt (vách giữa theo chiều sâu, khoang sau dựng rồi xoay 180° → cánh / ngăn kéo quay ra sau), không hậu, mặt đá nhô phía ghế, tab Bàn đảo, mẫu Bàn đảo 1800 | chưa: 2D view Mặt sau để ghim khoang sau |
 | D26 | Xuất file máy theo tấm: DXF theo layer (cắt, khoan mặt A / B, khoan cạnh, hốc, rãnh), MPR (Homag), CIX (Biesse); lật mặt B, gốc trên / dưới | chưa: xuất theo sheet nesting; kiểm tra với máy thật |
+| D28 | Nhân dãy tủ: hộp thoại số lượng + trục X / Y / Z + khe + công thức kích thước từng tủ (`400,600,800`, `3*600`), một undo | |
 | D13 | Phào nóc 1–3 mặt + phào chân, ốp hông (chạm sàn / nhô trước), nẹp che khe; tab "Phào & ốp" + lưu mẫu tab | chưa: phào theo cả dãy tủ (D09), vát 45° thành contour CNC |
 | D15 | Khoét hậu (ổ điện / ống / thoát nhiệt, neo theo lòng tủ, CNC cắt trong), hậu ốp bắt vít (+ vít vào báo giá), hậu chia theo kệ cố định | chưa: vẽ / kéo lỗ trên 2D |
 | D14 | Kệ nghiêng thật (xoay quanh trục X, dài theo cos θ, thanh chặn gót khi ≥ 5°, bỏ chốt kệ), vách lửng (`extent`), menu "Kệ giày nghiêng 15° × 4" | chưa: kệ góc L trong tủ góc mù |
