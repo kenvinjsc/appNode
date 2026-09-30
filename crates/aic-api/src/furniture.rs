@@ -4,7 +4,7 @@
 use crate::structure_api::{flag, num, section, select};
 use crate::zones::bad;
 use crate::{protocol, Engine, Request};
-use aic_domain::product::{BedSpec, Product};
+use aic_domain::product::{BedSpec, DeskSpec, Product};
 use aic_domain::ObjectId;
 use aic_project::CoreError;
 use serde::{de::DeserializeOwned, Serialize};
@@ -47,7 +47,8 @@ impl Engine {
     pub(crate) fn create_furniture(&mut self, kind: &str, size: [Option<f64>; 3], position: Option<[f64; 3]>, name: Option<String>, room: Option<String>, floor: Option<String>, options: BTreeMap<String, String>) -> Result<Value, CoreError> {
         let (product, def_size, def_name) = match kind.to_ascii_uppercase().as_str() {
             "BED" => (Product::Bed(BedSpec::default()), [1600.0, 1000.0, 2000.0], "Giường"),
-            _ => return Err(bad("kind", "BED")),
+            "DESK" => (Product::Desk(DeskSpec::default()), [1200.0, 750.0, 600.0], "Bàn"),
+            _ => return Err(bad("kind", "BED | DESK")),
         };
         let [w, h, d] = [0, 1, 2].map(|i| size[i].unwrap_or(def_size[i]));
         if def_name == "Giường" && !(800.0..=2200.0).contains(&w) {
@@ -94,6 +95,13 @@ impl Engine {
                     b.drawer_count = b.drawer_count.clamp(1, 4);
                     Ok(())
                 }
+                (Some(Product::Desk(d)), Some(("desk", f))) => {
+                    set_json_field(d, &key, f, &value)?;
+                    d.top_t = d.top_t.clamp(12.0, 60.0);
+                    d.unit_drawers = d.unit_drawers.clamp(1, 6);
+                    d.hutch_shelves = d.hutch_shelves.min(6);
+                    Ok(())
+                }
                 _ => Err(bad(&key, "not a property of this product")),
             }
         })
@@ -101,7 +109,36 @@ impl Engine {
 
     /// Tab thuộc tính của sản phẩm (đặt đầu bảng Thuộc tính kết cấu).
     pub(crate) fn product_tabs(p: &Product) -> Vec<(String, String, Vec<Value>)> {
+        let sup = &[("PANEL", "Chân tấm"), ("DRAWER_UNIT", "Hộc tủ ngăn kéo"), ("LEG", "Chân sắt")];
         match p {
+            Product::Desk(d) => vec![(
+                "desk".into(),
+                "Bàn".into(),
+                vec![
+                    section("Mặt bàn (Rộng × Sâu × Cao của sản phẩm)"),
+                    num("desk_top_t", "Dày mặt bàn (17–40)", d.top_t),
+                    num("desk_top_overhang", "Nhô hai bên", d.top_overhang),
+                    section("Đỡ mặt bàn"),
+                    select("desk_support_left", "Bên trái", &enum_str(&d.support_left), sup),
+                    select("desk_support_right", "Bên phải", &enum_str(&d.support_right), sup),
+                    num("desk_unit_w", "Rộng hộc (khóa)", d.unit_w),
+                    num("desk_unit_drawers", "Số ngăn kéo mỗi hộc", d.unit_drawers as f64),
+                    section("Yếm, hộc phím"),
+                    flag("desk_modesty", "Yếm", d.modesty),
+                    num("desk_modesty_h", "Cao yếm", d.modesty_h),
+                    num("desk_modesty_setback", "Yếm lùi từ mép sau", d.modesty_setback),
+                    flag("desk_keyboard_tray", "Hộc bàn phím", d.keyboard_tray),
+                    section("Kệ trên, khoét dây, gương"),
+                    num("desk_hutch_h", "Cao kệ trên (0 = không)", d.hutch_h),
+                    num("desk_hutch_shelves", "Số kệ", d.hutch_shelves as f64),
+                    num("desk_hutch_d", "Sâu kệ trên", d.hutch_d),
+                    num("desk_cable_d", "Lỗ luồn dây Ø (0 = không)", d.cable_d),
+                    num("desk_cable_x", "Tâm lỗ cách mép phải", d.cable_x),
+                    num("desk_cable_y", "Tâm lỗ cách mép sau", d.cable_y),
+                    num("desk_mirror_w", "Gương rộng (0 = không)", d.mirror_w),
+                    num("desk_mirror_h", "Gương cao", d.mirror_h),
+                ],
+            )],
             Product::Bed(b) => vec![(
                 "bed".into(),
                 "Giường".into(),

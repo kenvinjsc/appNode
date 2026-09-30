@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Product {
     Bed(BedSpec),
+    Desk(DeskSpec),
 }
 
 impl Product {
@@ -15,12 +16,14 @@ impl Product {
     pub fn code(&self) -> &'static str {
         match self {
             Product::Bed(_) => "BED",
+            Product::Desk(_) => "DESK",
         }
     }
 
     pub fn label(&self) -> &'static str {
         match self {
             Product::Bed(_) => "Giường",
+            Product::Desk(_) => "Bàn",
         }
     }
 }
@@ -102,6 +105,78 @@ impl Default for BedSpec {
             legs: 6,
             storage: BedStorage::None,
             drawer_count: 2,
+        }
+    }
+}
+
+/// Đỡ mặt bàn một bên.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DeskSupport {
+    /// Chân tấm.
+    #[default]
+    Panel,
+    /// Hộc tủ ngăn kéo.
+    DrawerUnit,
+    /// Chân sắt (2 chân).
+    Leg,
+}
+
+/// Bàn học / làm việc / trang điểm: W × H × D của bàn (H = cao mặt bàn).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DeskSpec {
+    /// Dày mặt bàn (17–40).
+    pub top_t: f64,
+    /// Mặt bàn nhô hai bên (0–50).
+    pub top_overhang: f64,
+    pub support_left: DeskSupport,
+    pub support_right: DeskSupport,
+    /// Rộng hộc tủ (LOCK, không đổi theo rộng bàn).
+    pub unit_w: f64,
+    /// Số ngăn kéo mỗi hộc.
+    pub unit_drawers: u32,
+    /// Yếm.
+    pub modesty: bool,
+    pub modesty_h: f64,
+    /// Yếm lùi từ mép sau.
+    pub modesty_setback: f64,
+    /// Hộc bàn phím.
+    pub keyboard_tray: bool,
+    /// Kệ trên (0 = không): cao, số kệ, sâu.
+    pub hutch_h: f64,
+    pub hutch_shelves: u32,
+    pub hutch_d: f64,
+    /// Khoét luồn dây Ø (0 = không), tâm cách mép phải / mép sau.
+    pub cable_d: f64,
+    pub cable_x: f64,
+    pub cable_y: f64,
+    /// Gương (bàn trang điểm): rộng × cao.
+    pub mirror_w: f64,
+    pub mirror_h: f64,
+}
+
+impl Default for DeskSpec {
+    fn default() -> Self {
+        Self {
+            top_t: 25.0,
+            top_overhang: 0.0,
+            support_left: DeskSupport::Panel,
+            support_right: DeskSupport::DrawerUnit,
+            unit_w: 400.0,
+            unit_drawers: 3,
+            modesty: true,
+            modesty_h: 300.0,
+            modesty_setback: 50.0,
+            keyboard_tray: false,
+            hutch_h: 0.0,
+            hutch_shelves: 2,
+            hutch_d: 250.0,
+            cable_d: 60.0,
+            cable_x: 150.0,
+            cable_y: 60.0,
+            mirror_w: 0.0,
+            mirror_h: 800.0,
         }
     }
 }

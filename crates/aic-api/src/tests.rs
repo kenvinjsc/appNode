@@ -1659,3 +1659,36 @@ fn bed_generator_frame_slats_beam_and_side_drawers() {
     call(&mut e, json!({"cmd": "undo"}));
     assert!(!e.doc.objects.contains_key(&bed));
 }
+
+#[test]
+fn desk_with_drawer_unit_hutch_and_cable_hole() {
+    use aic_domain::layout::PartKind;
+    use aic_domain::MachiningFeature;
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_furniture", "kind": "DESK", "width": 1200, "height": 750, "depth": 600, "options": {"desk_hutch_h": "600", "desk_hutch_shelves": "2"}}));
+    assert!(r.ok, "{:?}", r.error);
+    let desk: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let l = e.doc.cabinet_layout(desk).unwrap();
+    let top = l.parts.iter().find(|p| p.key == "k:top").unwrap();
+    assert!((top.size[0] - 1200.0).abs() < 1e-6 && (top.size[2] - 25.0).abs() < 1e-6);
+    let PartKind::Panel { features, .. } = &top.kind else { panic!() };
+    assert!(features.iter().any(|f| matches!(f, MachiningFeature::Contour(c) if c.inner)), "cable hole");
+    // Hộc phải 3 ngăn, rộng 400 (khóa); kệ trên 2 tầng; yếm.
+    let fronts = l.parts.iter().filter(|p| matches!(p.kind, PartKind::Panel { role: aic_domain::PanelRole::DrawerFront, .. })).count();
+    assert_eq!(fronts, 3);
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("KệTrên")).count(), 2);
+    assert!(l.parts.iter().any(|p| p.name == "Yếm"));
+    let unit_x = |e: &Engine| {
+        let l = e.doc.cabinet_layout(desk).unwrap();
+        let a = l.parts.iter().find(|p| p.key == "k:unit_1_l").unwrap().translation[0];
+        let b = l.parts.iter().find(|p| p.key == "k:unit_1_r").unwrap().translation[0];
+        b + 17.2 - a
+    };
+    assert!((unit_x(&e) - 400.0).abs() < 1e-6);
+    call(&mut e, json!({"cmd": "set_parameter", "id": desk, "name": "width", "value": "1400"}));
+    assert!((unit_x(&e) - 400.0).abs() < 1e-6, "unit width locked when the desk grows");
+    // Chân sắt trái → 2 chân.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": desk, "name": "desk_support_left", "value": "LEG"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.cabinet_layout(desk).unwrap().fittings.legs, 2);
+}

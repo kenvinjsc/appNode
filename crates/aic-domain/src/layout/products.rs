@@ -2,11 +2,12 @@
 //! y sàn → trên, z sau → trước (mặt trước ở z lớn nhất).
 
 use super::*;
-use crate::product::{BedSpec, BedStorage, HeadboardStyle, Product, SlatKind};
+use crate::product::{BedSpec, BedStorage, DeskSpec, DeskSupport, HeadboardStyle, Product, SlatKind};
 
 pub(super) fn build(cx: &mut Ctx, p: &Product) {
     match p {
         Product::Bed(b) => bed(cx, b),
+        Product::Desk(d) => desk(cx, d),
     }
 }
 
@@ -163,5 +164,90 @@ fn bed(cx: &mut Ctx, b: &BedSpec) {
             cx.panel(format!("b:dw_bot_{tag}"), format!("ĐáyHộcGiường_Đ{:02}", k + 1), PanelRole::DrawerBottom, MaterialSlot::Back, GrainDirection::AlongWidth, [fw - 25.0, sl, 8.0], [x0 + 12.5, drawer_bot + 10.0, zf], ROT_HORIZONTAL);
             *cx.out.fittings.slides.entry(sl as u32).or_insert(0) += 1;
         }
+    }
+}
+
+/// Bàn: mặt bàn (dày, nhô hai bên), đỡ trái / phải (chân tấm, hộc tủ ngăn kéo, chân sắt),
+/// yếm, hộc bàn phím, kệ trên, khoét luồn dây, gương.
+fn desk(cx: &mut Ctx, s: &DeskSpec) {
+    let v = cx.v;
+    let (w, h, d, t) = (v.width, v.height, v.depth, v.thickness);
+    let tt = s.top_t.clamp(12.0, 60.0);
+    let o = s.top_overhang.clamp(0.0, 100.0);
+    let under = h - tt;
+    let top = cx.panel("k:top".into(), "MặtBàn".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, d, tt], [0.0, under, d], ROT_HORIZONTAL);
+    if s.cable_d > 0.0 {
+        // Tâm lỗ cách mép phải / mép sau; local y của tấm nằm ngang đo từ mép trước.
+        let (lx, ly) = (w - s.cable_x, d - s.cable_y);
+        let r = s.cable_d / 2.0;
+        if lx - r > 5.0 && lx + r < w - 5.0 && ly - r > 5.0 && ly + r < d - 5.0 {
+            cx.add_features(top, vec![MachiningFeature::Contour(crate::ContourFeature { polygon: rounded_rect(lx, ly, s.cable_d, s.cable_d, r), inner: true, depth: tt })]);
+        }
+    }
+    // Đỡ hai bên; trả về mặt trong (x) để yếm / hộc phím nằm giữa.
+    let mut inner = [o, w - o];
+    for (i, sup) in [s.support_left, s.support_right].into_iter().enumerate() {
+        let left = i == 0;
+        let side = if left { "Trái" } else { "Phải" };
+        match sup {
+            DeskSupport::Panel => {
+                let x = if left { o } else { w - o - t };
+                cx.panel(format!("k:leg_{i}"), format!("ChânTấm{side}"), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, under, t], [x, 0.0, d], ROT_SIDE);
+                inner[i] = if left { x + t } else { x };
+            }
+            DeskSupport::Leg => {
+                let x = if left { o + 10.0 } else { w - o - 60.0 };
+                for (k, z) in [(0, 30.0), (1, d - 80.0)] {
+                    cx.hardware(format!("k:iron_{i}{k}"), format!("ChânSắt{side}_{:02}", k + 1), HardwareKind::Leg, "DESK-LEG-50", [50.0, under, 50.0], [x, 0.0, z]);
+                    cx.out.fittings.legs += 1;
+                }
+                inner[i] = if left { x + 50.0 } else { x };
+            }
+            DeskSupport::DrawerUnit => {
+                let uw = s.unit_w.clamp(250.0, (w - 2.0 * o) / 2.0);
+                let x0 = if left { o } else { w - o - uw };
+                let kick = 50.0;
+                let l = cx.panel(format!("k:unit_{i}_l"), format!("HồiHộc{side}_01"), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, under, t], [x0, 0.0, d], ROT_SIDE);
+                let r = cx.panel(format!("k:unit_{i}_r"), format!("HồiHộc{side}_02"), PanelRole::RightSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [d, under, t], [x0 + uw - t, 0.0, d], ROT_SIDE);
+                let b = cx.panel(format!("k:unit_{i}_b"), format!("ĐáyHộc{side}"), PanelRole::Bottom, MaterialSlot::Carcass, GrainDirection::AlongWidth, [uw - 2.0 * t, d - 20.0, t], [x0 + t, kick, d - 20.0], ROT_HORIZONTAL);
+                cx.panel(format!("k:unit_{i}_kick"), format!("LenHộc{side}"), PanelRole::Plinth, MaterialSlot::Carcass, GrainDirection::AlongWidth, [uw - 2.0 * t, kick, t], [x0 + t, 0.0, d - 20.0 - t], [0.0; 3]);
+                cx.panel(format!("k:unit_{i}_back"), format!("HậuHộc{side}"), PanelRole::Back, MaterialSlot::Back, GrainDirection::AlongHeight, [uw - 2.0 * t, under - kick - t, v.back_thickness], [x0 + t, kick + t, 0.0], [0.0; 3]);
+                let bx = ZBox {
+                    min: [x0 + t, kick + t, v.back_thickness],
+                    size: [uw - 2.0 * t, under - kick - t, d - v.back_thickness],
+                    nb: [Neighbor { t, outer: true, part: Some(l) }, Neighbor { t, outer: true, part: Some(r) }, Neighbor { t, outer: true, part: Some(b) }, Neighbor { t: tt, outer: true, part: Some(top) }],
+                };
+                let spec = DrawerSpec::new(9000 + i as u32, s.unit_drawers.clamp(1, 6), Mount::Overlay);
+                drawers(cx, &spec, &bx);
+                inner[i] = if left { x0 + uw } else { x0 };
+            }
+        }
+    }
+    let knee = inner[1] - inner[0];
+    if s.modesty && knee > 50.0 {
+        let mh = s.modesty_h.clamp(50.0, under);
+        cx.panel("k:modesty".into(), "Yếm".into(), PanelRole::Back, MaterialSlot::Carcass, GrainDirection::AlongWidth, [knee, mh, t], [inner[0], under - mh, s.modesty_setback.clamp(0.0, d / 2.0)], [0.0; 3]);
+    }
+    if s.keyboard_tray && knee > 300.0 {
+        let kw = knee.min(700.0) - 30.0;
+        let sl = STD_SLIDES.iter().copied().filter(|x| *x <= d - 100.0).fold(STD_SLIDES[0], f64::max);
+        cx.panel("k:tray".into(), "HộcBànPhím".into(), PanelRole::Shelf, MaterialSlot::Carcass, GrainDirection::AlongWidth, [kw, sl, t], [inner[0] + (knee - kw) / 2.0, under - 80.0, d], ROT_HORIZONTAL);
+        *cx.out.fittings.slides.entry(sl as u32).or_insert(0) += 1;
+    }
+    if s.hutch_h > 0.0 {
+        // Kệ trên: 2 hồi + nóc + kệ, đặt sát mép sau mặt bàn.
+        let (hh, hd) = (s.hutch_h.clamp(200.0, 1500.0), s.hutch_d.clamp(150.0, d));
+        cx.panel("k:hutch_l".into(), "HồiKệTrên_01".into(), PanelRole::LeftSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [hd, hh, t], [0.0, h, hd], ROT_SIDE);
+        cx.panel("k:hutch_r".into(), "HồiKệTrên_02".into(), PanelRole::RightSide, MaterialSlot::Carcass, GrainDirection::AlongHeight, [hd, hh, t], [w - t, h, hd], ROT_SIDE);
+        cx.panel("k:hutch_top".into(), "NócKệTrên".into(), PanelRole::Top, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w - 2.0 * t, hd, t], [t, h + hh - t, hd], ROT_HORIZONTAL);
+        let n = s.hutch_shelves.min(6);
+        let step = (hh - t) / (n + 1) as f64;
+        for k in 0..n {
+            cx.panel(format!("k:hutch_s{k}"), format!("KệTrên_{:02}", k + 1), PanelRole::ShelfFixed, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w - 2.0 * t, hd, t], [t, h + (k + 1) as f64 * step - t / 2.0, hd], ROT_HORIZONTAL);
+        }
+    }
+    if s.mirror_w > 0.0 {
+        let mw = s.mirror_w.min(w);
+        cx.panel("k:mirror".into(), "Gương".into(), PanelRole::Generic, MaterialSlot::Front, GrainDirection::AlongHeight, [mw, s.mirror_h.clamp(200.0, 1500.0), 5.0], [(w - mw) / 2.0, h + 50.0, 0.0], [0.0; 3]);
     }
 }

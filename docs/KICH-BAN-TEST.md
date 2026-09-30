@@ -78,6 +78,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-02.7 Giường** (E2E 18, Rust `bed_generator_frame_slats_beam_and_side_drawers`). Tủ ▾ → Giường 1600 × 2000 → đầu /
   đuôi rộng 1600, vai dài 2000 + 2 × dày ván, 14 nan dát, đà giữa, 6 chân. Thuộc tính kết cấu → Giường → Hộc kéo 2 bên → 4 hộc,
   ray ≤ nửa rộng giường, chân còn 4 góc. Đổi rộng 1800 → mọi chi tiết giải lại. Báo giá: "Theo chiếc". Rộng nệm 3000 → báo lỗi.
+- **TC-02.8 Bàn** (E2E 19, Rust `desk_with_drawer_unit_hutch_and_cable_hole`). Tủ ▾ → Bàn học 1200 → mặt 1200 × 600 dày 25,
+  khoét luồn dây Ø60, hộc phải 3 ngăn rộng 400, kệ trên 2 tầng, yếm. Đổi rộng 1400 → hộc vẫn 400 (khóa). Đỡ trái = Chân sắt → 2
+  chân, mất chân tấm.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

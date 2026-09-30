@@ -127,6 +127,9 @@ function CabinetMenu() {
 const FURNITURE: { label: string; kind: string; size: { width?: number; height?: number; depth?: number }; options?: Record<string, string> }[] = [
   { label: 'Giường 1600 × 2000', kind: 'BED', size: { width: 1600, depth: 2000, height: 1000 } },
   { label: 'Giường hộc kéo 1600', kind: 'BED', size: { width: 1600, depth: 2000, height: 1000 }, options: { bed_frame_h: '450', bed_storage: 'DRAWERS_2_SIDES' } },
+  { label: 'Bàn học 1200 (hộc phải, kệ trên)', kind: 'DESK', size: { width: 1200, height: 750, depth: 600 }, options: { desk_hutch_h: '600', desk_hutch_shelves: '2' } },
+  { label: 'Bàn làm việc 1400', kind: 'DESK', size: { width: 1400, height: 750, depth: 700 }, options: { desk_support_left: 'LEG', desk_support_right: 'LEG', desk_keyboard_tray: 'on' } },
+  { label: 'Bàn trang điểm 1000', kind: 'DESK', size: { width: 1000, height: 750, depth: 450 }, options: { desk_support_left: 'PANEL', desk_unit_drawers: '2', desk_mirror_w: '600', desk_cable_d: '0', desk_modesty: 'off' } },
 ];
 
 export function Ribbon() {

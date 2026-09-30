@@ -67,7 +67,10 @@ Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 - Rộng × Sâu của giường là **lọt nệm**; Cao là cao đầu giường. Đổi các số này ở Khung / 2D như tủ thường.
 - Chuột phải → Thuộc tính kết cấu → tab **Giường**: cao mặt dát, kiểu đầu giường (phẳng / bọc nệm / nan), cao vai, dát nan
   hoặc dát tấm, số nan, đà giữa (rộng ≥ 1400), 4 / 6 chân, hộc kéo (2 bên / đuôi / nâng hơi), số hộc mỗi bên.
-- Báo giá: giường tính **theo chiếc** (đổi được trong Báo cáo).
+- **Bàn học 1200 / Bàn làm việc 1400 / Bàn trang điểm 1000**: tab **Bàn** có dày mặt, nhô hai bên, đỡ trái / phải (chân tấm,
+  hộc tủ ngăn kéo, chân sắt), rộng hộc (khóa, không đổi theo rộng bàn), số ngăn kéo, yếm, hộc bàn phím, kệ trên (cao, số kệ,
+  sâu), lỗ luồn dây (Ø, vị trí), gương.
+- Báo giá: giường, bàn tính **theo chiếc** (đổi được trong Báo cáo).
 
 ## 3. Dựng chi tiết bên trong (tab Tạo tấm)
 
