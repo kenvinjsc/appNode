@@ -438,6 +438,16 @@ impl Engine {
                 ok(json!({}))
             }
             GetRuns => ok(self.get_runs()),
+            GetMaterialSets => ok(self.material_sets_info()),
+            SaveMaterialSet { cabinet, name } => {
+                self.save_material_set(cabinet, &name)?;
+                ok(json!({}))
+            }
+            ApplyMaterialSet { ids, room, name } => ok(json!({ "cabinets": self.apply_material_set(ids, room, &name)? })),
+            DeleteMaterialSet { name } => {
+                self.delete_material_set(&name)?;
+                ok(json!({}))
+            }
             ShapeTool { ids, op } => ok(self.shape_tool(&ids, &op)?),
             MergePanels { ids } => ok(self.merge_panels(&ids)?),
             Undo => ok(json!({ "label": self.history.undo(&mut self.doc)? })),
@@ -841,7 +851,7 @@ impl Engine {
         self.exec(Command::SetEdgeBand { id, edge, band })
     }
 
-    fn set_material(&mut self, id: ObjectId, material: &str, slot: Option<&str>) -> Result<(), CoreError> {
+    pub(crate) fn set_material(&mut self, id: ObjectId, material: &str, slot: Option<&str>) -> Result<(), CoreError> {
         let material = MaterialId::new(material);
         match self.doc.object(id)? {
             DomainObject::Panel(_) => self.exec(Command::SetMaterial { id, material }),

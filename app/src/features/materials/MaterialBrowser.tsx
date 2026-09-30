@@ -5,7 +5,7 @@ import { Commands } from '../../core-api/commands';
 import type { Material } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 
-const KIND: Record<string, string> = { MDF: 'MDF', PLYWOOD: 'Plywood', PARTICLEBOARD: 'Ván dăm', HDF: 'HDF', SOLID_WOOD: 'Gỗ tự nhiên' };
+const KIND: Record<string, string> = { MDF: 'MDF', PLYWOOD: 'Plywood', PARTICLEBOARD: 'Ván dăm', HDF: 'HDF', SOLID_WOOD: 'Gỗ tự nhiên', STONE: 'Đá', MFC: 'MFC', MFC_MR: 'MFC lõi xanh (chống ẩm)', ACRYLIC: 'Acrylic', LAMINATE: 'Laminate', VENEER: 'Veneer' };
 
 export function MaterialBrowser({ embedded = false }: { embedded?: boolean }) {
   const { materials, selection, set } = useUi();

@@ -279,6 +279,11 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab mới:
   dán toàn bộ / không dán* và loại chỉ (Đơn 0.5/1/2, Kép 1, ABS 1/2, PVC 1). Hậu và đáy hộc mặc định không dán theo vai trò
   (không phụ thuộc độ dày). Kích thước cắt trừ đúng độ dày chỉ từng cạnh; báo giá tách mét chỉ theo mã.
 
+Dòng **Bộ vật liệu** (dưới Chuẩn xưởng): chọn bộ dựng sẵn — *Bếp chống ẩm (MFC lõi xanh + Acrylic)*, *Tủ áo MFC vân sồi*,
+*Cao cấp Veneer tần bì*, *Tiết kiệm MDF trắng* — hoặc bộ tự lưu; **Áp** cho tủ đang chọn, **Cả phòng** cho mọi tủ cùng phòng
+(vật liệu thùng / cánh / hậu + chỉ dán cánh, thùng, kệ; một undo); **Lưu bộ** lấy từ tủ đang mở. Thư viện vật liệu có thêm MFC
+(khổ 1830 × 2440), MFC lõi xanh chống ẩm, Acrylic, Laminate, Veneer, HDF lõi xanh (dự án cũ tự có khi mở).
+
 Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của tủ này (trừ Rộng/Cao/Sâu) vào thư viện dùng chung;
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.
 Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ).

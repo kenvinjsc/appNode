@@ -130,7 +130,7 @@ export interface RenderBatch {
 export interface Material {
   id: string;
   name: string;
-  kind: 'MDF' | 'PLYWOOD' | 'PARTICLEBOARD' | 'HDF' | 'SOLID_WOOD' | 'STONE';
+  kind: 'MDF' | 'PLYWOOD' | 'PARTICLEBOARD' | 'HDF' | 'SOLID_WOOD' | 'STONE' | 'MFC' | 'MFC_MR' | 'ACRYLIC' | 'LAMINATE' | 'VENEER';
   thickness_mm: number;
   has_grain: boolean;
   sheet_width_mm: number;
@@ -506,6 +506,8 @@ export interface StructureInfo {
   tabs: { key: string; title: string; fields: StructureField[]; presets: string[] }[];
   /** Chuẩn xưởng đã lưu (mẫu gộp mọi tab, nhóm "all"). */
   standards: string[];
+  /** Phòng của tủ (áp bộ vật liệu cả phòng). */
+  room: string;
 }
 
 // ---- Dãy tủ ----
@@ -538,4 +540,14 @@ export interface RunDef {
   cabinets: ObjectId[];
   rules: RunRules;
   parts: ObjectId[];
+}
+
+// ---- Bộ vật liệu ----
+export interface MaterialSet {
+  name: string;
+  carcass: string;
+  front: string;
+  back: string;
+  edge_front?: string | null;
+  edge_carcass?: string | null;
 }

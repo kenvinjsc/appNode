@@ -42,7 +42,7 @@ Tài liệu này gom toàn bộ kịch bản kiểm thử theo module: dùng cho
 | 08 Tool (bo góc, cắt, hợp, chia, contour) | TC-08.1–08.5 | Rust `shape_tools_…`, `chia_tam_…`, `contour_…` | 08.1–08.5 |
 | 09 Kết cấu & chuẩn xưởng | TC-09.1–09.9 | Rust `structure_tabs_…`, `shop_standard_…`, `shelves_snap_…`, `joint_types_…`, `base_types_…`, E2E 03 | 09.1, 09.9 |
 | 10 Dãy tủ (mặt đá, len liền, tấm lấp) | TC-10.1–10.5 | Rust `run_countertop_…`, E2E 04.1 | 10.3, 10.5 |
-| 11 Vật liệu & dán cạnh | TC-11.1–11.4 | Rust `edge_bands_per_panel_group`, E2E 03.3 | 11.1, 11.4 |
+| 11 Vật liệu & dán cạnh | TC-11.1–11.6 | Rust `edge_bands_per_panel_group`, `material_sets_…`, E2E 03.3, 09 | 11.1, 11.4 |
 | 12 Sản xuất (gia công, xếp tấm, CNC) | TC-12.1–12.5 | Rust `packs_…`, `program_for_one_part`, E2E 07 | 12.3–12.5 |
 | 13 Báo cáo (costing, báo giá, cắt gộp, nhãn) | TC-13.1–13.6 | Rust `costing_report_…`, `quote_…`, E2E 05 | 13.5, 13.6 |
 | 14 Lỗi, dữ liệu sai, độ bền | TC-14.1–14.6 | Rust `constraint_violation_…`, `bad_request_…`, E2E 02.2 | 14.4–14.6 |
@@ -179,6 +179,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-11.2 Dán cạnh theo nhóm** (E2E 03.3, Rust `edge_bands_per_panel_group`). Cánh ABS 2 mm toàn bộ → kích thước cắt cánh trừ 4 mm
   mỗi chiều, báo giá có dòng ABS-2.
 - **TC-11.3 Hậu không dán** (Rust `edge_bands_per_panel_group`). Hậu 9 mm → không dán (theo vai trò, không theo độ dày).
+- **TC-11.5 Vật liệu Việt Nam** (E2E 09). Thư viện có MFC lõi xanh (khổ 2440 × 1830), Acrylic, Laminate, Veneer; mở dự án cũ vẫn có.
+- **TC-11.6 Bộ vật liệu cả phòng** (E2E 09, Rust `material_sets_apply_to_a_room_one_undo`). Bảng kết cấu → Bộ vật liệu "Bếp chống ẩm"
+  → Cả phòng → mọi tủ phòng Bếp đổi thùng MFC lõi xanh, cánh Acrylic, hậu HDF lõi xanh, chỉ ABS; phòng khác không đổi; một undo.
 - **TC-11.4 Ghi đè cạnh** (tay). Chỉnh tấm → bật / tắt dán từng cạnh → chỉ tấm đó đổi.
 
 ### 12. Sản xuất

@@ -38,6 +38,41 @@ pub struct Library {
     pub presets: Vec<RulePreset>,
     #[serde(default)]
     pub zones: Vec<ZonePreset>,
+    /// Bộ vật liệu: thùng / cánh / hậu + chỉ dán cánh, thùng.
+    #[serde(default)]
+    pub material_sets: Vec<MaterialSet>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MaterialSet {
+    pub name: String,
+    pub carcass: String,
+    pub front: String,
+    pub back: String,
+    /// Mã chỉ cánh / mặt ngăn (None = giữ nguyên).
+    #[serde(default)]
+    pub edge_front: Option<String>,
+    /// Mã chỉ thùng + kệ (None = giữ nguyên).
+    #[serde(default)]
+    pub edge_carcass: Option<String>,
+}
+
+/// Bộ vật liệu dựng sẵn (luôn có, không lưu vào thư viện).
+pub fn builtin_material_sets() -> Vec<MaterialSet> {
+    let set = |name: &str, carcass: &str, front: &str, back: &str, ef: &str, ec: &str| MaterialSet {
+        name: name.into(),
+        carcass: carcass.into(),
+        front: front.into(),
+        back: back.into(),
+        edge_front: Some(ef.into()),
+        edge_carcass: Some(ec.into()),
+    };
+    vec![
+        set("Bếp chống ẩm (MFC lõi xanh + Acrylic)", "MFCMR18-WHITE", "ACR18-WHITE", "HDFMR8-WHITE", "ABS-1", "PVC-1"),
+        set("Tủ áo MFC vân sồi", "MFC17-WHITE", "MFC18-OAK", "MDF8-WHITE", "PVC-1", "PVC-1"),
+        set("Cao cấp Veneer tần bì", "MDF18-WHITE", "VEN18-ASH", "MDF8-WHITE", "ABS-2", "ABS-1"),
+        set("Tiết kiệm MDF trắng", "MDF17-WHITE", "MDF17-WHITE", "MDF8-WHITE", "DON-1", "DON-1"),
+    ]
 }
 
 /// Default library file: `$AIC_LIBRARY`, else `~/.aic-cad/library.json`.
@@ -179,5 +214,84 @@ impl Engine {
             "path": self.library_path.as_ref().map(|p| p.display().to_string()),
             "zones": self.library.zones.iter().map(|z| json!({ "name": z.name, "size": z.size, "summary": zone_summary(&z.zone) })).collect::<Vec<_>>(),
         })
+    }
+}
+
+impl Engine {
+    fn material_set(&self, name: &str) -> Option<MaterialSet> {
+        self.library.material_sets.iter().find(|m| m.name == name).cloned().or_else(|| builtin_material_sets().into_iter().find(|m| m.name == name))
+    }
+
+    pub(crate) fn material_sets_info(&self) -> Value {
+        let builtin: Vec<Value> = builtin_material_sets().into_iter().map(|m| json!({ "set": m, "builtin": true })).collect();
+        let user: Vec<Value> = self.library.material_sets.iter().map(|m| json!({ "set": m, "builtin": false })).collect();
+        json!({ "sets": builtin.into_iter().chain(user).collect::<Vec<_>>() })
+    }
+
+    /// Lưu bộ vật liệu từ vật liệu thùng / cánh / hậu + chỉ dán hiện tại của một tủ.
+    pub(crate) fn save_material_set(&mut self, cab: ObjectId, name: &str) -> Result<(), CoreError> {
+        let name = name.trim();
+        if name.is_empty() || builtin_material_sets().iter().any(|m| m.name == name) {
+            return Err(bad("preset", "name required / reserved"));
+        }
+        let def = self.cabinet_def(cab)?;
+        let code = |g: &str| def.edge_rule.groups.get(g).map(|x| x.band_code.clone()).or_else(|| Some(def.edge_rule.band_code.clone()));
+        let set = MaterialSet {
+            name: name.into(),
+            carcass: def.carcass_material.0.clone(),
+            front: def.front_material.0.clone(),
+            back: def.back_material.0.clone(),
+            edge_front: code("front"),
+            edge_carcass: code("carcass"),
+        };
+        self.library.material_sets.retain(|m| m.name != name);
+        self.library.material_sets.push(set);
+        self.save_library_pub()
+    }
+
+    /// Áp bộ vật liệu cho các tủ (`ids`) hoặc mọi tủ của một phòng: một bước undo.
+    pub(crate) fn apply_material_set(&mut self, ids: Vec<ObjectId>, room: Option<String>, name: &str) -> Result<usize, CoreError> {
+        let set = self.material_set(name).ok_or_else(|| bad("preset", "unknown material set"))?;
+        for m in [&set.carcass, &set.front, &set.back] {
+            if !self.doc.materials.iter().any(|x| &x.id.0 == m) {
+                return Err(CoreError::UnknownMaterial { material: m.clone() });
+            }
+        }
+        let mut cabs: Vec<ObjectId> = ids.into_iter().filter(|i| self.doc.objects.get(i).is_some_and(|o| o.as_cabinet().is_some())).collect();
+        if let Some(room) = room {
+            cabs.extend(self.doc.objects.iter().filter_map(|(id, o)| o.as_cabinet().filter(|c| c.room == room).map(|_| *id)));
+        }
+        cabs.sort();
+        cabs.dedup();
+        if cabs.is_empty() {
+            return Err(bad("preset", "no cabinet"));
+        }
+        let mark = self.history.mark();
+        let res = (|| -> Result<(), CoreError> {
+            for &c in &cabs {
+                self.set_material(c, &set.carcass, Some("carcass"))?;
+                self.set_material(c, &set.front, Some("front"))?;
+                self.set_material(c, &set.back, Some("back"))?;
+                if let Some(e) = &set.edge_front {
+                    self.set_parameter_pub(c, "edge_g_front_code", e)?;
+                }
+                if let Some(e) = &set.edge_carcass {
+                    self.set_parameter_pub(c, "edge_g_carcass_code", e)?;
+                    self.set_parameter_pub(c, "edge_g_shelf_code", e)?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(e) = res {
+            self.history.rollback(&mut self.doc, mark);
+            return Err(e);
+        }
+        self.history.squash(mark, "Áp bộ vật liệu");
+        Ok(cabs.len())
+    }
+
+    pub(crate) fn delete_material_set(&mut self, name: &str) -> Result<(), CoreError> {
+        self.library.material_sets.retain(|m| m.name != name);
+        self.save_library_pub()
     }
 }

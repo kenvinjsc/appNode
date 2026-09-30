@@ -25,7 +25,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D07 | Tủ góc L mù (trái / phải) | chưa: góc chéo, mâm xoay |
 | D08 | Chân tủ: len trước / 3 mặt, chân nhựa (+ len kẹp), tủ treo | |
 | D09 | Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần; tự sinh lại khi tủ đổi | chưa khoét chậu / bếp trên mặt đá |
-| D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | chưa: bộ vật liệu, loại vật liệu VN |
+| D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | bộ vật liệu (dựng sẵn + tự lưu, áp cả phòng), vật liệu VN (MFC, MFC lõi xanh, Acrylic, Laminate, Veneer) |
 | D11 | Mã tấm, danh sách cắt gộp, in nhãn 60×40, CSV | chưa: QR, profile CSV cấu hình |
 | D12 | Báo giá mét dài / m² mặt đứng / bóc chi tiết theo phòng, hao hụt, công, lợi nhuận, VAT | in báo giá A4 / PDF có tổng bằng chữ |
 

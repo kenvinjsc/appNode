@@ -260,7 +260,7 @@ impl Engine {
             .collect();
         let rails_active = def.top_style == aic_domain::JoinStyle::Rails;
         let standards: Vec<&str> = self.library.groups.iter().filter(|g| g.group == SHOP_GROUP).map(|g| g.name.as_str()).collect();
-        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards }))
+        Ok(json!({ "cabinet": cab, "name": def.name, "tabs": tabs, "rails_active": rails_active, "standards": standards, "room": def.room }))
     }
 
     /// Lưu mẫu tab: the tab's current values under `name` in the shared library.

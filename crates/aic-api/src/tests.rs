@@ -1194,3 +1194,42 @@ fn inner_drawers_behind_doors_and_false_front() {
     assert!(!l.parts.iter().any(|p| p.name.starts_with("ThànhTrái") || p.name.starts_with("RayBi") || p.name.starts_with("TayNắm")));
     assert!(l.fittings.slides.is_empty());
 }
+
+#[test]
+fn material_sets_apply_to_a_room_one_undo() {
+    let mut e = Engine::new();
+    let mut ids = Vec::new();
+    for _ in 0..2 {
+        let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "Bếp", "overrides": {"width": 800, "doors": 2}}));
+        ids.push(serde_json::from_value::<ObjectId>(r.result["id"].clone()).unwrap());
+    }
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WARDROBE", "room": "PN1"}));
+    let wr: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let sets = call(&mut e, json!({"cmd": "get_material_sets"}));
+    let name = sets.result["sets"][0]["set"]["name"].as_str().unwrap().to_string();
+    assert!(name.contains("chống ẩm"));
+    let r = call(&mut e, json!({"cmd": "apply_material_set", "room": "Bếp", "name": name}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.result["cabinets"], 2);
+    let mat = |e: &Engine, cab: ObjectId, role: aic_domain::PanelRole| {
+        e.doc.scene.subtree(cab).into_iter().filter_map(|c| e.doc.panel(c)).find(|p| p.role == role).map(|p| p.material_id.0.clone()).unwrap()
+    };
+    use aic_domain::PanelRole;
+    assert_eq!(mat(&e, ids[0], PanelRole::LeftSide), "MFCMR18-WHITE");
+    assert_eq!(mat(&e, ids[1], PanelRole::Door), "ACR18-WHITE");
+    assert_eq!(mat(&e, ids[0], PanelRole::Back), "HDFMR8-WHITE");
+    assert_ne!(mat(&e, wr, PanelRole::LeftSide), "MFCMR18-WHITE", "other room untouched");
+    let c = call(&mut e, json!({"cmd": "get_costing"}));
+    assert!(c.result["edges"].as_array().unwrap().iter().any(|l| l["key"].as_str().unwrap().contains("ABS-1")));
+    // Một undo trả lại cả phòng.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_ne!(mat(&e, ids[0], PanelRole::LeftSide), "MFCMR18-WHITE");
+    assert_ne!(mat(&e, ids[1], PanelRole::Door), "ACR18-WHITE");
+    // Lưu bộ từ tủ, áp lại.
+    let r = call(&mut e, json!({"cmd": "save_material_set", "cabinet": wr, "name": "Bộ tủ áo"}));
+    assert!(r.ok, "{:?}", r.error);
+    let r = call(&mut e, json!({"cmd": "apply_material_set", "ids": [ids[0]], "name": "Bộ tủ áo"}));
+    assert!(r.ok, "{:?}", r.error);
+    let r = call(&mut e, json!({"cmd": "apply_material_set", "ids": [ids[0]], "name": "không có"}));
+    assert!(!r.ok);
+}

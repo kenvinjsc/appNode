@@ -268,6 +268,18 @@ pub enum Request {
     DeleteTemplate { name: String },
     /// Bảng Thuộc tính kết cấu (tabs + fields) of a cabinet; mẫu từng tab (thư viện).
     GetStructure { cabinet: ObjectId },
+    /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.
+    GetMaterialSets,
+    SaveMaterialSet { cabinet: ObjectId, name: String },
+    ApplyMaterialSet {
+        #[serde(default)]
+        ids: Vec<ObjectId>,
+        /// Áp cho mọi tủ của phòng này.
+        #[serde(default)]
+        room: Option<String>,
+        name: String,
+    },
+    DeleteMaterialSet { name: String },
     /// Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần sinh theo các tủ đã chọn.
     CreateRun {
         ids: Vec<ObjectId>,

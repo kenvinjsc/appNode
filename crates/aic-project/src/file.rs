@@ -91,6 +91,12 @@ impl ProjectFile {
         doc.scene = self.scene;
         doc.scene.mark_all_dirty();
         doc.materials = self.materials;
+        // Dự án cũ: bổ sung vật liệu mặc định mới (theo mã) để dùng được ngay.
+        for m in aic_domain::default_materials() {
+            if !doc.materials.iter().any(|x| x.id == m.id) {
+                doc.materials.push(m);
+            }
+        }
         doc.ids = self.ids;
         doc.params = ParamGraph::new();
         for o in self.objects {

@@ -2,7 +2,7 @@
 import { send } from './transport';
 import { emitCoreEvents, emitStatus } from './events';
 import { describeError, type UserMessage } from './errors';
-import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef } from './types';
+import type { CabinetKind, DoorKind, EdgeSide, HingeSide, Lock, MachiningFeature, Mount, ObjectId, PartModPatch, SplitKind, StopRailSpec, Transform3D, Vec3, ShapeOp, BayMode, RelationKind, PanelSide, StructureInfo, RunRules, RunDef, MaterialSet } from './types';
 
 export class CommandError extends Error {
   constructor(public readonly user: UserMessage, public readonly code: string) {
@@ -37,6 +37,11 @@ export const Commands = {
   /** Chia khoang theo công thức (`500`, `500,300`, `30%,*`, `3*400`, `/3`). */
   /** Tủ góc bếp L mù (phần mù phía góc + 1 cánh). */
   createCorner: (hand: 'LEFT' | 'RIGHT', after?: ObjectId, width?: number, door_width?: number) => command<{ id: ObjectId }>({ cmd: 'create_corner', hand, after, width, door_width }),
+  getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
+  saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
+  /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */
+  applyMaterialSet: (name: string, ids: ObjectId[], room?: string) => command<{ cabinets: number }>({ cmd: 'apply_material_set', name, ids, room }),
+  deleteMaterialSet: (name: string) => command({ cmd: 'delete_material_set', name }),
   createRun: (ids: ObjectId[], rules?: Partial<RunRules>) => command<{ name: string }>({ cmd: 'create_run', ids, rules }),
   updateRun: (name: string, rules: RunRules) => command({ cmd: 'update_run', name, rules }),
   deleteRun: (name: string) => command({ cmd: 'delete_run', name }),

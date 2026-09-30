@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { StructureField, StructureInfo } from '../../core-api/types';
+import type { MaterialSet, StructureField, StructureInfo } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 
 export function StructureDialog() {
@@ -14,6 +14,14 @@ export function StructureDialog() {
   const [tab, setTab] = useState('back');
   const [preset, setPreset] = useState('');
   const [standard, setStandard] = useState('');
+  const [msets, setMsets] = useState<{ set: MaterialSet; builtin: boolean }[]>([]);
+  const [mset, setMset] = useState('');
+  useEffect(() => {
+    if (structureOf === null) return;
+    Commands.getMaterialSets()
+      .then((r) => setMsets(r.sets))
+      .catch(() => setMsets([]));
+  }, [structureOf, revision]);
   useEffect(() => {
     if (structureOf === null) return setInfo(null);
     Commands.getStructure(structureOf)
@@ -82,6 +90,64 @@ export function StructureDialog() {
             <Icon name="x" size={12} />
           </button>
         )}
+      </div>
+      <div className="struct-presets struct-std" title="Bộ vật liệu: thùng / cánh / hậu + chỉ dán cánh và thùng">
+        <b>Bộ vật liệu</b>
+        <select value={mset} onChange={(e) => setMset(e.target.value)}>
+          <option value="">— chọn —</option>
+          {msets.map(({ set: m, builtin }) => (
+            <option key={m.name} value={m.name}>
+              {m.name}
+              {builtin ? '' : ' (của tôi)'}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn tiny"
+          disabled={!mset}
+          title="Áp cho tủ đang chọn"
+          onClick={() =>
+            void Commands.applyMaterialSet(mset, targets)
+              .then((r) => useUi.getState().toast({ kind: 'success', title: `Đã áp “${mset}” cho ${r.cabinets} tủ` }))
+              .catch(() => undefined)
+          }
+        >
+          Áp
+        </button>
+        <button
+          className="btn tiny"
+          disabled={!mset || !info.room}
+          title={info.room ? `Áp cho mọi tủ trong phòng ${info.room}` : 'Tủ chưa gán phòng'}
+          onClick={() =>
+            void Commands.applyMaterialSet(mset, [], info.room)
+              .then((r) => useUi.getState().toast({ kind: 'success', title: `Đã áp “${mset}” cho ${r.cabinets} tủ phòng ${info.room}` }))
+              .catch(() => undefined)
+          }
+        >
+          Cả phòng
+        </button>
+        <button
+          className="btn tiny on"
+          title="Lưu vật liệu + chỉ dán của tủ này thành bộ"
+          onClick={() =>
+            set({
+              prompt: {
+                title: 'Lưu bộ vật liệu',
+                label: 'Tên bộ (lưu vật liệu thùng / cánh / hậu và chỉ dán của tủ này)',
+                value: '',
+                ok: (v) =>
+                  void Commands.saveMaterialSet(info.cabinet, v)
+                    .then(() => {
+                      setMset(v);
+                      useUi.getState().toast({ kind: 'success', title: `Đã lưu bộ “${v}”` });
+                    })
+                    .catch(() => undefined),
+              },
+            })
+          }
+        >
+          Lưu bộ
+        </button>
       </div>
       <div className="struct-tabs">
         {info.tabs.map((t) => (
