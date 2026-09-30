@@ -137,6 +137,11 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
 - Phụ kiện không vừa vẫn được thêm nhưng khoang **tô đỏ** trên 2D; đổi kích thước tủ cho vừa thì hết đỏ. Báo giá đếm theo mã;
   đèn LED theo mét + nguồn.
 
+### 3.4b Khoang thiết bị
+- Chuột phải khoang → **Khoang thiết bị**: Khoang lò 600, Khoang vi sóng 380, Tủ lạnh âm 600, Máy rửa bát âm 600. Khoang phải đủ
+  lọt lòng thiết bị (lò: ≥ 560 × 590 × 550), thiếu thì báo lỗi. Lò / vi sóng có thanh đỡ; lò / tủ lạnh có khe thoát nhiệt tự
+  khoét trên tấm hậu.
+
 ### 3.4 Kệ giày nghiêng, vách lửng
 - Chuột phải một khoang → **Kệ giày nghiêng 15° × 4**: kệ nghiêng thật (mép trước thấp hơn), dài theo độ nghiêng, có
   **thanh chặn gót** ở mép trước; kệ nghiêng không khoan chốt kệ.

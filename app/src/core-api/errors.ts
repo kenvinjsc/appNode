@@ -9,6 +9,7 @@ const CONSTRAINTS: Record<string, string> = {
   THICKNESS_OUT_OF_RANGE: 'Chiều dày ván phải nằm trong khoảng 3–60 mm.',
   TOO_MANY_SHELVES: 'Không đủ chiều cao cho số đợt này.',
   DOOR_TOO_NARROW: 'Cánh tủ sẽ hẹp hơn 50 mm.',
+  APPLIANCE_FIT: 'Khoang nhỏ hơn kích thước lọt lòng của thiết bị.',
   LIFT_HEIGHT: 'Khoang quá thấp (hoặc quá cao) cho tay nâng đã chọn.',
   CORNER_DIAGONAL: 'Tủ góc chéo: sâu tay phải nhỏ hơn rộng tủ ít nhất 150 mm.',
   CORNER_DOOR: 'Rộng cánh tủ góc phải từ 250 mm và nhỏ hơn rộng tủ ít nhất 200 mm.',

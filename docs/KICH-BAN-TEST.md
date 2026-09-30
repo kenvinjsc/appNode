@@ -144,6 +144,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-05.10 Phụ kiện khoang** (E2E 23, Rust `accessories_check_the_zone_and_warn_without_blocking_resize`). Tủ 600 → chuột phải
   khoang → Giá bát 800 → vẫn thêm, thông báo "không vừa khoang", khoang tô đỏ trên 2D. Đổi rộng 800 (lọt lòng 765,6) → hết đỏ;
   báo giá có "Giá bát đĩa 800" + 1 bộ ray. Thu nhỏ lại không bị chặn, chỉ đỏ lại. Đèn LED: mét dài + nguồn. Mã lạ → từ chối.
+- **TC-05.11 Khoang thiết bị** (E2E 24, Rust `appliance_bay_oven_with_support_vent_and_fit_check`). Tủ 600 × 2300 chia `720,610,*`
+  → khoang giữa + Khoang lò 600 → thanh đỡ thiết bị, khe thoát nhiệt khoét trên hậu, lò 595 hiển thị. Khoang 720 + Tủ lạnh âm →
+  "Khoang nhỏ hơn kích thước lọt lòng của thiết bị", không đổi dữ liệu. Mẫu Tủ lò 600 kịch trần có sẵn khoang lò.
 
 ### 06. Cánh, ngăn kéo, tay nắm, ray, tủ góc
 

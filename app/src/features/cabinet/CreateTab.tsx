@@ -278,6 +278,7 @@ function LinkForm({ cabinet, zones, info }: { cabinet: number; zones: number[]; 
   useTabAction(add, [cabinet, zones.join(','), kind, offset, code]);
   const atts = info?.attachments ?? [];
   const label = (a: (typeof atts)[number]) => {
+    if (a.link?.kind === 'APPLIANCE_BAY') return `Khoang thiết bị ${a.link.code} · vùng #${a.zone}`;
     if (a.link?.kind === 'ACCESSORY') return `${accs.find((x) => x.code === a.link?.code)?.name ?? a.link.code} · vùng #${a.zone}`;
     if (a.link) return `Thanh Oval · vùng #${a.zone}`;
     if (a.front?.type === 'DOORS') return `Cánh ${a.front.kind === 'DOUBLE' ? 'Đôi' : a.front.kind === 'SLIDING' ? 'Lùa' : 'Đơn'} ${a.front.cols}×${a.front.rows} · vùng #${a.zone}`;

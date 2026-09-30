@@ -400,6 +400,9 @@ pub struct Fittings {
     /// Tay nâng cánh lật (mã → bộ).
     #[serde(default)]
     pub lifts: BTreeMap<String, u32>,
+    /// Thiết bị âm tủ (mã → cái, khách tự mua; chỉ để đối chiếu).
+    #[serde(default)]
+    pub appliances: BTreeMap<String, u32>,
     /// Phụ kiện khoang (mã catalog → cái).
     #[serde(default)]
     pub accessories: BTreeMap<String, u32>,
@@ -488,6 +491,8 @@ struct Ctx<'a> {
     pin_rows: std::collections::HashSet<(usize, i64, i64)>,
     /// Hậu chờ dựng sau khoang (kệ cố định, khoét hậu).
     back: Option<BackPlan>,
+    /// Khe thoát nhiệt khoang thiết bị: (tâm x, tâm y, rộng, cao) toạ độ tủ → khoét hậu.
+    vents: Vec<[f64; 4]>,
 }
 
 const STD_SLIDES: [f64; 8] = [250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0];
@@ -546,7 +551,7 @@ impl<'a> Ctx<'a> {
 
 /// Build all parts of a cabinet.
 pub fn build(cab: &Cabinet, v: CabinetValues) -> Layout {
-    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default(), back: None };
+    let mut cx = Ctx { cab, v, out: Layout::default(), counters: BTreeMap::new(), drawer_sets: 0, pin_rows: Default::default(), back: None, vents: Vec::new() };
     if let Some(dg) = cab.rules.diagonal.clone() {
         diagonal_corner(&mut cx, &dg);
         apply_mods(&mut cx.out, &cab.mods);
@@ -845,6 +850,12 @@ fn backs(cx: &mut Ctx) {
             (cxw, v.plinth_height + t + c.y)
         })
         .collect();
+    let mut centers = centers;
+    let mut cuts = cuts;
+    for v in &cx.vents {
+        centers.push((v[0], v[1]));
+        cuts.push(crate::structure::BackCutout { kind: crate::structure::CutoutKind::Vent, anchor: crate::structure::HAnchor::Left, x: 0.0, y: 0.0, w: v[2], h: v[3], r: 10.0 });
+    }
     let mut n = 0;
     for (y0, y1) in rows {
         let mut at = x;
@@ -1685,6 +1696,29 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
 
 fn link(cx: &mut Ctx, l: &Link, b: &ZBox, zid: Uid) {
     match l.kind {
+        LinkKind::ApplianceBay => {
+            let Some(a) = appliance(&l.code) else { return };
+            let [x, y, z] = b.min;
+            let [w, h, d] = b.size;
+            if !a.fits(w, h, d) {
+                cx.out.misfits.push((zid, l.uid));
+            }
+            let t = cx.v.thickness;
+            let mut y0 = y;
+            if a.support {
+                // Thanh đỡ thiết bị: tấm ngang lọt lòng, sâu theo thiết bị.
+                let k = cx.next("ThanhĐỡ");
+                cx.panel(format!("l:{}:support", l.uid), format!("ThanhĐỡThiếtBị_{k:02}"), PanelRole::ShelfFixed, MaterialSlot::Carcass, GrainDirection::AlongWidth, [w, a.size[2].min(d), t], [x, y, z + d], ROT_HORIZONTAL);
+                y0 += t;
+            }
+            let [aw, ah, ad] = a.size;
+            let k = cx.next("ThiếtBị");
+            cx.hardware(format!("l:{}", l.uid), format!("{}_{k:02}", a.name.replace(' ', "")), HardwareKind::Glass, a.code, [aw.min(w + 40.0), ah.min(h), ad.min(d)], [x + (w - aw.min(w + 40.0)) / 2.0, y0, z + d - ad.min(d)]);
+            if a.vent > 0.0 {
+                cx.vents.push([x + w / 2.0, (y0 + ah + a.vent / 2.0).min(y + h - a.vent / 2.0), (w - 100.0).max(100.0).min(500.0), a.vent]);
+            }
+            *cx.out.fittings.appliances.entry(a.code.to_string()).or_insert(0) += 1;
+        }
         LinkKind::Accessory => {
             let Some(a) = accessory(&l.code) else { return };
             let [x, y, z] = b.min;

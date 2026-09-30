@@ -279,6 +279,15 @@ export function ZoneMenu() {
           <Item label="Mặt giả (tủ chậu, không hộc)" fn={() => Commands.zoneAddDrawers({ cabinet, zones, count: 1, cols: 1, mount: 'OVERLAY', with_box: false, false_front: true })} />
           <h5>Liên kết</h5>
           <Item label="Thanh treo oval" fn={() => Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL')} />
+          <h5>Khoang thiết bị</h5>
+          {[
+            ['OVEN-600', 'Khoang lò 600'],
+            ['MICRO-380', 'Khoang vi sóng 380'],
+            ['FRIDGE-600', 'Tủ lạnh âm 600'],
+            ['DISHWASHER-600', 'Máy rửa bát âm 600'],
+          ].map(([code, label]) => (
+            <Item key={code} label={label} fn={() => Commands.zoneAddLink(cabinet, zones, 'APPLIANCE_BAY', 0, code)} />
+          ))}
           <h5>Phụ kiện</h5>
           {[
             ['DISH-800', 'Giá bát 800'],

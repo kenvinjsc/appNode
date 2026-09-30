@@ -343,7 +343,25 @@ impl Engine {
 
     /// Thêm liên kết / phụ kiện; trả về các phụ kiện không vừa khoang (cảnh báo, vẫn thêm).
     pub(crate) fn zone_add_link(&mut self, cab: ObjectId, zones: Vec<Uid>, kind: LinkKind, offset: f64, code: String) -> Result<Vec<Uid>, CoreError> {
-        let label = if kind == LinkKind::Accessory { "Thêm phụ kiện" } else { "Thêm liên kết" };
+        if kind == LinkKind::ApplianceBay {
+            // Khoang thiết bị phải đủ lọt lòng thiết bị ngay khi thêm (sau đó đổi cỡ tủ chỉ cảnh báo).
+            let a = aic_domain::zone::appliance(&code).ok_or_else(|| bad("code", "unknown appliance"))?;
+            let layout = self.doc.cabinet_layout(cab).ok_or(CoreError::NotFound { id: cab })?;
+            for z in &zones {
+                let zb = layout.zones.iter().find(|b| b.id == *z).ok_or_else(|| bad("zone", "zone not found"))?;
+                if !a.fits(zb.size[0], zb.size[1], zb.size[2]) {
+                    return Err(CoreError::ConstraintViolated {
+                        constraint: "APPLIANCE_FIT".into(),
+                        message: format!("{} cần khoang ≥ {:?}, khoang {:?}", a.code, a.niche, zb.size.map(|v| v.round())),
+                    });
+                }
+            }
+        }
+        let label = match kind {
+            LinkKind::Accessory => "Thêm phụ kiện",
+            LinkKind::ApplianceBay => "Khoang thiết bị",
+            LinkKind::OvalRail => "Thêm liên kết",
+        };
         let before = self.doc.cabinet_layout(cab).map(|l| l.misfits).unwrap_or_default();
         self.edit_cabinet(cab, label, |c| {
             for z in zones {

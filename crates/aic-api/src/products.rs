@@ -123,6 +123,8 @@ impl Engine {
                 if leaves.len() == 3 {
                     self.handle(Request::ZoneAddDrawers { cabinet: cab, zones: vec![leaves[0]], count: 2, cols: 1, mount: Mount::Overlay, thickness: None, with_box: true, inner: false, false_front: false })?;
                     self.doors(cab, vec![leaves[2]], DoorKind::Single, 1, HingeSide::Top)?;
+                    // Khoang lò: thanh đỡ + khe thoát nhiệt khoét hậu (D34).
+                    self.zone_add_link(cab, vec![leaves[1]], aic_domain::zone::LinkKind::ApplianceBay, 0.0, "OVEN-600".into())?;
                 }
                 cab
             }

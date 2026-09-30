@@ -1829,3 +1829,30 @@ fn accessories_check_the_zone_and_warn_without_blocking_resize() {
     assert!(c.contains("Đèn LED thanh nhôm") && c.contains("Nguồn LED") && c.contains("Giá bát đĩa 800"));
     assert!(!call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [root], "kind": "ACCESSORY", "code": "NOPE"})).ok);
 }
+
+#[test]
+fn appliance_bay_oven_with_support_vent_and_fit_check() {
+    use aic_domain::layout::PartKind;
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 600, "height": 2300, "depth": 580, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "split_zone", "cabinet": cab, "zone": root, "kind": "SHELF_FIXED", "formula": "720,610,*", "from_end": false}));
+    assert!(r.ok, "{:?}", r.error);
+    let zs = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"].clone();
+    let leaves: Vec<&Value> = zs.as_array().unwrap().iter().filter(|z| z["leaf"] == true).collect();
+    let mid = leaves.iter().find(|z| (z["size"][1].as_f64().unwrap() - 610.0).abs() < 1.0).expect("610 bay")["id"].as_u64().unwrap();
+    // Khoang lò ≥ 560 × 590 × 550.
+    let r = call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [mid], "kind": "APPLIANCE_BAY", "code": "OVEN-600"}));
+    assert!(r.ok, "{:?}", r.error);
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    assert!(l.parts.iter().any(|p| p.name.starts_with("ThanhĐỡThiếtBị")));
+    assert_eq!(l.fittings.appliances.get("OVEN-600"), Some(&1));
+    let back = l.parts.iter().find(|p| p.key == "c:back").unwrap();
+    let PartKind::Panel { features, .. } = &back.kind else { panic!() };
+    assert!(features.iter().any(|f| matches!(f, aic_domain::MachiningFeature::Contour(c) if c.inner)), "vent cut in the back");
+    // Khoang thấp → lỗi APPLIANCE_FIT, không đổi dữ liệu.
+    let low = leaves.iter().find(|z| (z["size"][1].as_f64().unwrap() - 720.0).abs() < 1.0).unwrap()["id"].as_u64().unwrap();
+    let r = call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [low], "kind": "APPLIANCE_BAY", "code": "FRIDGE-600"}));
+    assert_eq!(r.error.unwrap().details["constraint"], "APPLIANCE_FIT");
+}

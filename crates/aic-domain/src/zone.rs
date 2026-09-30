@@ -80,7 +80,7 @@ pub fn parse_split_formula(f: &str) -> Result<Vec<Bay>, String> {
                 return Err("số khoang 1..50".into());
             }
             bays.extend(std::iter::repeat_n(Bay::auto(), n));
-        } else if let Some((n, v)) = tok.split_once('*') {
+        } else if let Some((n, v)) = tok.split_once('*').filter(|(n, _)| !n.trim().is_empty()) {
             let n = num(n)? as usize;
             if !(1..=50).contains(&n) {
                 return Err("số khoang 1..50".into());
@@ -640,6 +640,41 @@ pub enum LinkKind {
     OvalRail,
     /// Phụ kiện catalog (`Link.code`): giá bát, rổ gia vị, giá giày, giá kéo, đèn LED.
     Accessory,
+    /// Khoang thiết bị (`Link.code`): lò, vi sóng, tủ lạnh âm, máy rửa bát.
+    ApplianceBay,
+}
+
+/// Thiết bị âm tủ (catalog): kích thước lọt khoang tối thiểu.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Appliance {
+    pub code: &'static str,
+    pub name: &'static str,
+    /// Kích thước thiết bị W × H × D.
+    pub size: [f64; 3],
+    /// Khoang tối thiểu W × H × D.
+    pub niche: [f64; 3],
+    /// Thanh đỡ dưới thiết bị.
+    pub support: bool,
+    /// Khe thoát nhiệt trên (khoét hậu), 0 = không.
+    pub vent: f64,
+}
+
+pub const APPLIANCES: &[Appliance] = &[
+    Appliance { code: "OVEN-600", name: "Lò nướng 600", size: [595.0, 595.0, 550.0], niche: [560.0, 590.0, 550.0], support: true, vent: 50.0 },
+    Appliance { code: "MICRO-380", name: "Lò vi sóng âm 380", size: [595.0, 380.0, 400.0], niche: [562.0, 380.0, 350.0], support: true, vent: 0.0 },
+    Appliance { code: "FRIDGE-600", name: "Tủ lạnh âm 600", size: [560.0, 1770.0, 550.0], niche: [560.0, 1775.0, 550.0], support: false, vent: 50.0 },
+    Appliance { code: "DISHWASHER-600", name: "Máy rửa bát âm 600", size: [598.0, 815.0, 550.0], niche: [600.0, 820.0, 550.0], support: false, vent: 0.0 },
+    Appliance { code: "WASHER-600", name: "Máy giặt 600", size: [600.0, 850.0, 600.0], niche: [620.0, 870.0, 600.0], support: false, vent: 0.0 },
+];
+
+pub fn appliance(code: &str) -> Option<&'static Appliance> {
+    APPLIANCES.iter().find(|a| a.code.eq_ignore_ascii_case(code))
+}
+
+impl Appliance {
+    pub fn fits(&self, w: f64, h: f64, d: f64) -> bool {
+        w >= self.niche[0] - 1e-6 && h >= self.niche[1] - 1e-6 && d >= self.niche[2] - 1e-6
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -992,6 +1027,9 @@ impl ZoneTree {
         if kind == LinkKind::Accessory && accessory(&code).is_none() {
             return Err(format!("unknown accessory {code}"));
         }
+        if kind == LinkKind::ApplianceBay && appliance(&code).is_none() {
+            return Err(format!("unknown appliance {code}"));
+        }
         let uid = self.alloc();
         let z = self.zone_mut(zone_id).ok_or("zone not found")?;
         z.links.push(Link { uid, kind, offset, code });
@@ -1042,6 +1080,15 @@ mod tests {
         // Divider removed: the shelves' zone becomes the root content.
         assert_eq!(t.root.split.as_ref().unwrap().axis, 1);
         assert_eq!(t.root.split.as_ref().unwrap().panels.len(), 3);
+    }
+
+    #[test]
+    fn split_formula_bare_star_is_auto() {
+        let b = parse_split_formula("720,610,*").unwrap();
+        assert_eq!(b.len(), 3);
+        assert_eq!(b[2].mode, BayMode::Auto);
+        assert_eq!(parse_split_formula("3*400").unwrap().len(), 4, "3 × 400 + phần còn lại");
+        assert_eq!(parse_split_formula("2*,300").unwrap().len(), 3);
     }
 
     #[test]

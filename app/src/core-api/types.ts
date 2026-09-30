@@ -343,7 +343,7 @@ export interface ZoneAttachment {
   zone: number;
   uid: number;
   front?: FrontSpec;
-  link?: { uid: number; kind: 'OVAL_RAIL' | 'ACCESSORY'; offset: number; code?: string };
+  link?: { uid: number; kind: 'OVAL_RAIL' | 'ACCESSORY' | 'APPLIANCE_BAY'; offset: number; code?: string };
 }
 
 export interface ZonesInfo {

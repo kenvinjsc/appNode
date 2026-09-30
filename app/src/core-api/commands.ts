@@ -70,7 +70,7 @@ export const Commands = {
     command({ cmd: 'zone_add_doors', ...p }),
   zoneAddDrawers: (p: { cabinet: ObjectId; zones: number[]; count: number; cols: number; mount: Mount; thickness?: number; with_box: boolean; inner?: boolean; false_front?: boolean }) =>
     command({ cmd: 'zone_add_drawers', ...p }),
-  zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL' | 'ACCESSORY', offset = 60, code?: string) =>
+  zoneAddLink: (cabinet: ObjectId, zones: number[], kind: 'OVAL_RAIL' | 'ACCESSORY' | 'APPLIANCE_BAY', offset = 60, code?: string) =>
     command<{ misfit_zones: number[] }>({ cmd: 'zone_add_link', cabinet, zones, kind, offset, code }),
   /** Catalog phụ kiện khoang; `fits` theo các khoang đang ghim. */
   getAccessories: (cabinet?: ObjectId, zones: number[] = []) => command<{ accessories: AccessoryInfo[] }>({ cmd: 'get_accessories', cabinet, zones }),
