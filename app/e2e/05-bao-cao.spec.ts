@@ -28,3 +28,22 @@ test('TC-05.2 danh sách cắt gộp ít dòng hơn, có mã tấm, xuất CSV',
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Excel \/ CSV/ }).click()]);
   expect(dl.suggestedFilename()).toBe('danh-sach-cat-gop.csv');
 });
+
+test('TC-13.7 in báo giá: trang A4 có khách hàng, bảng theo phòng, tổng bằng chữ, xuất PDF', async ({ page }, info) => {
+  await freshSample(page);
+  await page.getByRole('button', { name: 'Báo cáo' }).last().click();
+  await page.getByRole('button', { name: 'Báo giá' }).click();
+  await page.locator('.quote-info label', { hasText: 'Khách hàng' }).locator('input').fill('Anh Nam');
+  await page.locator('.quote-info label', { hasText: 'Đơn vị báo giá' }).locator('input').fill('Nội thất AIC');
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: /In báo giá/ }).click()]);
+  await popup.waitForLoadState();
+  await expect(popup.locator('h1')).toHaveText('BẢNG BÁO GIÁ NỘI THẤT');
+  await expect(popup.locator('body')).toContainText('Anh Nam');
+  await expect(popup.locator('body')).toContainText('Nội thất AIC');
+  await expect(popup.locator('.room')).toHaveCount(2);
+  await expect(popup.locator('.words')).toContainText('đồng');
+  const total = (await api(page, { cmd: 'get_costing' })).quote.total;
+  await expect(popup.locator('.grand')).toContainText(Math.round(total).toLocaleString('vi-VN'));
+  const pdf = await popup.pdf({ format: 'A4', path: info.outputPath('bao-gia.pdf') });
+  expect(pdf.byteLength).toBeGreaterThan(10_000);
+});

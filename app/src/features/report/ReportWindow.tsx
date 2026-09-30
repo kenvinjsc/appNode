@@ -7,6 +7,7 @@ import { Queries } from '../../core-api/queries';
 import type { CostLine, Costing, CutGroup, CutRow, PricingMode } from '../../core-api/types';
 import { Icon } from '../../shared/icons';
 import { EDGE_LABEL, fmt } from '../../shared/i18n';
+import { moneyWords } from '../../shared/numberWords';
 
 const vnd = (n: number) => n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' đ';
 
@@ -265,12 +266,59 @@ function SettingInput({ k, value, suffix }: { k: string; value: number; suffix: 
   );
 }
 
+interface QuoteInfo {
+  company: string;
+  companyLine: string;
+  customer: string;
+  phone: string;
+  address: string;
+  note: string;
+}
+
+const INFO_KEY = 'aic.quote.company';
+
+function loadCompany(): Pick<QuoteInfo, 'company' | 'companyLine'> {
+  try {
+    const v = JSON.parse(localStorage.getItem(INFO_KEY) ?? '{}');
+    return { company: String(v.company ?? ''), companyLine: String(v.companyLine ?? '') };
+  } catch {
+    return { company: '', companyLine: '' };
+  }
+}
+
 function QuoteView({ c }: { c: Costing }) {
   const q = c.quote;
+  const [info, setInfo] = useState<QuoteInfo>(() => ({ ...loadCompany(), customer: '', phone: '', address: '', note: 'Báo giá có hiệu lực 30 ngày. Giá đã gồm vận chuyển và lắp đặt nội thành.' }));
+  const patch = (p: Partial<QuoteInfo>) => {
+    const next = { ...info, ...p };
+    setInfo(next);
+    try {
+      localStorage.setItem(INFO_KEY, JSON.stringify({ company: next.company, companyLine: next.companyLine }));
+    } catch {
+      /* chỉ là tiện ích nhớ tên công ty */
+    }
+  };
+  const field = (k: keyof QuoteInfo, label: string, wide = false) => (
+    <label className={wide ? 'wide' : ''}>
+      {label}
+      <input className="field" value={info[k]} onChange={(e) => patch({ [k]: e.target.value } as Partial<QuoteInfo>)} onKeyDown={(e) => e.stopPropagation()} />
+    </label>
+  );
   const pricing = new Map(c.cabinets.map((x) => [x.id, x.pricing]));
   const rooms = q.rooms;
   return (
     <div className="quote">
+      <div className="quote-info">
+        {field('company', 'Đơn vị báo giá')}
+        {field('companyLine', 'Địa chỉ / điện thoại đơn vị')}
+        {field('customer', 'Khách hàng')}
+        {field('phone', 'Điện thoại')}
+        {field('address', 'Địa chỉ công trình', true)}
+        {field('note', 'Ghi chú', true)}
+        <button className="btn on" onClick={() => printQuote(c, info)}>
+          <Icon name="report" size={14} /> In báo giá / Lưu PDF
+        </button>
+      </div>
       <div className="quote-settings">
         <label>Hao hụt (bóc chi tiết) <SettingInput k="quote:waste_pct" value={q.settings.waste_pct} suffix="%" /></label>
         <label>Công <SettingInput k="quote:labor_pct" value={q.settings.labor_pct} suffix="%" /></label>
@@ -357,5 +405,53 @@ function printLabels(rows: CutRow[]) {
   const w = window.open('', '_blank');
   if (!w) return;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nhãn tấm</title><style>${css}</style></head><body><div class="grid">${cells}</div><script>setTimeout(()=>print(),300)</script></body></html>`);
+  w.document.close();
+}
+
+/** Báo giá A4 in từ trình duyệt (chọn "Lưu dưới dạng PDF" để ra tệp PDF). Số liệu lấy nguyên từ core. */
+function printQuote(c: Costing, info: QuoteInfo) {
+  const q = c.quote;
+  const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] ?? ch);
+  const money = (n: number) => Math.round(n).toLocaleString('vi-VN');
+  const today = new Date().toLocaleDateString('vi-VN');
+  const cabs = new Map(c.cabinets.map((x) => [x.id, x]));
+  let stt = 0;
+  const body = q.rooms
+    .map((r) => {
+      const rows = q.rows
+        .filter((x) => x.floor === r.floor && x.room === r.room)
+        .map((x) => {
+          const cab = cabs.get(x.id);
+          const size = cab ? `${fmt(cab.size[0], 0)} × ${fmt(cab.size[1], 0)} × ${fmt(cab.size[2], 0)}` : '';
+          return `<tr><td class="c">${++stt}</td><td>${esc(x.name)}<div class="sub">${esc(cab?.frame ?? '')} · ${size} mm</div></td><td>${esc(MODE_LABEL[x.mode])}</td><td class="n">${fmt(x.qty, 2)} ${esc(x.unit)}</td><td class="n">${money(x.price)}</td><td class="n">${money(x.amount)}</td></tr>`;
+        })
+        .join('');
+      return `<tr class="room"><td colspan="5">${esc([r.floor, r.room || 'Chưa gán phòng'].filter(Boolean).join(' · '))}</td><td class="n">${money(r.amount)}</td></tr>${rows}`;
+    })
+    .join('');
+  const margin = q.margin > 0 ? `<tr><td>Lợi nhuận</td><td class="n">${money(q.margin)}</td></tr>` : '';
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Báo giá ${esc(info.customer)}</title><style>
+@page{size:A4;margin:14mm 12mm}body{font-family:"Segoe UI",Arial,sans-serif;font-size:10.5pt;color:#212529;margin:0}
+.head{display:flex;justify-content:space-between;border-bottom:3px solid #e8590c;padding-bottom:6px}
+.co{font-size:14pt;font-weight:700;color:#e8590c}.muted{color:#6c757d}h1{text-align:center;font-size:16pt;margin:14px 0 4px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;margin:8px 0 10px}table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ced4da;padding:4px 6px;vertical-align:top}th{background:#fff4e6}.n{text-align:right;white-space:nowrap}.c{text-align:center}
+.room td{background:#f1f3f5;font-weight:700}.sub{color:#6c757d;font-size:9pt}.tot{width:55%;margin:10px 0 0 auto}.tot td{border:none;padding:2px 6px}
+.grand td{font-size:12.5pt;font-weight:700;color:#e8590c;border-top:2px solid #e8590c}.words{margin-top:6px;font-style:italic}
+.note{margin-top:12px;white-space:pre-wrap}.sign{display:grid;grid-template-columns:1fr 1fr;text-align:center;margin-top:28px}.sign div{height:70px}
+</style></head><body>
+<div class="head"><div><div class="co">${esc(info.company || 'Đơn vị báo giá')}</div><div class="muted">${esc(info.companyLine)}</div></div><div class="muted">Ngày ${today}</div></div>
+<h1>BẢNG BÁO GIÁ NỘI THẤT</h1>
+<div class="meta"><div>Khách hàng: <b>${esc(info.customer)}</b></div><div>Điện thoại: ${esc(info.phone)}</div><div style="grid-column:1/3">Công trình: ${esc(info.address)}</div></div>
+<table><thead><tr><th>STT</th><th>Hạng mục</th><th>Cách tính</th><th class="n">Khối lượng</th><th class="n">Đơn giá (đ)</th><th class="n">Thành tiền (đ)</th></tr></thead><tbody>${body}</tbody></table>
+<table class="tot"><tr><td>Cộng</td><td class="n">${money(q.subtotal)}</td></tr>${margin}<tr><td>VAT ${fmt(q.settings.vat_pct, 1)}%</td><td class="n">${money(q.vat)}</td></tr>
+<tr class="grand"><td>TỔNG CỘNG</td><td class="n">${money(q.total)} đ</td></tr></table>
+<div class="words">Bằng chữ: ${esc(moneyWords(q.total))}.</div>
+<div class="note">${esc(info.note)}</div>
+<div class="sign"><b>Khách hàng</b><b>Đơn vị báo giá</b><div></div><div></div></div>
+<script>setTimeout(()=>print(),300)</script></body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(html);
   w.document.close();
 }

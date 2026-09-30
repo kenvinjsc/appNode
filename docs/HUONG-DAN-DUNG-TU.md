@@ -344,6 +344,8 @@ Mở bằng nút **Báo cáo** trên ribbon. Báo cáo gồm:
 - Tab **Báo giá**: theo tầng · phòng; mỗi tủ chọn *theo loại tủ* (bếp dưới / trên / ngăn kéo → **mét dài**; tủ áo, kệ… →
   **m² mặt đứng**), **bóc chi tiết** (vật tư × (1 + hao hụt) × (1 + công)). Sửa đơn giá mét dài / m² ngay trên dòng, hao hụt,
   công, lợi nhuận, VAT ở đầu bảng (lưu trong dự án, có undo).
+- **In báo giá / Lưu PDF**: nhập đơn vị báo giá (tự nhớ), khách hàng, điện thoại, công trình, ghi chú → trang A4 có bảng theo
+  phòng, tổng + VAT, **tổng bằng chữ**, chỗ ký. Trong hộp thoại in chọn "Lưu dưới dạng PDF" để ra tệp PDF.
 - Tab **Danh sách cắt**: cột **Mã tấm** (phòng-tủ-số); **Gộp tấm giống nhau** (cùng vật liệu, kích thước cắt, dán cạnh, gia
   công) → SL gộp + danh sách mã; **Excel / CSV** xuất theo chế độ đang xem; **In nhãn** 60 × 40 mm (mã, tên, kích thước cắt,
   vật liệu, ký hiệu cạnh dán) — in từ trình duyệt ra A4.

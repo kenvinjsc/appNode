@@ -198,6 +198,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-13.3 Danh sách cắt gộp** (E2E 05.2). Bật "Gộp tấm giống nhau" → ít dòng hơn, SL gộp, danh sách mã tấm.
 - **TC-13.4 CSV** (E2E 05.2). Xuất CSV (gộp / không gộp) mở được bằng Excel, tiếng Việt đúng dấu.
 - **TC-13.5 In nhãn** (tay). In nhãn → cửa sổ in A4, nhãn 60 × 40 có mã, tên, kích thước cắt, vật liệu, ký hiệu cạnh dán tô cam.
+- **TC-13.7 In báo giá / PDF** (E2E 05 `TC-13.7`, vitest `numberWords`). Nhập khách hàng → In báo giá → trang A4 có tên khách,
+  2 nhóm phòng, tổng bằng tổng core, dòng "Bằng chữ … đồng"; xuất PDF > 10 KB.
 - **TC-13.6 Cabinet List** (tay). Bấm dòng → chọn tủ trong 3D.
 
 ### 14. Lỗi, dữ liệu sai, độ bền
