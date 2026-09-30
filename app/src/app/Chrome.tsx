@@ -213,7 +213,17 @@ export function ZoneMenu() {
     Commands.zoneAddDoors({ cabinet, zones, kind, cols, rows: 1, mount, hinge });
   const drawers = (n: number, mount: 'OVERLAY' | 'INSET' = 'OVERLAY') => Commands.zoneAddDrawers({ cabinet, zones, count: n, cols: 1, mount, with_box: true });
   return (
-    <div className="ctx zone-menu" style={{ left: Math.min(zoneMenu.x, window.innerWidth - 440), top: Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 600)) }} onPointerDown={(e) => e.stopPropagation()}>
+    <div
+      className="ctx zone-menu"
+      style={{
+        left: Math.min(zoneMenu.x, window.innerWidth - 440),
+        top: Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 600)),
+        // Menu dài hơn màn hình: cuộn trong phạm vi cửa sổ.
+        maxHeight: window.innerHeight - Math.max(8, Math.min(zoneMenu.y, window.innerHeight - 600)) - 8,
+        overflowY: 'auto',
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <div className="ctx-title">Dựng nhanh · vùng #{zone}</div>
       <div className="zm-grid">
         <div>
