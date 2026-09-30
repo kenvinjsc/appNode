@@ -1789,7 +1789,7 @@ fn lift_up_door_hk_on_wall_cabinet_and_height_check() {
     assert!(call(&mut e, json!({"cmd": "zone_add_doors", "cabinet": tall, "zones": [root], "kind": "FOLD"})).ok);
     let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
     let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
-    let did: ObjectId = serde_json::from_value(all.iter().filter(|k| k["name"].as_str().is_some_and(|n| n.starts_with("CửaLật"))).next_back().unwrap()["id"].clone()).unwrap();
+    let did: ObjectId = serde_json::from_value(all.iter().rfind(|k| k["name"].as_str().is_some_and(|n| n.starts_with("CửaLật"))).unwrap()["id"].clone()).unwrap();
     for (k, v) in [("door_lift", "HF"), ("door_glass_frame", "ALU_THIN")] {
         let r = call(&mut e, json!({"cmd": "set_parameter", "id": did, "name": k, "value": v}));
         assert!(r.ok, "{k}: {:?}", r.error);
