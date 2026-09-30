@@ -40,6 +40,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D17 | Cánh lật (HK/HL/ben hơi) và gập 2 lá (HF): bản lề trên, tay nâng theo khối lượng cánh, kiểm tra cao khoang (LIFT_HEIGHT); cánh mở / lật khung nhôm kính | chưa: khoan lắp tay nâng trên hồi |
 | D18 | Phụ kiện khoang theo catalog (giá bát, rổ gia vị, khay thìa, giá kéo, giá giày / quần, LED): kiểm tra vừa khoang (cảnh báo + tô đỏ 2D, không chặn resize), ray + báo giá theo mã, LED theo mét + nguồn | chưa: khoan lắp giá kéo trên hồi |
 | D34 | Khoang thiết bị (lò 600, vi sóng 380, tủ lạnh âm, máy rửa bát, máy giặt): kiểm tra lọt lòng khi thêm (APPLIANCE_FIT), thanh đỡ, khe thoát nhiệt tự khoét hậu; mẫu tủ lò dùng khoang lò. Sửa `parse_split_formula` nhận `*` đứng riêng | chưa: tấm ốp tủ lạnh |
+| D29 | Bản vẽ in A3/A4 có khung tên: core chiếu mặt đứng theo hướng tường, mặt bằng, chi tiết tủ (trước ẩn cánh + bên), chuỗi kích thước, nét mở cánh, tỷ lệ chuẩn tự chọn, xếp trang; UI in SVG | chưa: mặt cắt trong bản vẽ in, mẫu khung tên tuỳ chỉnh |
 | D13 | Phào nóc 1–3 mặt + phào chân, ốp hông (chạm sàn / nhô trước), nẹp che khe; tab "Phào & ốp" + lưu mẫu tab | chưa: phào theo cả dãy tủ (D09), vát 45° thành contour CNC |
 | D15 | Khoét hậu (ổ điện / ống / thoát nhiệt, neo theo lòng tủ, CNC cắt trong), hậu ốp bắt vít (+ vít vào báo giá), hậu chia theo kệ cố định | chưa: vẽ / kéo lỗ trên 2D |
 | D14 | Kệ nghiêng thật (xoay quanh trục X, dài theo cos θ, thanh chặn gót khi ≥ 5°, bỏ chốt kệ), vách lửng (`extent`), menu "Kệ giày nghiêng 15° × 4" | chưa: kệ góc L trong tủ góc mù |

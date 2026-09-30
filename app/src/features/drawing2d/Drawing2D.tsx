@@ -1,5 +1,6 @@
 // 2D technical view (elevation / side / plan). A projection of what the
 // viewport already displays — presentation only, no CAD computation.
+import { PrintSheetButton } from './PrintSheet';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useUi } from '../../app/uiStore';
@@ -181,6 +182,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
         <button className={`icon-btn ${showDims ? 'on' : ''}`} title="Hiển thị kích thước" onClick={() => setShowDims(!showDims)}>
           <Icon name="dimension" size={16} />
         </button>
+        <PrintSheetButton />
         {onClose && (
           <button className="icon-btn" title="Đóng" onClick={onClose}>
             <Icon name="x" size={16} />

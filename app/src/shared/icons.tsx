@@ -63,6 +63,7 @@ const P: Record<string, JSX.Element> = {
   minus: (<path d="M5 12h14" />),
   box3d: (<><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" /></>),
   drawing: (<><rect x="3" y="3" width="18" height="18" /><path d="M7 17V7h10v10M12 7v10M7 12h5" /></>),
+  print: (<><path d="M7 8V3h10v5" /><rect x="3" y="8" width="18" height="9" rx="1" /><path d="M7 14h10v7H7z" /></>),
   download: (<><path d="M12 4v11M7 10l5 5 5-5" /><path d="M5 20h14" /></>),
   upload: (<><path d="M12 16V5M7 10l5-5 5 5" /><path d="M5 20h14" /></>),
   warning: (<><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17v.5" /></>),

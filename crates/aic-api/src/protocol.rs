@@ -329,6 +329,30 @@ pub enum Request {
         #[serde(default)]
         options: std::collections::BTreeMap<String, String>,
     },
+    /// Bản vẽ in (D29): trang A3 / A4 có khung tên, primitive vector đã chiếu (mm giấy).
+    GetDrawingSheet {
+        /// Tủ cần vẽ; trống = mọi tủ của `room` / `floor` (hoặc cả dự án).
+        #[serde(default)]
+        ids: Vec<ObjectId>,
+        #[serde(default)]
+        room: Option<String>,
+        #[serde(default)]
+        floor: Option<String>,
+        /// `A3` (mặc định) / `A4`.
+        #[serde(default)]
+        paper: String,
+        #[serde(default)]
+        portrait: bool,
+        /// `ELEVATION`, `PLAN`, `DETAIL`; trống = mặt đứng + mặt bằng.
+        #[serde(default)]
+        views: Vec<String>,
+        #[serde(default)]
+        hide_fronts: bool,
+        #[serde(default)]
+        drawer: String,
+        #[serde(default)]
+        date: String,
+    },
     /// Khoét hậu: thay danh sách lỗ khoét (ổ điện / ống nước / thoát nhiệt) của tủ, một undo.
     SetBackCutouts { cabinet: ObjectId, cutouts: Vec<aic_domain::structure::BackCutout> },
     /// Bộ vật liệu (thùng / cánh / hậu + chỉ dán), dựng sẵn + thư viện.

@@ -20,6 +20,7 @@ mod runs;
 mod arrange;
 mod products;
 mod furniture;
+mod drawing;
 pub mod relations_edit;
 
 pub use protocol::{ApiError, CoreEvent, Request, Response};
@@ -534,6 +535,9 @@ impl Engine {
             GetProducts => ok(self.products_info()),
             InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
             CreateFurniture { kind, width, height, depth, position, name, room, floor, options } => ok(self.create_furniture(&kind, [width, height, depth], position, name, room, floor, options)?),
+            GetDrawingSheet { ids, room, floor, paper, portrait, views, hide_fronts, drawer, date } => {
+                ok(self.drawing_sheet(&ids, room.as_deref(), floor.as_deref(), &paper, portrait, &views, hide_fronts, &drawer, &date)?)
+            }
             SetBackCutouts { cabinet, cutouts } => {
                 for c in &cutouts {
                     let (w, h, _) = c.shape();

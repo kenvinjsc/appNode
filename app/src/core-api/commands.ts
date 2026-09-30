@@ -42,6 +42,9 @@ export const Commands = {
   /** Sản phẩm ngoài tủ hộp (giường …): W × D × H theo sản phẩm, tuỳ chọn như set_parameter; một undo. */
   createFurniture: (kind: string, size: { width?: number; height?: number; depth?: number }, options: Record<string, string> = {}, room?: string) =>
     command<{ id: ObjectId }>({ cmd: 'create_furniture', kind, ...size, options, room }),
+  /** Bản vẽ in: trang A3 / A4 đã chiếu (mm giấy). */
+  getDrawingSheet: (p: { ids?: ObjectId[]; room?: string; floor?: string; paper?: string; portrait?: boolean; views?: string[]; hide_fronts?: boolean; drawer?: string; date?: string }) =>
+    command<DrawingSheet>({ cmd: 'get_drawing_sheet', ...p }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */
@@ -131,3 +134,14 @@ export const Commands = {
   undo: () => command<{ label: string }>({ cmd: 'undo' }),
   redo: () => command<{ label: string }>({ cmd: 'redo' }),
 };
+
+/** Primitive bản vẽ in (mm giấy, gốc trên-trái). */
+export type SheetItem =
+  | { t: 'rect'; x: number; y: number; w: number; h: number; cls: string }
+  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; cls: string }
+  | { t: 'text'; x: number; y: number; s: string; size: number; anchor: 'start' | 'middle' | 'end'; cls: string; rotate?: number; value?: number };
+
+export interface DrawingSheet {
+  scale: string;
+  sheets: { paper: [number, number]; scale: string; views: { title: string; x: number; y: number; w: number; h: number }[]; items: SheetItem[] }[];
+}

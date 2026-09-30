@@ -1856,3 +1856,38 @@ fn appliance_bay_oven_with_support_vent_and_fit_check() {
     let r = call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [low], "kind": "APPLIANCE_BAY", "code": "FRIDGE-600"}));
     assert_eq!(r.error.unwrap().details["constraint"], "APPLIANCE_FIT");
 }
+
+#[test]
+fn drawing_sheet_kitchen_elevation_on_one_a3() {
+    let mut e = Engine::new();
+    let mut prev: Option<ObjectId> = None;
+    let mut widths = 0.0;
+    for w in [800.0, 600.0, 900.0] {
+        let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "room": "Bếp", "after": prev, "overrides": {"width": w}}));
+        assert!(r.ok, "{:?}", r.error);
+        prev = Some(serde_json::from_value(r.result["id"].clone()).unwrap());
+        widths += w;
+    }
+    for x in [0.0, 800.0] {
+        let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "WALL", "room": "Bếp", "position": [x, 1450, 0], "overrides": {"width": 800}}));
+        assert!(r.ok, "{:?}", r.error);
+    }
+    let r = call(&mut e, json!({"cmd": "get_drawing_sheet", "room": "Bếp", "paper": "A3", "drawer": "KTS", "date": "30/09/2026"}));
+    assert!(r.ok, "{:?}", r.error);
+    let sheets = r.result["sheets"].as_array().unwrap();
+    assert_eq!(sheets.len(), 1, "one A3 page");
+    assert_eq!(sheets[0]["paper"], json!([420.0, 297.0]));
+    let items = sheets[0]["items"].as_array().unwrap();
+    let dims: Vec<f64> = items.iter().filter(|i| i["cls"] == "dimtext").filter_map(|i| i["value"].as_f64()).collect();
+    assert!(dims.iter().any(|d| (d - widths).abs() < 0.5), "total chain = sum of base widths ({widths}): {dims:?}");
+    assert!(items.iter().any(|i| i["cls"] == "open"), "door opening symbols");
+    assert!(items.iter().any(|i| i["t"] == "text" && i["s"] == "KTS"), "title block");
+    let titles: Vec<&str> = sheets[0]["views"].as_array().unwrap().iter().map(|v| v["title"].as_str().unwrap()).collect();
+    assert!(titles.contains(&"Mặt đứng") && titles.contains(&"Mặt bằng"), "{titles:?}");
+    // Chi tiết từng tủ: nhiều hình → có thể nhiều trang, cùng tỷ lệ chuẩn.
+    let r = call(&mut e, json!({"cmd": "get_drawing_sheet", "room": "Bếp", "paper": "A4", "views": ["DETAIL"], "hide_fronts": true}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(r.result["scale"].as_str().unwrap().starts_with("1:"));
+    let n: usize = r.result["sheets"].as_array().unwrap().iter().map(|s| s["views"].as_array().unwrap().len()).sum();
+    assert_eq!(n, 10, "front + side per cabinet");
+}

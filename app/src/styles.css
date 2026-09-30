@@ -622,3 +622,7 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .acc-row em { margin-left: auto; font-style: normal; font-size: 11px; color: #868e96; }
 .acc-row.fit em { color: #2f9e44; }
 .acc-row.nofit em { color: #e03131; }
+
+.print-sheet { position: relative; }
+.print-pop { position: absolute; right: 0; top: 30px; z-index: 30; width: 270px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.15); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.print-pop .btn.primary { margin-top: 6px; }

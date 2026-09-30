@@ -250,6 +250,10 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-13.5 In nhãn** (tay). In nhãn → cửa sổ in A4, nhãn 60 × 40 có mã, tên, kích thước cắt, vật liệu, ký hiệu cạnh dán tô cam.
 - **TC-13.7 In báo giá / PDF** (E2E 05 `TC-13.7`, vitest `numberWords`). Nhập khách hàng → In báo giá → trang A4 có tên khách,
   2 nhóm phòng, tổng bằng tổng core, dòng "Bằng chữ … đồng"; xuất PDF > 10 KB.
+- **TC-13.8 Bản vẽ in** (E2E 25, Rust `drawing_sheet_kitchen_elevation_on_one_a3`). Chọn một tủ phòng Bếp → nút máy in trên thanh 2D
+  → A3 ngang, Mặt đứng + Mặt bằng → 1 trang: mặt đứng tủ dưới + tủ trên (nét đứt chiều mở cánh), chuỗi rộng từng tủ + tổng
+  (= tổng rộng tủ dưới), cao từng loại tủ, mặt bằng có tên tủ, khung tên (dự án, phòng, người vẽ, ngày, tỷ lệ chuẩn, trang).
+  Bật Chi tiết từng tủ → mỗi tủ mặt trước (ẩn cánh) + mặt bên, tự thêm trang, cùng tỷ lệ.
 - **TC-13.6 Cabinet List** (tay). Bấm dòng → chọn tủ trong 3D.
 
 ### 14. Lỗi, dữ liệu sai, độ bền

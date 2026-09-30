@@ -156,6 +156,11 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
   (cánh kính khung nhôm cho tủ trên, tủ trang trí).
 - Khung nhôm và kính / gương là phụ kiện: báo giá theo mét (profile) và m² (kính), không vào xếp tấm ván.
 
+### 3.6 Bản vẽ in (A3 / A4)
+- Thanh 2D → nút **máy in**: chọn khổ giấy (A3 / A4, ngang / dọc), hình (Mặt đứng, Mặt bằng, Chi tiết từng tủ), ẩn cánh ở chi
+  tiết, người vẽ → **Xem & in** mở trang in (chọn "Lưu PDF" trong hộp in của trình duyệt).
+- Phạm vi là phòng của tủ đang chọn; chưa chọn tủ thì cả dự án. Tỷ lệ tự chọn (1:5 … 1:200), ưu tiên vừa 1 trang.
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 
