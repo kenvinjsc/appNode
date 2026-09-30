@@ -1891,3 +1891,34 @@ fn drawing_sheet_kitchen_elevation_on_one_a3() {
     let n: usize = r.result["sheets"].as_array().unwrap().iter().map(|s| s["views"].as_array().unwrap().len()).sum();
     assert_eq!(n, 10, "front + side per cabinet");
 }
+
+#[test]
+fn builtin_templates_insert_with_params_one_undo_each() {
+    let mut e = Engine::new();
+    let list = call(&mut e, json!({"cmd": "get_products"})).result["products"].as_array().unwrap().clone();
+    assert!(list.len() >= 13, "≥ 13 mẫu dựng sẵn");
+    for p in &list {
+        let r = call(&mut e, json!({"cmd": "insert_product", "key": p["key"]}));
+        assert!(r.ok, "{}: {:?}", p["key"], r.error);
+        let id: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+        assert!(!e.doc.cabinet_layout(id).unwrap().parts.is_empty(), "{}", p["key"]);
+        assert!(e.doc.cabinet_layout(id).unwrap().problems.is_empty(), "{} has unsolvable zones", p["key"]);
+    }
+    // Tủ áo 4 cánh 1800 với W = 2000, kịch trần 2700 (che trần 50).
+    let r = call(&mut e, json!({"cmd": "insert_product", "key": "WARDROBE_4D_1800", "width": 2000, "params": {"ceiling": "on", "ceiling_h": "2700", "ceiling_gap": "50"}}));
+    assert!(r.ok, "{:?}", r.error);
+    let id: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    assert_eq!(e.doc.param_value(id, "width"), Some(2000.0));
+    assert_eq!(e.doc.param_value(id, "height"), Some(2650.0));
+    let l = e.doc.cabinet_layout(id).unwrap();
+    let doors: Vec<_> = l.parts.iter().filter(|p| p.name.starts_with("CửaĐôi")).collect();
+    assert_eq!(doors.len(), 8, "2 khoang × (2 cánh dưới + 2 cánh trên)");
+    let lower: Vec<f64> = doors.iter().filter(|d| d.size[1] > 1000.0).map(|d| d.size[0]).collect();
+    assert_eq!(lower.len(), 4);
+    assert!(lower.iter().all(|w| (w - lower[0]).abs() < 1.0), "4 cánh dưới rộng đều: {lower:?}");
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("ThanhOval")).count(), 2, "2 khoang treo");
+    assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("MặtNgănTrong")).count(), 6);
+    // Một undo bỏ cả mẫu.
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(!e.doc.objects.contains_key(&id));
+}

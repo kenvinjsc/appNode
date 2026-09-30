@@ -298,6 +298,15 @@ pub enum Request {
     InsertProduct {
         key: String,
         #[serde(default)]
+        width: Option<f64>,
+        #[serde(default)]
+        height: Option<f64>,
+        #[serde(default)]
+        depth: Option<f64>,
+        /// Tham số hiển thị của mẫu (`get_products[].params`).
+        #[serde(default)]
+        params: std::collections::BTreeMap<String, String>,
+        #[serde(default)]
         position: Option<[f64; 3]>,
         #[serde(default)]
         room: Option<String>,

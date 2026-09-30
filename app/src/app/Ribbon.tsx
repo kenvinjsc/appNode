@@ -33,7 +33,7 @@ function CabinetMenu() {
   useEffect(() => {
     if (open && !products.length)
       Commands.getProducts()
-        .then((r) => setProducts(r.products))
+        .then((r) => setProducts(r.products.filter((p) => p.room === 'Bếp')))
         .catch(() => undefined);
   }, [open, products.length]);
   const after = () => {
@@ -86,6 +86,14 @@ function CabinetMenu() {
               <Icon name="cabinet" size={16} /> Tủ góc chéo ({wall ? 'bếp trên' : 'bếp dưới'})
             </button>
           ))}
+          <button
+            onClick={() => {
+              setOpen(false);
+              useUi.getState().set({ gallery: true });
+            }}
+          >
+            <Icon name="sample" size={16} /> Mẫu dựng sẵn (tủ áo, giường, kệ TV…)
+          </button>
           <div className="menu-sep">Sản phẩm khác</div>
           {FURNITURE.map((f) => (
             <button

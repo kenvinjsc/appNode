@@ -52,9 +52,10 @@ export const Commands = {
   deleteMaterialSet: (name: string) => command({ cmd: 'delete_material_set', name }),
   /** Tool gia công theo tham số cho nhiều tấm (một undo). */
   toolFeature: (ids: ObjectId[], tool: string, feature: ParamFeature) => command<{ panels: number }>({ cmd: 'tool_feature', ids, tool, feature }),
-  getProducts: () => command<{ products: { key: string; name: string; room: string; summary: string }[] }>({ cmd: 'get_products' }),
+  getProducts: () => command<{ products: ProductInfo[] }>({ cmd: 'get_products' }),
   /** Chèn mẫu sản phẩm dựng sẵn (một undo), cạnh tủ `after` nếu có. */
-  insertProduct: (key: string, after?: ObjectId) => command<{ id: ObjectId }>({ cmd: 'insert_product', key, after }),
+  insertProduct: (key: string, after?: ObjectId, size: { width?: number; height?: number; depth?: number } = {}, params: Record<string, string> = {}, room?: string, floor?: string) =>
+    command<{ id: ObjectId }>({ cmd: 'insert_product', key, after, ...size, params, room, floor }),
   /** Chạy thử một thao tác (không undo, không đổi dự án): khoang / vị trí tấm chia kết quả. */
   preview: (cabinet: ObjectId, request: Record<string, unknown>) =>
     command<{ ok: boolean; error?: string; bays?: BayInfo[]; positions?: PanelPosition[]; problems?: number[] }>({ cmd: 'preview', cabinet, request }),
@@ -144,4 +145,14 @@ export type SheetItem =
 export interface DrawingSheet {
   scale: string;
   sheets: { paper: [number, number]; scale: string; views: { title: string; x: number; y: number; w: number; h: number }[]; items: SheetItem[] }[];
+}
+
+/** Mẫu dựng sẵn (D30): kích thước mặc định + tham số hiển thị. */
+export interface ProductInfo {
+  key: string;
+  name: string;
+  room: string;
+  summary: string;
+  size: [number, number, number];
+  params: { key: string; label: string; kind: 'number' | 'bool' | 'select'; default: string; options: { value: string; label: string }[] }[];
 }

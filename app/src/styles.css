@@ -626,3 +626,13 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .print-sheet { position: relative; }
 .print-pop { position: absolute; right: 0; top: 30px; z-index: 30; width: 270px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.15); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .print-pop .btn.primary { margin-top: 6px; }
+
+.modal-back { position: fixed; inset: 0; background: rgba(33,37,41,.35); z-index: 60; display: flex; align-items: center; justify-content: center; }
+.modal.gallery { width: min(980px, 94vw); max-height: 86vh; background: #fff; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden; }
+.gallery-body { display: grid; grid-template-columns: 1fr 280px; gap: 12px; padding: 12px; overflow: auto; }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; align-content: start; }
+.gallery-card { text-align: left; border: 1px solid #dee2e6; border-radius: 8px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.gallery-card span { font-size: 12px; color: #6c757d; }
+.gallery-card:hover { border-color: #ffc078; }
+.gallery-card.on { border-color: #e8590c; box-shadow: 0 0 0 2px rgba(232,89,12,.18); }
+.gallery-form { display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #f1f3f5; padding-left: 12px; }

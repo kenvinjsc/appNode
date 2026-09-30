@@ -85,6 +85,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
   5 tấm (3000 − 4 × 3) / 5 × 2700; rộng 3200 → tấm giãn đều; tab Vách ốp → Chia cột `/6` → 6 tấm; công thức sai → báo lỗi.
   Khoét hộp điện (danh sách Khoét như tab Hậu) → lỗ trên đúng tấm chứa tâm. Vách lam 1200 → lam 40 / khe 25 trên khung xương.
   Báo giá: m² mặt đứng.
+- **TC-02.10 Mẫu dựng sẵn** (E2E 26, Rust `builtin_templates_insert_with_params_one_undo_each`). Tủ ▾ → Mẫu dựng sẵn → Phòng ngủ →
+  Tủ áo 4 cánh 1800 → Rộng 2000, bật Kịch trần (trần 2700, che trần 50) → Chèn: tủ 2000 × 2650, 2 khoang đều, tầng trên 400,
+  4 cánh dưới rộng đều, 2 khoang treo, 6 ngăn kéo trong; Ctrl+Z bỏ cả mẫu. Chèn lần lượt cả 14 mẫu: không mẫu nào lỗi khoang.
 - **TC-02.5 Lật gương** (Rust `parametric_f_…`). Chuột phải → Lật gương → khoang đảo trái ↔ phải, bản lề đổi phía.
 
 ### 03. Thao tác 3D

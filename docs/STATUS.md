@@ -28,7 +28,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | bộ vật liệu (dựng sẵn + tự lưu, áp cả phòng), vật liệu VN (MFC, MFC lõi xanh, Acrylic, Laminate, Veneer) |
 | D11 | Mã tấm, danh sách cắt gộp, in nhãn 60×40, CSV | chưa: QR, profile CSV cấu hình |
 | D24 | Tool 03 / 08 / 16 / 18 gửi ý định, core tính theo kích thước tấm (khấu góc theo góc khi tủ đổi cỡ), nhiều tấm một undo | |
-| D30 (bếp) | Mẫu bếp dựng sẵn: bếp dưới 800, bếp trên 800, góc L 1100, tủ lò 600 kịch trần | chưa: mẫu tủ áo / giường / bàn (§7 #4–#14) |
+| D30 | 14 mẫu dựng sẵn §7 (bếp 4, tủ áo 4, giường 2, bàn học, kệ TV treo, tủ giày, tủ lavabo) có tham số hiển thị (kịch trần, số kệ, số cánh lùa, cánh lật…), lưới Mẫu dựng sẵn theo phòng + form W/H/D | chưa: ảnh thu nhỏ; bàn đảo (D23, Đợt 3) |
 | D20 | Sự kiện `ZonesChanged` theo tủ; 2D / Tạo tấm chỉ tải lại khoang của tủ bị đổi; tấm 2D vẽ bằng `React.memo` | chưa: patch khoang trong sự kiện (vẫn gọi `get_zones` cho tủ đó) |
 | D25 | Request `preview` (chạy thử, không undo / revision / sự kiện); kéo vách / kệ 2D hiện số core tính | chưa: preview khi kéo cạnh tấm, kéo kích thước tủ 3D |
 | D03 | Số đo sửa trực tiếp trên 2D do core tính: sâu, lùi kệ (Bên / Phải), cao chân, dày ván, khe cánh, tay nắm cách đầu cánh (Trước) | chưa: thanh treo, khe tấm lấp, tổng dãy |

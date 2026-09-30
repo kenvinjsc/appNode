@@ -62,6 +62,13 @@ hoặc **Tên phòng** ở tab *Chỉnh tấm* khi đang chọn tủ đó.
 
 Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
 
+### 2.y Mẫu dựng sẵn
+- **Tủ ▾ → Mẫu dựng sẵn**: lưới mẫu theo phòng (Bếp, Phòng ngủ, Phòng khách, WC): tủ bếp dưới / trên / góc L / tủ lò, tủ áo 2
+  cánh 1000, 4 cánh 1800, 3 khoang kịch trần, cánh lùa 2000, giường, giường hộc kéo, bàn học, kệ TV treo, tủ giày (kệ nghiêng),
+  tủ lavabo treo.
+- Chọn mẫu → sửa Rộng / Cao / Sâu và tham số (kịch trần + cao trần + che trần, số kệ, số cánh lùa, cánh lật…) → **Chèn mẫu**
+  (đặt cạnh tủ đang chọn, cùng phòng). Một lần Hoàn tác bỏ cả mẫu.
+
 ### 2.x Giường (và sản phẩm ngoài tủ hộp)
 - **Tủ ▾ → Sản phẩm khác → Giường 1600 × 2000 / Giường hộc kéo 1600**.
 - Rộng × Sâu của giường là **lọt nệm**; Cao là cao đầu giường. Đổi các số này ở Khung / 2D như tủ thường.

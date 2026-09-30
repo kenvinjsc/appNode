@@ -533,7 +533,7 @@ impl Engine {
             SnapToWall { ids, gap } => ok(json!({ "moved": self.snap_to_wall(ids, gap)? })),
             Preview { cabinet, request } => ok(self.preview(cabinet, *request)?),
             GetProducts => ok(self.products_info()),
-            InsertProduct { key, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after })? })),
+            InsertProduct { key, width, height, depth, params, position, room, floor, after } => ok(json!({ "id": self.insert_product(&key, products::Place { position, room, floor, after, size: [width, height, depth], params })? })),
             CreateFurniture { kind, width, height, depth, position, name, room, floor, options } => ok(self.create_furniture(&kind, [width, height, depth], position, name, room, floor, options)?),
             GetDrawingSheet { ids, room, floor, paper, portrait, views, hide_fronts, drawer, date } => {
                 ok(self.drawing_sheet(&ids, room.as_deref(), floor.as_deref(), &paper, portrait, &views, hide_fronts, &drawer, &date)?)
