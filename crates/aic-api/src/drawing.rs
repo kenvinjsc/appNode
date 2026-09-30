@@ -67,6 +67,9 @@ impl View {
     }
 }
 
+/// AABB (min, max) của một chi tiết trong khung tủ, vai trò, cạnh bản lề, lớp vẽ.
+type PartBox = ([f64; 3], [f64; 3], Option<PanelRole>, Option<EdgeSide>, &'static str);
+
 /// Paper transform of one placed view.
 struct Place {
     ox: f64,
@@ -194,7 +197,7 @@ impl Engine {
     }
 
     /// Part rectangles of a cabinet in its own frame: (min, max) AABB, role, hinge, is hardware.
-    fn part_boxes(&self, cab: ObjectId) -> Vec<([f64; 3], [f64; 3], Option<PanelRole>, Option<EdgeSide>, &'static str)> {
+    fn part_boxes(&self, cab: ObjectId) -> Vec<PartBox> {
         let Some(l) = self.doc.cabinet_layout(cab) else { return Vec::new() };
         l.parts
             .iter()
