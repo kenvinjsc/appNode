@@ -15,6 +15,20 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | 6 | Nesting interface + MaxRects, toolpath + G-code | |
 | 7 | Rayon cho narrow phase và tessellation, cache mesh theo geometry key | **Chưa** có benchmark 1000+ đối tượng |
 
+### Đợt P0 xưởng (theo `DE-XUAT-TINH-NANG-V2.md`)
+| Mã | Nội dung | Ghi chú |
+|---|---|---|
+| D01 | Chuẩn xưởng `Cabinet.rules.shop` (kệ, chốt, bản lề, tay nắm, ngăn kéo, liên kết), lưu / áp chuẩn (mẫu nhóm `all`) | mặc định = giá trị cũ |
+| D02 | Hàng lỗ chốt hệ 32, kệ di động bắt lỗ | hình học chỉ vẽ vòng tròn khi > 16 lỗ |
+| D04/D05 | Loại tay nắm (thanh/núm/push-open/không), khoan lỗ tay nắm, đế bản lề trên hồi; ray bi / âm / tandem | chưa: catalog phụ kiện riêng, ngăn kéo trong, mặt giả |
+| D06 | Liên kết chốt gỗ / cam + chốt / vít / ke, lỗ thật theo tủ; báo giá đếm theo lỗ | khoan cạnh vẫn là cảnh báo CNC |
+| D07 | Tủ góc L mù (trái / phải) | chưa: góc chéo, mâm xoay |
+| D08 | Chân tủ: len trước / 3 mặt, chân nhựa (+ len kẹp), tủ treo | |
+| D09 | Dãy tủ: mặt đá, len chân liền, tấm lấp, che trần; tự sinh lại khi tủ đổi | chưa khoét chậu / bếp trên mặt đá |
+| D10 | Dán cạnh theo nhóm tấm, chỉ ABS/PVC, hậu không dán theo vai trò | chưa: bộ vật liệu, loại vật liệu VN |
+| D11 | Mã tấm, danh sách cắt gộp, in nhãn 60×40, CSV | chưa: QR, profile CSV cấu hình |
+| D12 | Báo giá mét dài / m² mặt đứng / bóc chi tiết theo phòng, hao hụt, công, lợi nhuận, VAT | chưa: xuất PDF báo giá |
+
 ### UI
 Phase 1–6: app shell, scene tree, viewport Three.js, properties, selection (object/face/edge, multi, box), camera,
 tạo tủ (đặt bằng click + nhập W/H/D), sửa tham số (có công thức), move/rotate gizmo với preview + snap từ core,
