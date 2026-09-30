@@ -16,7 +16,7 @@ Phần mềm CAD nội thất gỗ. Đặc tả gốc: UI/UX + 3D viewer và CAD
 ## Lệnh
 ```bash
 cargo test --workspace && cargo clippy --workspace --all-targets
-cargo run -p aic-dev-server --release          # core cho trình duyệt, :8787
+cargo run -p aic-dev-server --release          # core cho trình duyệt, :8790 (AIC_PORT)
 cd app && npm run dev                          # UI :5173 (proxy /api)
 cd app && npm test && npm run typecheck && npm run build
 cd app && npm run e2e                          # kịch bản E2E (docs/KICH-BAN-TEST.md), tự bật core + Vite

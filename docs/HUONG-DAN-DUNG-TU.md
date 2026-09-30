@@ -6,7 +6,7 @@ Tài liệu này đi theo đúng thứ tự thao tác khi dựng một dự án 
 Chạy chương trình:
 
 ```bash
-cargo run -p aic-dev-server --release   # core, cổng 8787
+cargo run -p aic-dev-server --release   # core, cổng 8790 (AIC_PORT)
 cd app && npm run dev                   # giao diện, http://localhost:5173
 ```
 

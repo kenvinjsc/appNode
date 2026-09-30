@@ -12,7 +12,7 @@ Tài liệu này gom toàn bộ kịch bản kiểm thử theo module: dùng cho
 | UI unit (vitest) | `cd app && npm test && npm run typecheck && npm run build` | ~20 giây |
 | E2E (Playwright, trình duyệt thật) | `cd app && npm run e2e` | ~3 phút |
 
-- E2E tự bật `aic-dev-server` (`:8787`) và Vite (`:5173`) nếu chưa chạy. Có Chromium riêng thì đặt
+- E2E tự bật `aic-dev-server` (`:8790`, đổi bằng `AIC_PORT`) và Vite (`:5173`) nếu chưa chạy. Có Chromium riêng thì đặt
   `PW_CHROMIUM=/đường/dẫn/chrome`. Báo cáo HTML ở `app/e2e-report/`, ảnh / trace khi lỗi ở `app/test-results/`.
 - Mỗi test E2E tạo dự án trống qua API rồi nạp trang, app tự dựng **Dự án mẫu** (TủQA01 ở PN1 · Tầng 2; BếpDưới01–03,
   BếpTrên01 ở Bếp · Tầng 1). Core giữ một dự án chung nên E2E chạy tuần tự.

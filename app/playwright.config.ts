@@ -22,7 +22,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'cargo run -p aic-dev-server --release --manifest-path ../Cargo.toml',
-      url: 'http://127.0.0.1:8787/api',
+      url: `http://127.0.0.1:${process.env.AIC_PORT || '8790'}/api`,
       reuseExistingServer: true,
       timeout: 900_000,
     },

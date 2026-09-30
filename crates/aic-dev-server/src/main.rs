@@ -23,7 +23,9 @@ fn content_type(p: &Path) -> &'static str {
 }
 
 fn main() {
-    let addr = std::env::var("AIC_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".into());
+    // Cổng API: AIC_ADDR (địa chỉ đầy đủ) hoặc AIC_PORT, mặc định 127.0.0.1:8790.
+    let port = std::env::var("AIC_PORT").unwrap_or_else(|_| "8790".into());
+    let addr = std::env::var("AIC_ADDR").unwrap_or_else(|_| format!("127.0.0.1:{port}"));
     // Serve the built UI when available: AIC_STATIC, else <repo>/app/dist.
     let static_dir: Option<PathBuf> = std::env::var("AIC_STATIC")
         .ok()

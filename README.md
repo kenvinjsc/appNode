@@ -18,10 +18,10 @@ UI (React/Three.js) ──Request JSON──▶ AIC API (Engine::dispatch) ─�
 Yêu cầu: Rust stable, Node 20+ (có C++ compiler để build Clipper2).
 
 ```bash
-# 1. Lõi CAD (HTTP bridge cho trình duyệt), cổng 8787
+# 1. Lõi CAD (HTTP bridge cho trình duyệt), cổng 8790 (đổi bằng `AIC_PORT`)
 cargo run -p aic-dev-server --release
 
-# 2. Giao diện, http://localhost:5173 (proxy /api → 8787)
+# 2. Giao diện, http://localhost:5173 (proxy /api → 8790)
 cd app && npm install && npm run dev
 ```
 
@@ -33,13 +33,13 @@ Desktop (Tauri 2, cần WebKitGTK trên Linux):
 cd app && npm install && npx tauri dev     # hoặc: npx tauri build
 ```
 
-> Cổng **8787** là API của lõi CAD. Giao diện ở **5173** khi chạy `npm run dev`.
+> Cổng **8790** là API của lõi CAD (đổi bằng biến môi trường `AIC_PORT`, dùng chung cho core, Vite và E2E). Giao diện ở **5173** khi chạy `npm run dev`.
 
 Chạy một cổng duy nhất: khi đã có `app/dist`, dev server tự phục vụ luôn giao diện.
 
 ```bash
 cd app && npm run build && cd ..
-cargo run -p aic-dev-server --release   # mở http://127.0.0.1:8787
+cargo run -p aic-dev-server --release   # mở http://127.0.0.1:8790
 ```
 
 ## Kiểm thử
