@@ -325,6 +325,17 @@ impl Engine {
                 self.resize_panel_side(id, side, delta, constrained)?;
                 ok(json!({}))
             }
+            MoveObjects { ids, delta } => {
+                if delta.iter().any(|v| !v.is_finite()) {
+                    return Err(CoreError::InvalidTransform);
+                }
+                let ids = self.top_level_only(ids);
+                let cmds = ids.iter().map(|id| self.shift_world(*id, delta)).collect::<Result<Vec<_>, _>>()?;
+                if !cmds.is_empty() {
+                    self.exec(Command::Batch { label: "Di chuyển".into(), commands: cmds })?;
+                }
+                ok(json!({ "moved": ids.len() }))
+            }
             ResizeCabinet { id, name, value, stretch, edge } => {
                 self.resize_with_stretch(id, &name, value, stretch, edge)?;
                 ok(json!({}))

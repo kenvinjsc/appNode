@@ -83,6 +83,8 @@ export const Commands = {
   duplicateObjects: (ids: ObjectId[]) => command<{ created: ObjectId[] }>({ cmd: 'duplicate_objects', ids }),
   setParameter: (id: ObjectId, name: string, value: string) => command({ cmd: 'set_parameter', id, name, value }),
   setTransform: (id: ObjectId, transform: Transform3D) => command({ cmd: 'set_transform', id, transform }),
+  /** Di chuyển khối theo vector (mm, thế giới); một bước undo. */
+  moveObjects: (ids: ObjectId[], delta: Vec3) => command({ cmd: 'move_objects', ids, delta }),
   setName: (id: ObjectId, name: string) => command({ cmd: 'set_name', id, name }),
   setVisible: (ids: ObjectId[], visible: boolean) => command({ cmd: 'set_visible', ids, visible }),
   setLocked: (ids: ObjectId[], locked: boolean) => command({ cmd: 'set_locked', ids, locked }),

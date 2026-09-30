@@ -235,6 +235,15 @@ Cũng lưu vào thư viện: **template tủ** (chuột phải tủ → Lưu là
 **mẫu vùng** — chuột phải một vùng → *Lưu vùng này làm mẫu…*; ở tủ khác chuột phải vùng → mục *Mẫu vùng* → chọn
 mẫu để dựng lại toàn bộ kệ, vách, cánh, ngăn kéo, thanh treo của vùng đó (tự co theo kích thước vùng mới).
 
+## 4g. Di chuyển khối, bắt dính khi co kéo
+
+- **Kéo trực tiếp**: chọn tủ (hoặc nhiều tủ), bấm giữ lên thân tủ trong 3D và kéo — tủ trượt trên mặt sàn, tự bắt dính
+  vào tủ/tường gần. Đang kéo gõ số (mm) + **Enter** để dời đúng khoảng đó theo trục đang kéo (X hoặc Z). **Esc** hủy.
+  Thả chuột là một bước undo.
+- Cách khác: công cụ **Di chuyển (M)** với tay nắm trục, hoặc nhập X/Y/Z ở tab **Chỉnh tấm**.
+- **Bắt dính khi co kéo**: kéo tay nắm kích thước tủ (3D) hoặc cạnh tấm (2D) sẽ dừng ở cạnh hộp của tủ/chi tiết
+  khác trong khoảng 10 px, có đường gạch cam chỉ điểm bắt. Giữ **Alt** để kéo tự do.
+
 ## 5. Tool (tab Tool bên trái)
 Chọn tấm rồi chọn tool. Các tool đã dùng được:
 

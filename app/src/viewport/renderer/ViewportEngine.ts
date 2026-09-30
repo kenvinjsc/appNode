@@ -519,6 +519,21 @@ export class ViewportEngine {
     return null;
   }
 
+  /** Every object under the cursor, nearest first (with the hit point). */
+  pickAll(clientX: number, clientY: number): { id: ObjectId; point: THREE.Vector3 }[] {
+    this.raycaster.setFromCamera(this.ndc(clientX, clientY), this.camera);
+    const targets: THREE.Object3D[] = [];
+    for (const e of this.entries.values()) if (e.mesh && e.mesh.visible && e.ro.kind !== 'ROOM') targets.push(e.mesh);
+    for (const g of this.instances.values()) targets.push(g.mesh);
+    const out: { id: ObjectId; point: THREE.Vector3 }[] = [];
+    for (const h of this.raycaster.intersectObjects(targets, false)) {
+      let id: ObjectId | undefined = h.object.userData.id;
+      if (id === undefined && h.instanceId !== undefined) id = this.instances.get(h.object.userData.instanceKey as string)?.ids[h.instanceId];
+      if (id !== undefined && !out.some((o) => o.id === id)) out.push({ id, point: h.point.clone() });
+    }
+    return out;
+  }
+
   private nearestEdge(e: Entry, p: THREE.Vector3): number | null {
     const g = this.geometries.get(e.ro.geometry_key)!;
     const pos = g.edges.getAttribute('position') as THREE.BufferAttribute;
@@ -545,6 +560,13 @@ export class ViewportEngine {
   }
 
   /** Point on the ground plane (y = 0) under the cursor. */
+  /** Point under the cursor on the horizontal plane at height `y`. */
+  planePoint(clientX: number, clientY: number, y: number): THREE.Vector3 | null {
+    this.raycaster.setFromCamera(this.ndc(clientX, clientY), this.camera);
+    const p = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) ? p : null;
+  }
+
   groundPoint(clientX: number, clientY: number): THREE.Vector3 | null {
     this.raycaster.setFromCamera(this.ndc(clientX, clientY), this.camera);
     const p = new THREE.Vector3();

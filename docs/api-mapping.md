@@ -31,6 +31,7 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 | 2D: kéo 4 cạnh tấm (Giữ ràng buộc / Tự do) | `resize_panel_side {id, side: LEFT..FRONT, delta, constrained}` | Có ràng buộc: đổi offset của anchor; tự do: bỏ anchor cạnh đó, đổi offset tấm | ObjectChanged | |
 | Tool 21 Cung cạnh / 22 Biên dạng tự do | `shape_tool {ids, op: EDGE_ARC {edge, sagitta} \| POLYGON {points, mode: OUTLINE \| SUBTRACT \| HOLE}}` | Cung tròn (sai số dây 0.1 mm); đa giác kiểm tra tự cắt (Clipper2) | ObjectChanged | Mesh + CNC theo biên dạng |
 | Kéo / nhập kích thước tủ (3D, 2D) + ô Dãn | `resize_cabinet {id, name, value, stretch: KEEP \| PROPORTIONAL \| EDGE, edge?}` | Viết lại khoang (và cao ngăn kéo) thành % hoặc KHÓA + AUTO ở cạnh kéo rồi đổi tham số; một bước undo | ObjectChanged | |
+| Kéo khối đã chọn trong 3D (gõ số = khoảng dời) | `move_objects {ids, delta: [x,y,z]}` | Dời các đối tượng gốc (bỏ con trùng) theo vector thế giới; một bước undo | ObjectChanged | |
 | Chuột phải tủ → Thuộc tính kết cấu | `get_structure {cabinet}`, `set_parameter` (back_*, rt_*, plinth_setback, top_covers_back …) | `Cabinet.rules` (BackRule, TopRails, plinth_setback) | ObjectChanged | Bảng tab như plugin |
 | Lưu / Áp mẫu từng tab | `save_group_preset {cabinet, group, name}`, `apply_group_preset {ids, group, name}`, `delete_group_preset` | Thư viện dùng chung (file JSON của máy) | | |
 | Mẫu vùng | `save_zone_preset {cabinet, zone, name}`, `apply_zone_preset {cabinet, zones, name}`, `delete_zone_preset` | Sao chép nội dung vùng, đánh số uid mới | ObjectCreated | |

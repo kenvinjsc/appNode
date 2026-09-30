@@ -578,3 +578,7 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .value-box { display: flex; align-items: center; height: 100%; background: #fff; border: 2px solid #e8590c; border-radius: 5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); overflow: hidden; }
 .value-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; text-align: right; font-weight: 700; font-size: inherit; padding: 0 4px; }
 .value-box em { font-style: normal; color: #868e96; padding: 0 5px 0 2px; font-size: 0.8em; }
+
+.snap-guide line { stroke: #e8590c; stroke-width: 1.5; stroke-dasharray: 6 4; }
+.snap-guide circle { fill: #fff; stroke: #e8590c; stroke-width: 2; }
+.d2e .d2e-guide { stroke: #e8590c; stroke-width: 1.2; stroke-dasharray: 8 5; vector-effect: non-scaling-stroke; pointer-events: none; }

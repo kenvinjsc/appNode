@@ -143,6 +143,8 @@ pub enum Request {
     DuplicateObjects { ids: Vec<ObjectId> },
     SetParameter { id: ObjectId, name: String, value: String },
     SetTransform { id: ObjectId, transform: Transform3D },
+    /// Di chuyển khối: move objects by a world-space vector (one undo step).
+    MoveObjects { ids: Vec<ObjectId>, delta: [f64; 3] },
     SetName { id: ObjectId, name: String },
     SetVisible { ids: Vec<ObjectId>, visible: bool },
     SetLocked { ids: Vec<ObjectId>, locked: bool },

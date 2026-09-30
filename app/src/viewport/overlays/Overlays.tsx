@@ -275,7 +275,7 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
   useFrame(engine);
   const rev = useSceneRevision((s) => s.rev);
   const [frame, setFrame] = useState<{ world: THREE.Matrix4; dims: { width: number; height: number; depth: number } } | null>(null);
-  const [drag, setDrag] = useState<{ key: 'width' | 'height' | 'depth'; value: number; typed?: string } | null>(null);
+  const [drag, setDrag] = useState<{ key: 'width' | 'height' | 'depth'; value: number; typed?: string; snap?: THREE.Vector3 } | null>(null);
   // After the drag: exact value box at the handle (pre-filled with the dragged value).
   const [pending, setPending] = useState<{ key: 'width' | 'height' | 'depth'; value: number; start: number } | null>(null);
   useEffect(() => {
@@ -317,6 +317,30 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
     const sy = e.clientY;
     let value = start;
     let typed = '';
+    // Bắt dính: faces (line box) of every other object along this axis are stops.
+    const tree = useUi.getState().tree;
+    const own = new Set(expandSubtrees(tree, [id]));
+    const org = new THREE.Vector3().setFromMatrixPosition(frame.world);
+    const dir = axes[key].clone().transformDirection(frame.world);
+    const stops: { v: number; at: THREE.Vector3 }[] = [];
+    // Stops: whole other cabinets + their panels + the room (not hardware — too many tiny edges).
+    const boxes: THREE.Box3[] = [];
+    for (const r of tree?.roots ?? []) if (r.id !== id && r.kind === 'CABINET') boxes.push(engine.boxOf(expandSubtrees(tree, [r.id])));
+    for (const oid of engine.entries.keys()) {
+      const ro = engine.entries.get(oid)?.ro;
+      if (own.has(oid) || !ro || ro.kind === 'HARDWARE') continue;
+      const b = engine.worldBox(oid);
+      if (b) boxes.push(b);
+    }
+    for (const b of boxes) {
+      if (b.isEmpty()) continue;
+      const c = b.getCenter(new THREE.Vector3());
+      for (const corner of [b.min, b.max]) {
+        const v = corner.clone().sub(org).dot(dir);
+        if (v > 20) stops.push({ v, at: c.clone().add(dir.clone().multiplyScalar(v - c.clone().sub(org).dot(dir))) });
+      }
+    }
+    const tolMm = (10 / pxPer100) * 100; // 10 px on screen
     setPending(null);
     // Digits typed while dragging give the exact value.
     const stopTyping = listenTyped((t) => {
@@ -328,8 +352,12 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
     const move = (ev: PointerEvent) => {
       if (typed) return;
       const mm = (((ev.clientX - sx) * ax.x + (ev.clientY - sy) * ax.y) / pxPer100 / pxPer100) * 100;
-      value = Math.max(50, Math.round((start + mm) / 5) * 5);
-      setDrag({ key, value });
+      const raw = start + mm;
+      // Nearest stop within 10 px (Alt = free), else 5 mm steps.
+      let best: { v: number; at: THREE.Vector3 } | null = null;
+      if (!ev.altKey) for (const st of stops) if (Math.abs(st.v - raw) < tolMm && (!best || Math.abs(st.v - raw) < Math.abs(best.v - raw))) best = st;
+      value = Math.max(50, best ? Math.round(best.v * 10) / 10 : Math.round(raw / 5) * 5);
+      setDrag({ key, value, snap: best?.at });
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -355,6 +383,18 @@ export function CabinetHandles({ engine, id }: { engine: ViewportEngine; id: Obj
   return (
     <g>
       {ghost}
+      {drag?.snap &&
+        (() => {
+          const hd = handles.find((x) => x.key === drag.key);
+          const t = engine.toScreen(drag.snap);
+          if (!hd || !t.visible) return null;
+          return (
+            <g className="snap-guide">
+              <line x1={hd.p.x} y1={hd.p.y} x2={t.x} y2={t.y} />
+              <circle cx={t.x} cy={t.y} r={5} />
+            </g>
+          );
+        })()}
       {handles.map((hd) =>
         hd.p.visible ? (
           <g key={hd.key} className="handle" onPointerDown={(e) => onDown(hd.key, e)} style={{ pointerEvents: 'all', cursor: 'grab' }}>

@@ -52,7 +52,19 @@ interface Drag {
 
 export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: Item[]; unit: number; svg: SVGSVGElement | null }) {
   const { pinned, set, select, selection, tree, resizeMode } = useUi();
-  type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number; size0: number };
+  type EDrag = { id: ObjectId; side: PanelSide; from: number; delta: number; size0: number; guide?: number };
+  // Bắt dính 2D: edges of every other drawn part are stops (within ~0.9 unit; Alt = free).
+  const stopsX = items.flatMap((i) => [i.x0, i.x1]);
+  const stopsY = items.flatMap((i) => [i.y0, i.y1]);
+  const nearest = (v: number, stops: number[], skip: (s: number) => boolean) => {
+    let best: number | null = null;
+    for (const s of stops) if (!skip(s) && Math.abs(s - v) < unit * 0.9 && (best === null || Math.abs(s - v) < Math.abs(best - v))) best = s;
+    return best;
+  };
+  const allY0 = Math.min(...items.map((i) => i.y0));
+  const allY1 = Math.max(...items.map((i) => i.y1));
+  const allX0 = Math.min(...items.map((i) => i.x0));
+  const allX1 = Math.max(...items.map((i) => i.x1));
   // Exact value box opened where a drag ended (Enter / click away = apply, Esc = cancel).
   const [pend, setPend] = useState<{ x: number; y: number; value: number; commit: (v: number) => void } | null>(null);
   const typing = useRef<(() => void) | null>(null);
@@ -341,7 +353,14 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
           // Growing: right / bottom (svg) move +, left / top move −.
           let delta = side === 'RIGHT' || side === 'BOTTOM' ? raw : -raw;
           delta = e.shiftKey ? Math.round(delta / 10) * 10 : Math.round(delta * 2) / 2;
-          const n = { ...v, delta };
+          // Stop on other parts' edges.
+          const horiz = side === 'LEFT' || side === 'RIGHT';
+          const edge0 = side === 'LEFT' ? it.x0 : side === 'RIGHT' ? it.x1 : side === 'TOP' ? it.y0 : it.y1;
+          const sign = side === 'RIGHT' || side === 'BOTTOM' ? 1 : -1;
+          const own = horiz ? [it.x0, it.x1] : [it.y0, it.y1];
+          const g = e.altKey ? null : nearest(edge0 + sign * delta, horiz ? stopsX : stopsY, (s) => own.some((o) => Math.abs(o - s) < 1e-6));
+          if (g !== null) delta = (g - edge0) * sign;
+          const n = { ...v, delta, guide: g ?? undefined };
           edragRef.current = n;
           setEdrag(n);
         }}
@@ -369,6 +388,12 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
     edges.push(
       <g key="edges" className="d2e-edges">
         {d && <rect className="d2e-ghost" x={px0} y={py0} width={Math.max(px1 - px0, 0.5)} height={Math.max(py1 - py0, 0.5)} />}
+        {d?.guide !== undefined &&
+          (d.side === 'LEFT' || d.side === 'RIGHT' ? (
+            <line className="d2e-guide" x1={d.guide} y1={allY0 - unit * 2} x2={d.guide} y2={allY1 + unit * 2} />
+          ) : (
+            <line className="d2e-guide" x1={allX0 - unit * 2} y1={d.guide} x2={allX1 + unit * 2} y2={d.guide} />
+          ))}
         {d && (
           <text className="d2e-num" x={(px0 + px1) / 2} y={py0 - unit * 1.2} textAnchor="middle" fontSize={fs}>
             {fmt(px1 - px0, 1)} × {fmt(py1 - py0, 1)} ({d.delta > 0 ? '+' : ''}

@@ -818,3 +818,15 @@ fn resize_stretch_proportional_or_edge_bay() {
     }
     assert!((s1[n - 1].0 - s0[n - 1].0 - 100.0).abs() < 1e-6);
 }
+
+#[test]
+fn move_objects_by_vector_one_undo() {
+    let mut e = Engine::new();
+    let a: ObjectId = serde_json::from_value(call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "position": [0, 0, 0]})).result["id"].clone()).unwrap();
+    let b: ObjectId = serde_json::from_value(call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "position": [1000, 0, 0]})).result["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "move_objects", "ids": [a, b], "delta": [250, 0, -100]}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!((e.doc.param_value(a, "x"), e.doc.param_value(b, "x"), e.doc.param_value(b, "z")), (Some(250.0), Some(1250.0), Some(-100.0)));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!((e.doc.param_value(a, "x"), e.doc.param_value(b, "x")), (Some(0.0), Some(1000.0)));
+}

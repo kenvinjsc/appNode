@@ -8,6 +8,7 @@ import { Queries } from '../core-api/queries';
 import type { CabinetKind, ObjectId, SnapHint, Vec3 } from '../core-api/types';
 import { Icon } from '../shared/icons';
 import { CABINET_KINDS, fmt } from '../shared/i18n';
+import { listenTyped, typedNumber } from '../shared/typedValue';
 import { ViewportEngine } from './renderer/ViewportEngine';
 import { TransformGizmo } from './gizmo/TransformGizmo';
 import { CabinetHandles, DimensionOverlay, OverlayDefs, RelationsOverlay, SnapOverlay, useFrame } from './overlays/Overlays';
@@ -38,6 +39,18 @@ export function Viewport() {
   const host = useRef<HTMLDivElement>(null);
   const [engine, setEng] = useState<ViewportEngine | null>(null);
   const gizmo = useRef<TransformGizmo | null>(null);
+  const bodyDrag = useRef<{
+    ids: ObjectId[];
+    preview: ObjectId[];
+    y: number;
+    start: THREE.Vector3;
+    sx: number;
+    sy: number;
+    delta: Vec3;
+    active: boolean;
+    seq: number;
+    typed: string;
+  } | null>(null);
   const ghost = useRef<THREE.LineSegments | null>(null);
   const [hints, setHints] = useState<{ h: SnapHint[] | null; d: Vec3 | null }>({ h: null, d: null });
   const [dragging, setDragging] = useState(false);
@@ -119,14 +132,127 @@ export function Viewport() {
   }, []);
 
   // Shift+drag = box selection: disable orbit *before* OrbitControls sees the event.
+  // Kéo khối: press on an already selected object (select tool) and drag it over the
+  // floor plane — snapped by the core, typed digits = exact distance, Esc cancels.
   useEffect(() => {
     const el = host.current;
     if (!el || !engine) return;
     const cap = (e: PointerEvent) => {
-      if (e.button === 0 && e.shiftKey) engine.controls.enabled = false;
+      if (e.button === 0 && e.shiftKey) {
+        engine.controls.enabled = false;
+        return;
+      }
+      const s = useUi.getState();
+      if (e.button !== 0 || s.tool.type !== 'select' || (s.designerTab === 'create' && s.showZones)) return;
+      if (!s.selection.length) return;
+      // A selected object anywhere under the cursor (not only the nearest hit: another
+      // cabinet in front must not block dragging the selected one).
+      let top: ObjectId | null = null;
+      let hit: { id: ObjectId; point: THREE.Vector3 } | null = null;
+      for (const h of engine.pickAll(e.clientX, e.clientY)) {
+        for (let cur: ObjectId | null = h.id; cur !== null; cur = findNode(s.tree, cur)?.parent ?? null) {
+          if (s.selection.includes(cur)) top = cur;
+        }
+        if (top !== null) {
+          hit = h;
+          break;
+        }
+      }
+      if (top === null || !hit) return;
+      const roots = s.selection.filter((id) => findNode(s.tree, id)?.parent == null || !s.selection.includes(findNode(s.tree, id)!.parent!));
+      engine.controls.enabled = false;
+      bodyDrag.current = {
+        ids: roots,
+        preview: expandSubtrees(s.tree, roots),
+        y: hit.point.y,
+        start: hit.point.clone(),
+        sx: e.clientX,
+        sy: e.clientY,
+        delta: [0, 0, 0],
+        active: false,
+        seq: 0,
+        typed: '',
+      };
     };
     el.addEventListener('pointerdown', cap, { capture: true });
     return () => el.removeEventListener('pointerdown', cap, { capture: true });
+  }, [engine]);
+
+  // Kéo khối: window listeners while a body drag is armed.
+  useEffect(() => {
+    if (!engine) return;
+    let stopTyping: (() => void) | null = null;
+    const apply = (d: Vec3) => {
+      const b = bodyDrag.current;
+      if (!b) return;
+      b.delta = d;
+      engine.previewMatrices(b.preview, new THREE.Matrix4().makeTranslation(d[0], d[1], d[2]));
+      setHints({ h: [], d });
+    };
+    const move = (e: PointerEvent) => {
+      const b = bodyDrag.current;
+      if (!b) return;
+      if (!b.active) {
+        if (Math.hypot(e.clientX - b.sx, e.clientY - b.sy) < 5) return;
+        b.active = true;
+        setDragging(true);
+        stopTyping = listenTyped((t) => {
+          const bb = bodyDrag.current;
+          const v = typedNumber(t);
+          if (!bb || v === null) return;
+          bb.typed = t;
+          // Typed distance along the dominant drag axis (X or Z), keeping its sign.
+          const [dx, , dz] = bb.delta;
+          const d: Vec3 = Math.abs(dx) >= Math.abs(dz) ? [Math.sign(dx || 1) * v, 0, 0] : [0, 0, Math.sign(dz || 1) * v];
+          apply(d);
+        });
+      }
+      if (b.typed) return;
+      const p = engine.planePoint(e.clientX, e.clientY, b.y);
+      if (!p) return;
+      const raw: Vec3 = [p.x - b.start.x, 0, p.z - b.start.z];
+      apply(raw);
+      const s = useUi.getState();
+      if (!s.snap || b.ids.length !== 1) return;
+      const seq = ++b.seq;
+      void Queries.snap(b.ids[0], raw, s.gridSize)
+        .then((r) => {
+          const bb = bodyDrag.current;
+          if (!bb || seq !== bb.seq || bb.typed) return;
+          bb.delta = [r.delta[0], 0, r.delta[2]];
+          engine.previewMatrices(bb.preview, new THREE.Matrix4().makeTranslation(r.delta[0], 0, r.delta[2]));
+          setHints({ h: r.hints, d: bb.delta });
+        })
+        .catch(() => undefined);
+    };
+    const end = (commit: boolean) => {
+      const b = bodyDrag.current;
+      bodyDrag.current = null;
+      stopTyping?.();
+      stopTyping = null;
+      engine.controls.enabled = true;
+      if (!b || !b.active) return;
+      setDragging(false);
+      setHints({ h: null, d: null });
+      engine.previewMatrices(b.preview, null);
+      const [dx, dy, dz] = b.delta;
+      if (commit && Math.hypot(dx, dy, dz) > 0.01) void Commands.moveObjects(b.ids, [Math.round(dx * 10) / 10, Math.round(dy * 10) / 10, Math.round(dz * 10) / 10]).catch(() => void syncAll());
+    };
+    const up = () => end(true);
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && bodyDrag.current?.active) {
+        e.preventDefault();
+        end(false);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('keydown', key);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('keydown', key);
+    };
   }, [engine]);
 
   useEffect(() => {
