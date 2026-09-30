@@ -887,7 +887,7 @@ fn shop_standard_fields_saved_and_applied() {
     }
     assert!(pins(&e, a) > before * 3, "32-mm rows");
     let hinges = e.doc.cabinet_layout(a).unwrap().fittings.hinges;
-    assert!(hinges % 5 == 0 && hinges > 0, "{hinges}");
+    assert!(hinges.is_multiple_of(5) && hinges > 0, "{hinges}");
     let s = call(&mut e, json!({"cmd": "get_structure", "cabinet": a}));
     let shelves = s.result["tabs"].as_array().unwrap().iter().find(|t| t["key"] == "shelves").unwrap().clone();
     assert!(shelves["fields"].as_array().unwrap().iter().any(|f| f["key"] == "s_pin_row" && f["value"] == "ROW_32"));
