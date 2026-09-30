@@ -615,3 +615,10 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .back-cuts select.field { padding: 3px 2px; font-size: 12px; }
 .back-cuts select.field { width: 100%; }
 .back-cuts .cut-add { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+
+.d2e-zone.misfit { fill: rgba(224, 49, 49, 0.18); stroke: #e03131; stroke-width: 1.5; }
+.acc-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-height: 220px; overflow: auto; }
+.acc-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.acc-row em { margin-left: auto; font-style: normal; font-size: 11px; color: #868e96; }
+.acc-row.fit em { color: #2f9e44; }
+.acc-row.nofit em { color: #e03131; }

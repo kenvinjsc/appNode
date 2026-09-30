@@ -292,6 +292,14 @@ impl Engine {
             if f.glass_mm2 > 0.0 {
                 add("glass".into(), "Kính / gương cánh".into(), (f.glass_mm2 / 1e4).round() / 100.0, "m²");
             }
+            for (code, n) in &f.accessories {
+                let name = aic_domain::zone::accessory(code).map(|a| a.name).unwrap_or(code.as_str());
+                add(format!("acc:{code}"), name.to_string(), *n as f64, "Cái");
+            }
+            if f.led_mm > 0.0 {
+                add("led".into(), "Đèn LED thanh nhôm".into(), (f.led_mm / 10.0).round() / 100.0, "m");
+                add("led_driver".into(), "Nguồn LED 12V".into(), f.led_drivers as f64, "Cái");
+            }
             for (code, n) in &f.lifts {
                 add(format!("lift:{code}"), format!("Tay nâng cánh lật {code}"), *n as f64, "Bộ");
             }

@@ -367,9 +367,24 @@ impl Engine {
                 self.zone_set_front(cabinet, zones, Some(f))?;
                 ok(json!({}))
             }
-            ZoneAddLink { cabinet, zones, kind, offset } => {
-                self.zone_add_link(cabinet, zones, kind, offset)?;
-                ok(json!({}))
+            ZoneAddLink { cabinet, zones, kind, offset, code } => {
+                let misfit = self.zone_add_link(cabinet, zones, kind, offset, code)?;
+                ok(json!({ "misfit_zones": misfit }))
+            }
+            GetAccessories { cabinet, zones } => {
+                // Kích thước lọt lòng các khoang đang ghim → đánh dấu phụ kiện vừa / không vừa.
+                let boxes: Vec<[f64; 3]> = cabinet
+                    .and_then(|c| self.doc.cabinet_layout(c))
+                    .map(|l| l.zones.iter().filter(|z| zones.contains(&z.id)).map(|z| z.size).collect())
+                    .unwrap_or_default();
+                let list: Vec<Value> = aic_domain::zone::ACCESSORIES
+                    .iter()
+                    .map(|a| {
+                        let fits = !boxes.is_empty() && boxes.iter().all(|s| a.fits(s[0], s[1], s[2]));
+                        json!({ "code": a.code, "name": a.name, "fit": a.fit, "min_w": a.min_w, "max_w": if a.max_w > 1e8 { Value::Null } else { json!(a.max_w) }, "min_d": a.min_d, "min_h": a.min_h, "fits": fits })
+                    })
+                    .collect();
+                ok(json!({ "accessories": list }))
             }
             ZoneRemove { cabinet, uid } => {
                 self.zone_remove(cabinet, uid)?;

@@ -327,11 +327,23 @@ export type FrontSpec =
   | { type: 'DOORS'; uid: number; kind: DoorKind; cols: number; rows: number; mount: Mount; hinge: HingeSide; stop: StopRailSpec }
   | { type: 'DRAWERS'; uid: number; cols: number; count: number; mount: Mount; with_box: boolean };
 
+export interface AccessoryInfo {
+  code: string;
+  name: string;
+  fit: 'EXACT_WIDTH' | 'MIN_WIDTH';
+  min_w: number;
+  max_w: number | null;
+  min_d: number;
+  min_h: number;
+  /** Vừa mọi khoang đang ghim. */
+  fits: boolean;
+}
+
 export interface ZoneAttachment {
   zone: number;
   uid: number;
   front?: FrontSpec;
-  link?: { uid: number; kind: 'OVAL_RAIL'; offset: number };
+  link?: { uid: number; kind: 'OVAL_RAIL' | 'ACCESSORY'; offset: number; code?: string };
 }
 
 export interface ZonesInfo {
@@ -347,6 +359,8 @@ export interface ZonesInfo {
   /** Cabinet W, H, D. */
   size: [number, number, number];
   problems: number[];
+  /** Phụ kiện không vừa khoang (cảnh báo, tô đỏ khoang). */
+  misfits?: { zone: number; link: number }[];
   anchors: { width: Anchor; height: Anchor; depth: Anchor };
   /** Split panels: layout uid ↔ scene object id. */
   panels: { uid: number; id: ObjectId }[];

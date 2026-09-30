@@ -509,10 +509,11 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
       {leaves.map((z) => {
         const r = project(m, z.min, z.size);
         const on = pins.includes(z.id);
+        const misfit = info.misfits?.some((m) => m.zone === z.id);
         return (
           <rect
             key={z.id}
-            className={`d2e-zone ${on ? 'on' : ''} ${hover === z.id ? 'hover' : ''}`}
+            className={`d2e-zone ${on ? 'on' : ''} ${hover === z.id ? 'hover' : ''} ${misfit ? 'misfit' : ''}`}
             x={r.x0}
             y={r.y0}
             width={r.x1 - r.x0}

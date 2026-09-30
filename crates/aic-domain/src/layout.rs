@@ -400,6 +400,14 @@ pub struct Fittings {
     /// Tay nâng cánh lật (mã → bộ).
     #[serde(default)]
     pub lifts: BTreeMap<String, u32>,
+    /// Phụ kiện khoang (mã catalog → cái).
+    #[serde(default)]
+    pub accessories: BTreeMap<String, u32>,
+    /// Đèn LED (mm) và bộ nguồn.
+    #[serde(default)]
+    pub led_mm: f64,
+    #[serde(default)]
+    pub led_drivers: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -414,6 +422,8 @@ pub struct Layout {
     pub fittings: Fittings,
     /// Zones whose bays cannot be solved (too small / conflicting locks).
     pub problems: Vec<Uid>,
+    /// Phụ kiện không vừa khoang (zone, link) — cảnh báo, không chặn đổi kích thước.
+    pub misfits: Vec<(Uid, Uid)>,
 }
 
 /// One drawer front of a stack, resolved (cabinet frame), for editable heights.
@@ -1136,7 +1146,7 @@ fn zone(cx: &mut Ctx, z: &Zone, b: ZBox, level: u32) {
         }
     }
     for l in &z.links {
-        link(cx, l, &b);
+        link(cx, l, &b, z.id);
     }
     if let Some(f) = &z.front {
         match f {
@@ -1673,8 +1683,33 @@ fn drawers(cx: &mut Ctx, spec: &DrawerSpec, b: &ZBox) {
     }
 }
 
-fn link(cx: &mut Ctx, l: &Link, b: &ZBox) {
+fn link(cx: &mut Ctx, l: &Link, b: &ZBox, zid: Uid) {
     match l.kind {
+        LinkKind::Accessory => {
+            let Some(a) = accessory(&l.code) else { return };
+            let [x, y, z] = b.min;
+            let [w, h, d] = b.size;
+            if !a.fits(w, h, d) {
+                cx.out.misfits.push((zid, l.uid));
+            }
+            let k = cx.next("PhụKiện");
+            if a.led_w_per_m > 0.0 {
+                // Đèn LED dưới mặt trên khoang, sát mép trước.
+                let len = (w - 10.0).max(10.0);
+                cx.hardware(format!("l:{}", l.uid), format!("ĐènLED_{k:02}"), HardwareKind::Profile, a.code, [len, a.height, 12.0], [x + 5.0, y + h - a.height - l.offset.min(h - a.height).max(0.0), z + d - 40.0]);
+                cx.out.fittings.led_mm += len;
+                cx.out.fittings.led_drivers = cx.out.fittings.led_drivers.max(1);
+            } else {
+                let (aw, ah, ad) = (w.min(a.max_w).max(a.min_w.min(w)) - 4.0, a.height.min(h), (d - 20.0).max(10.0));
+                let ay = (y + h - l.offset - ah).max(y);
+                cx.hardware(format!("l:{}", l.uid), format!("{}_{k:02}", a.name.replace(' ', "")), HardwareKind::Glass, a.code, [aw.max(10.0), ah, ad], [x + (w - aw.max(10.0)) / 2.0, ay, z + 10.0]);
+            }
+            *cx.out.fittings.accessories.entry(a.code.to_string()).or_insert(0) += 1;
+            if a.slides {
+                let sl = STD_SLIDES.iter().copied().filter(|s| *s <= d - 20.0).fold(STD_SLIDES[0], f64::max);
+                *cx.out.fittings.slides.entry(sl as u32).or_insert(0) += 1;
+            }
+        }
         LinkKind::OvalRail => {
             let [x, y, z] = b.min;
             let [w, h, d] = b.size;

@@ -1,9 +1,9 @@
 // Tab "Tạo tấm": add horizontal / vertical / back panels, doors, drawers and
 // accessories into pinned zones. The core splits zones and sizes every part.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUi, type CreateType } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
-import type { DoorKind, HingeSide, Lock, Mount, SplitKind, StopRail, ZonesInfo } from '../../core-api/types';
+import type { DoorKind, HingeSide, Lock, Mount, SplitKind, StopRail, ZonesInfo, AccessoryInfo } from '../../core-api/types';
 import { fmt } from '../../shared/i18n';
 import { Icon } from '../../shared/icons';
 import { Collapse, Fieldset, LockRow, Num, QuickNums, Radio, Seg, Stepper } from '../../shared/ui';
@@ -256,15 +256,29 @@ function DrawerForm({ cabinet, zones }: { cabinet: number; zones: number[] }) {
 
 function LinkForm({ cabinet, zones, info }: { cabinet: number; zones: number[]; info: ZonesInfo | null }) {
   const [dir, setDir] = useState<'V' | 'H'>('V');
-  const [kind, setKind] = useState<'OVAL_RAIL' | 'RAYBI'>('OVAL_RAIL');
+  const [kind, setKind] = useState<'OVAL_RAIL' | 'RAYBI' | 'ACCESSORY'>('OVAL_RAIL');
   const [offset, setOffset] = useState(60);
+  const [accs, setAccs] = useState<AccessoryInfo[]>([]);
+  const [code, setCode] = useState('');
+  useEffect(() => {
+    Commands.getAccessories(cabinet, zones)
+      .then((r) => setAccs(r.accessories))
+      .catch(() => setAccs([]));
+  }, [cabinet, zones.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const add = () => {
-    if (kind !== 'OVAL_RAIL') return;
-    void Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL', offset).then(() => useUi.getState().set({ pinned: { cabinet, zones: [] } })).catch(() => undefined);
+    if (kind === 'RAYBI') return;
+    if (kind === 'ACCESSORY' && !code) return;
+    void Commands.zoneAddLink(cabinet, zones, kind, offset, kind === 'ACCESSORY' ? code : undefined)
+      .then((r) => {
+        if (r.misfit_zones.length) useUi.getState().toast({ kind: 'error', title: 'Phụ kiện không vừa khoang', detail: 'Đã thêm, khoang được tô đỏ trên 2D. Đổi kích thước tủ / khoang cho vừa.' });
+        useUi.getState().set({ pinned: { cabinet, zones: [] } });
+      })
+      .catch(() => undefined);
   };
-  useTabAction(add, [cabinet, zones.join(','), kind, offset]);
+  useTabAction(add, [cabinet, zones.join(','), kind, offset, code]);
   const atts = info?.attachments ?? [];
   const label = (a: (typeof atts)[number]) => {
+    if (a.link?.kind === 'ACCESSORY') return `${accs.find((x) => x.code === a.link?.code)?.name ?? a.link.code} · vùng #${a.zone}`;
     if (a.link) return `Thanh Oval · vùng #${a.zone}`;
     if (a.front?.type === 'DOORS') return `Cánh ${a.front.kind === 'DOUBLE' ? 'Đôi' : a.front.kind === 'SLIDING' ? 'Lùa' : 'Đơn'} ${a.front.cols}×${a.front.rows} · vùng #${a.zone}`;
     if (a.front?.type === 'DRAWERS') return `RayBi · Ngăn kéo ${a.front.count * a.front.cols} bộ · vùng #${a.zone}`;
@@ -283,8 +297,20 @@ function LinkForm({ cabinet, zones, info }: { cabinet: number; zones: number[]; 
           options={[
             ['RAYBI', 'RayBi (tự gắn theo ngăn kéo)', true],
             ['OVAL_RAIL', 'Thanh Oval'],
+            ['ACCESSORY', 'Phụ kiện khoang'],
           ]}
         />
+        {kind === 'ACCESSORY' && (
+          <div className="acc-list">
+            {accs.map((a) => (
+              <label key={a.code} className={`acc-row ${a.fits ? 'fit' : zones.length ? 'nofit' : ''}`} title={`Lọt lòng ${a.max_w ? `${a.min_w}–${a.max_w}` : `≥ ${a.min_w}`} · sâu ≥ ${a.min_d} · cao ≥ ${a.min_h}`}>
+                <input type="radio" name="acc" checked={code === a.code} onChange={() => setCode(a.code)} />
+                <span>{a.name}</span>
+                {zones.length > 0 && <em>{a.fits ? 'vừa' : 'không vừa'}</em>}
+              </label>
+            ))}
+          </div>
+        )}
         <div className="muted small">Ray Âm Hafele, CửaLùa Hafele 50IF, Ghép34mm: sắp có.</div>
       </Fieldset>
       <div className="form-row">

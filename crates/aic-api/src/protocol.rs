@@ -249,6 +249,16 @@ pub enum Request {
         kind: LinkKind,
         #[serde(default = "sixty")]
         offset: f64,
+        /// Mã phụ kiện (kind = ACCESSORY), xem `get_accessories`.
+        #[serde(default)]
+        code: String,
+    },
+    /// Catalog phụ kiện khoang (+ vừa / không vừa với các khoang `zones` của `cabinet` nếu có).
+    GetAccessories {
+        #[serde(default)]
+        cabinet: Option<ObjectId>,
+        #[serde(default)]
+        zones: Vec<Uid>,
     },
     ZoneRemove { cabinet: ObjectId, uid: Uid },
     SetPartMod { id: ObjectId, patch: PartModPatch },

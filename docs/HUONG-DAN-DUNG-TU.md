@@ -130,6 +130,13 @@ Sáu nút tròn ở đầu tab lần lượt là: Tấm ngang, Tấm đứng, H�
 
 Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
 
+### 3.4a Phụ kiện khoang
+- Tạo tấm → nút tròn Liên kết → **Phụ kiện khoang**: danh sách catalog (giá bát 600–900, rổ gia vị, khay chia thìa, giá kéo
+  đồ khô, giá giày, giá quần, đèn LED), mỗi dòng ghi **vừa / không vừa** với các khoang đang ghim. Chuột phải khoang → Phụ kiện
+  cũng có Giá bát 800, Rổ gia vị 200, Giá giày kéo 800, Đèn LED.
+- Phụ kiện không vừa vẫn được thêm nhưng khoang **tô đỏ** trên 2D; đổi kích thước tủ cho vừa thì hết đỏ. Báo giá đếm theo mã;
+  đèn LED theo mét + nguồn.
+
 ### 3.4 Kệ giày nghiêng, vách lửng
 - Chuột phải một khoang → **Kệ giày nghiêng 15° × 4**: kệ nghiêng thật (mép trước thấp hơn), dài theo độ nghiêng, có
   **thanh chặn gót** ở mép trước; kệ nghiêng không khoan chốt kệ.

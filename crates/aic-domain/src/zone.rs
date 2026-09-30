@@ -638,6 +638,8 @@ impl Front {
 pub enum LinkKind {
     /// Thanh treo oval + 2 chén.
     OvalRail,
+    /// Phụ kiện catalog (`Link.code`): giá bát, rổ gia vị, giá giày, giá kéo, đèn LED.
+    Accessory,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -646,6 +648,71 @@ pub struct Link {
     pub kind: LinkKind,
     /// Distance from the top of the zone.
     pub offset: f64,
+    /// Mã phụ kiện (LinkKind::Accessory).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub code: String,
+}
+
+/// Cách kiểm tra vừa khoang.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Fit {
+    /// Lọt lòng trong khoảng [min_w, max_w].
+    ExactWidth,
+    /// Lọt lòng ≥ min_w.
+    MinWidth,
+}
+
+/// Phụ kiện trong khoang (catalog dựng sẵn).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Accessory {
+    pub code: &'static str,
+    pub name: &'static str,
+    pub fit: Fit,
+    pub min_w: f64,
+    pub max_w: f64,
+    pub min_d: f64,
+    pub min_h: f64,
+    /// Chiều cao phụ kiện chiếm trong khoang.
+    pub height: f64,
+    /// Kéo ra trên ray (1 bộ ray).
+    pub slides: bool,
+    /// Đèn LED (dài theo lọt lòng, W / m).
+    pub led_w_per_m: f64,
+}
+
+const fn acc(code: &'static str, name: &'static str, fit: Fit, w: [f64; 2], min_d: f64, min_h: f64, height: f64, slides: bool) -> Accessory {
+    Accessory { code, name, fit, min_w: w[0], max_w: w[1], min_d, min_h, height, slides, led_w_per_m: 0.0 }
+}
+
+/// Catalog phụ kiện khoang (rộng lọt lòng theo khoang tủ tương ứng, ván 17–18).
+pub const ACCESSORIES: &[Accessory] = &[
+    acc("DISH-600", "Giá bát đĩa 600", Fit::ExactWidth, [562.0, 570.0], 450.0, 200.0, 180.0, true),
+    acc("DISH-700", "Giá bát đĩa 700", Fit::ExactWidth, [662.0, 670.0], 450.0, 200.0, 180.0, true),
+    acc("DISH-800", "Giá bát đĩa 800", Fit::ExactWidth, [765.0, 770.0], 450.0, 200.0, 180.0, true),
+    acc("DISH-900", "Giá bát đĩa 900", Fit::ExactWidth, [862.0, 870.0], 450.0, 200.0, 180.0, true),
+    acc("SPICE-200", "Rổ gia vị 200", Fit::ExactWidth, [162.0, 170.0], 450.0, 500.0, 480.0, true),
+    acc("SPICE-250", "Rổ gia vị 250", Fit::ExactWidth, [212.0, 220.0], 450.0, 500.0, 480.0, true),
+    acc("CUTLERY-600", "Khay chia thìa dĩa 600", Fit::ExactWidth, [562.0, 570.0], 450.0, 80.0, 60.0, false),
+    acc("PANTRY-450", "Giá kéo đồ khô 450", Fit::ExactWidth, [412.0, 420.0], 500.0, 1200.0, 1150.0, true),
+    acc("SHOE-800", "Giá giày kéo 800", Fit::MinWidth, [760.0, 1e9], 300.0, 150.0, 120.0, true),
+    acc("TROUSER-600", "Giá treo quần kéo 600", Fit::MinWidth, [560.0, 1e9], 450.0, 700.0, 650.0, true),
+    Accessory { code: "LED-STRIP", name: "Đèn LED thanh nhôm", fit: Fit::MinWidth, min_w: 150.0, max_w: 1e9, min_d: 100.0, min_h: 30.0, height: 8.0, slides: false, led_w_per_m: 9.6 },
+];
+
+pub fn accessory(code: &str) -> Option<&'static Accessory> {
+    ACCESSORIES.iter().find(|a| a.code.eq_ignore_ascii_case(code))
+}
+
+impl Accessory {
+    /// Khoang w × h × d có vừa không.
+    pub fn fits(&self, w: f64, h: f64, d: f64) -> bool {
+        let wok = match self.fit {
+            Fit::ExactWidth => w >= self.min_w - 1e-6 && w <= self.max_w + 1e-6,
+            Fit::MinWidth => w >= self.min_w - 1e-6,
+        };
+        wok && h >= self.min_h - 1e-6 && d >= self.min_d - 1e-6
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -917,9 +984,16 @@ impl ZoneTree {
     }
 
     pub fn add_link(&mut self, zone_id: Uid, kind: LinkKind, offset: f64) -> Result<Uid, String> {
+        self.add_link_code(zone_id, kind, offset, String::new())
+    }
+
+    pub fn add_link_code(&mut self, zone_id: Uid, kind: LinkKind, offset: f64, code: String) -> Result<Uid, String> {
+        if kind == LinkKind::Accessory && accessory(&code).is_none() {
+            return Err(format!("unknown accessory {code}"));
+        }
         let uid = self.alloc();
         let z = self.zone_mut(zone_id).ok_or("zone not found")?;
-        z.links.push(Link { uid, kind, offset });
+        z.links.push(Link { uid, kind, offset, code });
         Ok(uid)
     }
 

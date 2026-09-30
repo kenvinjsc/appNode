@@ -230,6 +230,7 @@ impl Engine {
             "size": [self.doc.param_value(cab, "width"), self.doc.param_value(cab, "height"), self.doc.param_value(cab, "depth")],
             "panels": split_ids,
             "problems": layout.problems,
+            "misfits": layout.misfits.iter().map(|(z, l)| json!({ "zone": z, "link": l })).collect::<Vec<_>>(),
             "anchors": def.anchors,
             "attachments": attachments,
             "fittings": layout.fittings,
@@ -340,13 +341,18 @@ impl Engine {
         })
     }
 
-    pub(crate) fn zone_add_link(&mut self, cab: ObjectId, zones: Vec<Uid>, kind: LinkKind, offset: f64) -> Result<(), CoreError> {
-        self.edit_cabinet(cab, "Thêm liên kết", |c| {
+    /// Thêm liên kết / phụ kiện; trả về các phụ kiện không vừa khoang (cảnh báo, vẫn thêm).
+    pub(crate) fn zone_add_link(&mut self, cab: ObjectId, zones: Vec<Uid>, kind: LinkKind, offset: f64, code: String) -> Result<Vec<Uid>, CoreError> {
+        let label = if kind == LinkKind::Accessory { "Thêm phụ kiện" } else { "Thêm liên kết" };
+        let before = self.doc.cabinet_layout(cab).map(|l| l.misfits).unwrap_or_default();
+        self.edit_cabinet(cab, label, |c| {
             for z in zones {
-                c.zones.add_link(z, kind, offset).map_err(|e| bad("zone", e))?;
+                c.zones.add_link_code(z, kind, offset, code.clone()).map_err(|e| bad("code", e))?;
             }
             Ok(())
-        })
+        })?;
+        let after = self.doc.cabinet_layout(cab).map(|l| l.misfits).unwrap_or_default();
+        Ok(after.into_iter().filter(|m| !before.contains(m)).map(|m| m.0).collect())
     }
 
     pub(crate) fn zone_remove(&mut self, cab: ObjectId, uid: Uid) -> Result<(), CoreError> {

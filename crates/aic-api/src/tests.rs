@@ -1798,3 +1798,34 @@ fn lift_up_door_hk_on_wall_cabinet_and_height_check() {
     assert_eq!(l.parts.iter().filter(|p| p.name.starts_with("KhungNhôm")).count(), 8, "2 leaves × 4 bars");
     assert!(l.fittings.lifts.keys().all(|k| k.starts_with("HF-")));
 }
+
+#[test]
+fn accessories_check_the_zone_and_warn_without_blocking_resize() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 798.4, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let root = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["zones"][0]["id"].as_u64().unwrap();
+    // Khoang 764 → giá bát 800 không vừa: vẫn thêm, trả cảnh báo, get_zones có misfits.
+    let list = call(&mut e, json!({"cmd": "get_accessories", "cabinet": cab, "zones": [root]}));
+    let dish = list.result["accessories"].as_array().unwrap().iter().find(|a| a["code"] == "DISH-800").unwrap().clone();
+    assert_eq!(dish["fits"], false);
+    let r = call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [root], "kind": "ACCESSORY", "code": "DISH-800"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(r.result["misfit_zones"].as_array().unwrap().len(), 1);
+    assert_eq!(call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["misfits"].as_array().unwrap().len(), 1);
+    // Đổi tủ rộng 800 → khoang 765.6 → hết cảnh báo; báo giá có giá bát + ray.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "800"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert!(call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["misfits"].as_array().unwrap().is_empty());
+    let l = e.doc.cabinet_layout(cab).unwrap();
+    assert_eq!(l.fittings.accessories.get("DISH-800"), Some(&1));
+    assert_eq!(l.fittings.slides.values().sum::<u32>(), 1);
+    // Thu nhỏ lại: không bị chặn, chỉ cảnh báo.
+    assert!(call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "width", "value": "700"})).ok);
+    assert_eq!(call(&mut e, json!({"cmd": "get_zones", "cabinet": cab})).result["misfits"].as_array().unwrap().len(), 1);
+    // LED theo mét + nguồn; mã lạ bị từ chối.
+    assert!(call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [root], "kind": "ACCESSORY", "code": "LED-STRIP"})).ok);
+    let c = call(&mut e, json!({"cmd": "get_costing"})).result.to_string();
+    assert!(c.contains("Đèn LED thanh nhôm") && c.contains("Nguồn LED") && c.contains("Giá bát đĩa 800"));
+    assert!(!call(&mut e, json!({"cmd": "zone_add_link", "cabinet": cab, "zones": [root], "kind": "ACCESSORY", "code": "NOPE"})).ok);
+}

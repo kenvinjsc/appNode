@@ -279,6 +279,23 @@ export function ZoneMenu() {
           <Item label="Mặt giả (tủ chậu, không hộc)" fn={() => Commands.zoneAddDrawers({ cabinet, zones, count: 1, cols: 1, mount: 'OVERLAY', with_box: false, false_front: true })} />
           <h5>Liên kết</h5>
           <Item label="Thanh treo oval" fn={() => Commands.zoneAddLink(cabinet, zones, 'OVAL_RAIL')} />
+          <h5>Phụ kiện</h5>
+          {[
+            ['DISH-800', 'Giá bát 800'],
+            ['SPICE-200', 'Rổ gia vị 200'],
+            ['SHOE-800', 'Giá giày kéo 800'],
+            ['LED-STRIP', 'Đèn LED'],
+          ].map(([code, label]) => (
+            <Item
+              key={code}
+              label={label}
+              fn={() =>
+                Commands.zoneAddLink(cabinet, zones, 'ACCESSORY', 60, code).then((r) => {
+                  if (r.misfit_zones.length) useUi.getState().toast({ kind: 'error', title: `${label}: không vừa khoang`, detail: 'Đã thêm, khoang tô đỏ trên 2D.' });
+                })
+              }
+            />
+          ))}
           <h5>Mẫu vùng (thư viện)</h5>
           {zonePresets.map((p) => (
             <Item key={p.name} label={`${p.name} · ${p.summary}`} fn={() => Commands.applyZonePreset(cabinet, zones, p.name)} />

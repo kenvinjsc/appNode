@@ -141,6 +141,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-05.9 Kệ giày nghiêng** (E2E 15, Rust `tilted_shoe_shelves_and_partial_divider`). Chuột phải khoang TủQA01 → Kệ giày nghiêng
   15° × 4 → thêm 4 ThanhChặnGót, kệ xoay [-75,0,0], không chốt kệ; Ctrl+Z bỏ cả nhóm. Đặt "Nghiêng trước-sau" = 0 cho một kệ →
   mất thanh chặn của kệ đó. Vách ngăn đặt "Vách lửng: cao" = 400 → vách cao 400 từ đáy (−400: treo từ nóc).
+- **TC-05.10 Phụ kiện khoang** (E2E 23, Rust `accessories_check_the_zone_and_warn_without_blocking_resize`). Tủ 600 → chuột phải
+  khoang → Giá bát 800 → vẫn thêm, thông báo "không vừa khoang", khoang tô đỏ trên 2D. Đổi rộng 800 (lọt lòng 765,6) → hết đỏ;
+  báo giá có "Giá bát đĩa 800" + 1 bộ ray. Thu nhỏ lại không bị chặn, chỉ đỏ lại. Đèn LED: mét dài + nguồn. Mã lạ → từ chối.
 
 ### 06. Cánh, ngăn kéo, tay nắm, ray, tủ góc
 
