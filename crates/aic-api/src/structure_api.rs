@@ -44,7 +44,7 @@ pub(crate) fn set_shop_field(shop: &mut aic_domain::structure::ShopRules, key: &
             }
             json!(n)
         }
-        _ => Value::String(if matches!(field, "pin_row" | "handle_pos" | "handle_type" | "slide_type") { v.to_ascii_uppercase() } else { v.to_string() }),
+        _ => Value::String(if matches!(field, "pin_row" | "handle_pos" | "handle_type" | "slide_type" | "joint_type") { v.to_ascii_uppercase() } else { v.to_string() }),
     };
     obj.insert(field.to_string(), new);
     *shop = serde_json::from_value(map).map_err(|_| bad(key, "invalid value"))?;
@@ -74,6 +74,12 @@ impl Engine {
             aic_domain::structure::HandleType::PushOpen => "PUSH_OPEN",
             aic_domain::structure::HandleType::None => "NONE",
         };
+        let joint_type = match sh.joint_type {
+            aic_domain::structure::JointType::Dowel => "DOWEL",
+            aic_domain::structure::JointType::CamDowel => "CAM_DOWEL",
+            aic_domain::structure::JointType::Screw => "SCREW",
+            aic_domain::structure::JointType::Bracket => "BRACKET",
+        };
         let slide_type = match sh.slide_type {
             aic_domain::structure::SlideType::Ball => "BALL",
             aic_domain::structure::SlideType::Undermount => "UNDERMOUNT",
@@ -88,6 +94,17 @@ impl Engine {
                     select("top_style", "Nóc", &st(def.top_style), &[("OVERLAY", "Nóc phủ hồi"), ("INSET", "Nóc lọt giữa hồi"), ("RAILS", "Thanh giằng")]),
                     select("bottom_style", "Đáy", &st(def.bottom_style), &[("INSET", "Đáy lọt giữa hồi"), ("OVERLAY", "Đáy phủ hồi")]),
                     flag("back_panel", "Có tấm hậu", def.back_panel),
+                    section("Liên kết thùng (hồi ↔ nóc / đáy / vách)"),
+                    select("s_joint_type", "Kiểu liên kết", joint_type, &[("DOWEL", "Chốt gỗ"), ("CAM_DOWEL", "Cam (minifix) + chốt gỗ"), ("SCREW", "Vít xuyên"), ("BRACKET", "Ke góc")]),
+                    num("s_joint_end", "Lỗ đầu cách mép", sh.joint_end),
+                    num("s_joint_pitch", "Khoảng cách lỗ tối đa", sh.joint_pitch),
+                    num("s_dowel_d", "Đường kính chốt gỗ", sh.dowel_d),
+                    num("s_dowel_face_depth", "Sâu lỗ mặt", sh.dowel_face_depth),
+                    num("s_dowel_edge_depth", "Sâu lỗ cạnh", sh.dowel_edge_depth),
+                    num("s_cam_d", "Đường kính cam", sh.cam_d),
+                    num("s_cam_depth", "Sâu lỗ cam", sh.cam_depth),
+                    num("s_cam_offset", "Tâm cam cách mặt hồi", sh.cam_offset),
+                    num("s_bolt_d", "Đường kính lỗ chốt cam (cạnh)", sh.bolt_d),
                 ],
             ),
             (

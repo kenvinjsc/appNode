@@ -67,15 +67,35 @@ impl Engine {
             }
         }
         let rel = self.relations();
-        let placements: HashMap<ObjectId, PanelPlacement> = self
-            .doc
-            .objects
-            .iter()
-            .filter_map(|(id, o)| o.as_panel().map(|p| (*id, PanelPlacement { panel: p, world: self.doc.scene.world(*id) })))
-            .collect();
-        let j = Arc::new(derive_joint_features(&placements, rel.relations(), &JointSettings::default()));
+        let placements = self.placements();
+        let j = Arc::new(derive_joint_features(&placements, rel.relations()));
         self.joints = Some((rev, j.clone()));
         j
+    }
+
+    /// Tấm + vị trí + luật liên kết theo chuẩn xưởng của tủ chứa tấm.
+    pub(crate) fn placements(&self) -> HashMap<ObjectId, PanelPlacement<'_>> {
+        self.doc
+            .objects
+            .iter()
+            .filter_map(|(id, o)| {
+                let joints = match self.doc.cabinet_of(*id).and_then(|c| match self.doc.objects.get(&c) {
+                    Some(aic_domain::DomainObject::Cabinet(cab)) => Some(JointSettings::from_shop(&cab.rules.shop)),
+                    _ => None,
+                }) {
+                    Some(j) => j,
+                    None => JointSettings::default(),
+                };
+                o.as_panel().map(|p| (*id, PanelPlacement { panel: p, world: self.doc.scene.world(*id), joints }))
+            })
+            .collect()
+    }
+
+    /// Ke góc theo tấm (tủ dùng liên kết ke).
+    pub(crate) fn brackets_all(&mut self) -> HashMap<ObjectId, u32> {
+        let rel = self.relations();
+        let placements = self.placements();
+        aic_manufacturing::count_brackets(&placements, rel.relations())
     }
 
     pub(crate) fn joint_features_all(&mut self) -> Arc<HashMap<ObjectId, Vec<DerivedFeature>>> {

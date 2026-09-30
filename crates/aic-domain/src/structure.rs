@@ -132,6 +132,21 @@ pub enum SlideType {
     Tandem,
 }
 
+/// Kiểu liên kết thùng (hồi ↔ nóc / đáy / kệ cố định / vách).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum JointType {
+    /// Chỉ chốt gỗ (hành vi cũ).
+    #[default]
+    Dowel,
+    /// Cam (minifix) ở hai đầu + chốt gỗ ở giữa.
+    CamDowel,
+    /// Vít xuyên: lỗ Ø5 xuyên mặt + lỗ mồi Ø3 trên cạnh.
+    Screw,
+    /// Ke góc: không khoan, đếm ke.
+    Bracket,
+}
+
 macro_rules! shop_rules {
     ($( $field:ident : $ty:ty = $default:expr ),* $(,)?) => {
         /// Chuẩn xưởng: các giá trị sản xuất trước đây viết cứng trong generator.
@@ -184,6 +199,17 @@ shop_rules! {
     box_max: f64 = 250.0,
     slide_margin: f64 = 10.0,
     slide_type: SlideType = SlideType::Ball,
+    // Liên kết thùng
+    joint_type: JointType = JointType::Dowel,
+    dowel_d: f64 = 8.0,
+    dowel_face_depth: f64 = 12.0,
+    dowel_edge_depth: f64 = 25.0,
+    joint_end: f64 = 50.0,
+    joint_pitch: f64 = 300.0,
+    cam_d: f64 = 15.0,
+    cam_depth: f64 = 12.5,
+    cam_offset: f64 = 34.0,
+    bolt_d: f64 = 8.0,
 }
 
 impl ShopRules {

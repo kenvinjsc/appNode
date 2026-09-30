@@ -8,5 +8,5 @@ pub mod flatten;
 pub mod polygon_ops;
 
 pub use cnc::{default_tools, generate_program, CncProgram, Move, Operation, SheetPart, Tool, ToolKind};
-pub use features::{derive_joint_features, rule_features, DerivedFeature, FeatureOrigin, JointSettings, PanelPlacement};
+pub use features::{count_brackets, derive_joint_features, rule_features, DerivedFeature, FeatureOrigin, JointSettings, PanelPlacement};
 pub use flatten::{flatten, FlatPanel, FeatureSummary};

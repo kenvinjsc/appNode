@@ -278,19 +278,34 @@ impl Engine {
                 add("sliding_track".into(), "Bộ ray cửa lùa".into(), f.sliding_tracks as f64, "Bộ");
             }
         }
-        // Cam & Dowel: one set per joint dowel position on the face panel.
+        // Liên kết thùng: đếm theo lỗ thật (chốt gỗ, cam, vít) và ke góc.
         let joints = self.joint_features_all();
-        let dowels: usize = joints
-            .iter()
-            .filter(|(id, _)| cabinet.is_none() || self.doc.cabinet_of(**id) == cabinet)
-            .map(|(_, fs)| {
-                fs.iter()
-                    .filter(|f| matches!(f.origin, FeatureOrigin::Joint { .. }) && matches!(&f.feature, MachiningFeature::Drill(d) if d.purpose == DrillPurpose::Dowel))
-                    .count()
-            })
-            .sum();
+        let (mut dowels, mut cams, mut joint_screws) = (0usize, 0usize, 0usize);
+        for (id, fs) in joints.iter() {
+            if cabinet.is_some() && self.doc.cabinet_of(*id) != cabinet {
+                continue;
+            }
+            for f in fs.iter().filter(|f| matches!(f.origin, FeatureOrigin::Joint { .. })) {
+                match &f.feature {
+                    MachiningFeature::Drill(d) if d.purpose == DrillPurpose::Dowel => dowels += 1,
+                    MachiningFeature::Drill(d) if d.purpose == DrillPurpose::CamLock => cams += 1,
+                    MachiningFeature::Drill(d) if d.purpose == DrillPurpose::Connector && d.diameter <= 5.0 && d.depth >= 15.0 => joint_screws += 1,
+                    _ => {}
+                }
+            }
+        }
+        let brackets: u32 = self.brackets_all().iter().filter(|(id, _)| cabinet.is_none() || self.doc.cabinet_of(**id) == cabinet).map(|(_, n)| *n).sum();
         if dowels > 0 {
-            add("cam_dowel".into(), "Cam & Dowel".into(), dowels as f64, "Bộ");
+            add("dowel".into(), "Chốt gỗ".into(), dowels as f64, "Cái");
+        }
+        if cams > 0 {
+            add("cam".into(), "Cam (minifix) + chốt cam".into(), cams as f64, "Bộ");
+        }
+        if joint_screws > 0 {
+            add("joint_screw".into(), "Vít liên kết thùng".into(), joint_screws as f64, "Cái");
+        }
+        if brackets > 0 {
+            add("bracket".into(), "Ke góc".into(), brackets as f64, "Cái");
         }
         let sr = self.doc.settings.screws.clone();
         let screws = hinges * sr.per_hinge as f64 + slides * sr.per_slide_set as f64 + cups * sr.per_oval_cup as f64 + handles * sr.per_handle as f64;

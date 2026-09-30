@@ -1,4 +1,5 @@
 use aic_assembly::{AssemblyRelation, ContactType, OrientationType, RegionType};
+use aic_domain::structure::JointType;
 use aic_domain::{DrillFeature, DrillPurpose, EdgeDrillFeature, EdgeSide, FaceSide, MachiningFeature, ObjectId, Panel, PanelRole};
 use aic_math::Transform3D;
 use serde::{Deserialize, Serialize};
@@ -25,6 +26,8 @@ pub struct DerivedFeature {
 pub struct PanelPlacement<'a> {
     pub panel: &'a Panel,
     pub world: Transform3D,
+    /// Luật liên kết của tủ chứa tấm (mặc định nếu tấm rời).
+    pub joints: JointSettings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -36,6 +39,12 @@ pub struct JointSettings {
     pub shelf_pin_depth: f64,
     pub end_inset: f64,
     pub max_pitch: f64,
+    pub joint_type: JointType,
+    pub cam_diameter: f64,
+    pub cam_depth: f64,
+    /// Tâm cam cách mặt tấm hồi (mm).
+    pub cam_offset: f64,
+    pub bolt_diameter: f64,
 }
 
 impl Default for JointSettings {
@@ -48,6 +57,31 @@ impl Default for JointSettings {
             shelf_pin_depth: 10.0,
             end_inset: 50.0,
             max_pitch: 300.0,
+            joint_type: JointType::Dowel,
+            cam_diameter: 15.0,
+            cam_depth: 12.5,
+            cam_offset: 34.0,
+            bolt_diameter: 8.0,
+        }
+    }
+}
+
+impl JointSettings {
+    /// Luật liên kết từ chuẩn xưởng của tủ.
+    pub fn from_shop(r: &aic_domain::structure::ShopRules) -> Self {
+        Self {
+            dowel_diameter: r.dowel_d,
+            dowel_face_depth: r.dowel_face_depth,
+            dowel_edge_depth: r.dowel_edge_depth,
+            shelf_pin_diameter: r.pin_d,
+            shelf_pin_depth: r.pin_depth,
+            end_inset: r.joint_end,
+            max_pitch: r.joint_pitch.max(50.0),
+            joint_type: r.joint_type,
+            cam_diameter: r.cam_d,
+            cam_depth: r.cam_depth,
+            cam_offset: r.cam_offset,
+            bolt_diameter: r.bolt_d,
         }
     }
 }
@@ -110,12 +144,28 @@ fn joint_positions(len: f64, s: &JointSettings) -> Vec<f64> {
     (0..n).map(|i| inset + span * i as f64 / (n - 1) as f64).collect()
 }
 
+/// Số ke góc: 2 ke mỗi mối nối thùng của tủ dùng kiểu liên kết ke (BRACKET).
+pub fn count_brackets(panels: &HashMap<ObjectId, PanelPlacement>, relations: &[AssemblyRelation]) -> HashMap<ObjectId, u32> {
+    let mut out: HashMap<ObjectId, u32> = HashMap::new();
+    for rel in relations {
+        if rel.contact != ContactType::Touch || rel.orientation != OrientationType::Perpendicular {
+            continue;
+        }
+        let (face_id, edge_id) = match (rel.source_region, rel.target_region) {
+            (RegionType::Face, RegionType::Edge | RegionType::End) => (rel.source, rel.target),
+            (RegionType::Edge | RegionType::End, RegionType::Face) => (rel.target, rel.source),
+            _ => continue,
+        };
+        let (Some(fp), Some(ep)) = (panels.get(&face_id), panels.get(&edge_id)) else { continue };
+        if ep.joints.joint_type == JointType::Bracket && joinable(fp.panel.role) && joinable(ep.panel.role) && ep.panel.role != PanelRole::Shelf {
+            *out.entry(edge_id).or_default() += 2;
+        }
+    }
+    out
+}
+
 /// Dowel / shelf-pin features from FACE↔EDGE/END perpendicular touches.
-pub fn derive_joint_features(
-    panels: &HashMap<ObjectId, PanelPlacement>,
-    relations: &[AssemblyRelation],
-    s: &JointSettings,
-) -> HashMap<ObjectId, Vec<DerivedFeature>> {
+pub fn derive_joint_features(panels: &HashMap<ObjectId, PanelPlacement>, relations: &[AssemblyRelation]) -> HashMap<ObjectId, Vec<DerivedFeature>> {
     let mut out: HashMap<ObjectId, Vec<DerivedFeature>> = HashMap::new();
     for rel in relations {
         if rel.contact != ContactType::Touch || rel.orientation != OrientationType::Perpendicular {
@@ -152,8 +202,18 @@ pub fn derive_joint_features(
         let (cx, cy) = ((minx + maxx) / 2.0, (miny + maxy) / 2.0);
         let is_shelf = ep.panel.role == PanelRole::Shelf;
         let inv_e = ep.world.inverse();
+        // The joint follows the rules of the cabinet the edge panel belongs to.
+        let s = &ep.joints;
+        if !is_shelf && s.joint_type == JointType::Bracket {
+            continue;
+        }
+        // Mặt của tấm cạnh quay vào trong thùng (về phía tâm tấm hồi) — nơi khoan cam.
+        let fc = inv_e.transform_point(fp.world.transform_point([fp.panel.width_mm / 2.0, fp.panel.height_mm / 2.0, fp.panel.thickness_mm / 2.0]));
+        let cam_side = if fc[2] > ep.panel.thickness_mm / 2.0 { FaceSide::A } else { FaceSide::B };
+        let positions = joint_positions(len, s);
+        let last = positions.len().saturating_sub(1);
 
-        for t in joint_positions(len, s) {
+        for (k, t) in positions.into_iter().enumerate() {
             let (x, y) = if along_x { (minx + t, cy) } else { (cx, miny + t) };
             if is_shelf {
                 // Shelf pins sit just below the shelf on the side panel.
@@ -172,15 +232,17 @@ pub fn derive_joint_features(
                 });
                 continue;
             }
+            let cam = s.joint_type == JointType::CamDowel && (k == 0 || k == last);
+            let screw = s.joint_type == JointType::Screw;
+            let (face_d, face_depth, edge_d, edge_depth, purpose) = if screw {
+                (5.0, fp.panel.thickness_mm, 3.0, 30.0, DrillPurpose::Connector)
+            } else if cam {
+                (5.0, (fp.panel.thickness_mm - 3.0).min(12.0), s.bolt_diameter, s.cam_offset + 2.0, DrillPurpose::Connector)
+            } else {
+                (s.dowel_diameter, s.dowel_face_depth.min(fp.panel.thickness_mm - 3.0), s.dowel_diameter, s.dowel_edge_depth, DrillPurpose::Dowel)
+            };
             out.entry(face_id).or_default().push(DerivedFeature {
-                feature: MachiningFeature::Drill(DrillFeature {
-                    x,
-                    y,
-                    diameter: s.dowel_diameter,
-                    depth: s.dowel_face_depth.min(fp.panel.thickness_mm - 3.0),
-                    side: face_side,
-                    purpose: DrillPurpose::Dowel,
-                }),
+                feature: MachiningFeature::Drill(DrillFeature { x, y, diameter: face_d, depth: face_depth, side: face_side, purpose }),
                 origin: FeatureOrigin::Joint { with: edge_id },
             });
             // Same world point, in the edge panel's frame.
@@ -196,12 +258,27 @@ pub fn derive_joint_features(
                     edge: edge_side,
                     offset,
                     z: le[2].clamp(0.0, ep.panel.thickness_mm),
-                    diameter: s.dowel_diameter,
-                    depth: s.dowel_edge_depth,
-                    purpose: DrillPurpose::Dowel,
+                    diameter: edge_d,
+                    depth: edge_depth,
+                    purpose,
                 }),
                 origin: FeatureOrigin::Joint { with: face_id },
             });
+            if cam {
+                // Lỗ cam trên mặt trong của tấm cạnh, cách mặt hồi `cam_offset`.
+                let (w, h) = (ep.panel.width_mm, ep.panel.height_mm);
+                let o = s.cam_offset;
+                let (cx_, cy_) = match edge_side {
+                    EdgeSide::Left => (o, offset),
+                    EdgeSide::Right => (w - o, offset),
+                    EdgeSide::Bottom => (offset, o),
+                    EdgeSide::Top => (offset, h - o),
+                };
+                out.entry(edge_id).or_default().push(DerivedFeature {
+                    feature: MachiningFeature::Drill(DrillFeature { x: cx_, y: cy_, diameter: s.cam_diameter, depth: s.cam_depth.min(ep.panel.thickness_mm - 2.0), side: cam_side, purpose: DrillPurpose::CamLock }),
+                    origin: FeatureOrigin::Joint { with: face_id },
+                });
+            }
         }
     }
     out

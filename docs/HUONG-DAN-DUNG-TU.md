@@ -266,6 +266,10 @@ Chuột phải tủ → **Thuộc tính kết cấu**. Các tab mới:
 - **Ngăn kéo**: **loại ray** (ray bi 3 tầng / ray âm giảm chấn: hở hông 5, hộc ngắn hơn ray 10, đáy nâng 12 / hộp kim loại
   tandem: chỉ cắt đáy LW−75 và hậu hộc LW−87), hộc thấp hơn ô, đáy hộc cách đáy ô, cao hộc tối thiểu/tối đa (ngăn nồi > 250), ray ngắn hơn sâu khoang.
 
+- **Liên kết** (tab Liên kết): kiểu liên kết thùng **chốt gỗ / cam (minifix) + chốt gỗ / vít xuyên / ke góc**, lỗ đầu cách mép,
+  khoảng cách tối đa, Ø và độ sâu chốt, cam (Ø15, sâu 12.5, tâm cách mặt hồi 34), lỗ chốt cam trên cạnh. Lỗ khoan sinh thật
+  trên tấm (xem ở Sản xuất → Gia công), báo giá đếm riêng Chốt gỗ / Cam / Vít liên kết / Ke góc.
+
 Dòng **Chuẩn xưởng** trên cùng: **Lưu chuẩn** lưu mọi tab của tủ này (trừ Rộng/Cao/Sâu) vào thư viện dùng chung;
 chọn chuẩn → **Áp** cho tủ đang chọn (chọn nhiều tủ để áp cùng lúc). Mỗi lần áp là một bước undo.
 Tủ cũ giữ nguyên thông số như trước (mặc định = giá trị cũ).

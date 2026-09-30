@@ -176,7 +176,7 @@ fn costing_report_wardrobe() {
     assert_eq!(fit("Chốt tầng"), Some(16.0), "4 adjustable shelves × 4 pins");
     assert_eq!(fit("Chén oval"), Some(2.0));
     assert!(fit("Thanh Oval").is_some());
-    assert!(fit("Cam & Dowel").unwrap() > 0.0);
+    assert!(fit("Chốt gỗ").unwrap() > 0.0);
     // Panels grouped by material and thickness; the 8.6 back is never banded.
     let panels = c["panels"].as_array().unwrap();
     assert!(panels.iter().any(|l| l["name"].as_str().unwrap().contains("8.6")));
@@ -984,4 +984,29 @@ fn handle_types_hinge_plate_and_slide_types() {
     set(&mut e, drw, "s_slide_type", "UNDERMOUNT");
     assert!(names(&e, drw).iter().any(|n| n.starts_with("RayÂm")));
     assert!(!e.doc.cabinet_layout(drw).unwrap().fittings.undermount.is_empty());
+}
+
+#[test]
+fn joint_types_generate_real_holes_and_costing() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "doors": 0, "shelves": 0}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let fit = |e: &mut Engine, name: &str| {
+        let c = call(e, json!({"cmd": "get_costing"}));
+        c.result["fittings"].as_array().unwrap().iter().find(|l| l["name"].as_str().unwrap().starts_with(name)).map(|l| l["qty"].as_f64().unwrap()).unwrap_or(0.0)
+    };
+    assert!(fit(&mut e, "Chốt gỗ") > 0.0);
+    assert_eq!(fit(&mut e, "Cam"), 0.0);
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_joint_type", "value": "CAM_DOWEL"}));
+    assert!(r.ok, "{:?}", r.error);
+    let cams = fit(&mut e, "Cam");
+    assert!(cams >= 4.0, "2 cams per joint end: {cams}");
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_joint_type", "value": "SCREW"}));
+    assert_eq!(fit(&mut e, "Cam"), 0.0);
+    assert!(fit(&mut e, "Vít liên kết") > 0.0);
+    call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_joint_type", "value": "BRACKET"}));
+    assert!(fit(&mut e, "Ke góc") > 0.0);
+    assert_eq!(fit(&mut e, "Chốt gỗ"), 0.0);
+    call(&mut e, json!({"cmd": "undo"}));
+    assert!(fit(&mut e, "Vít liên kết") > 0.0);
 }
