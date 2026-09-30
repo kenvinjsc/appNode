@@ -681,6 +681,7 @@ pub struct Accessory {
     pub led_w_per_m: f64,
 }
 
+#[allow(clippy::too_many_arguments)]
 const fn acc(code: &'static str, name: &'static str, fit: Fit, w: [f64; 2], min_d: f64, min_h: f64, height: f64, slides: bool) -> Accessory {
     Accessory { code, name, fit, min_w: w[0], max_w: w[1], min_d, min_h, height, slides, led_w_per_m: 0.0 }
 }
