@@ -1657,5 +1657,5 @@ fn bed_generator_frame_slats_beam_and_side_drawers() {
     call(&mut e, json!({"cmd": "undo"}));
     call(&mut e, json!({"cmd": "undo"}));
     call(&mut e, json!({"cmd": "undo"}));
-    assert!(e.doc.objects.get(&bed).is_none());
+    assert!(!e.doc.objects.contains_key(&bed));
 }
