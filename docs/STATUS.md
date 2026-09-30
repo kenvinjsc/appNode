@@ -15,7 +15,7 @@ Hướng dẫn thao tác dựng tủ từng bước: [HUONG-DAN-DUNG-TU.md](HUON
 | 6 | Nesting interface + MaxRects, toolpath + G-code | |
 | 7 | Rayon cho narrow phase và tessellation, cache mesh theo geometry key | **Chưa** có benchmark 1000+ đối tượng |
 
-### Đợt P0 xưởng (theo `DE-XUAT-TINH-NANG-V2.md`)
+### Đề xuất D01–D34 (theo `DE-XUAT-TINH-NANG-V2.md`): đã làm đủ 34 mục, cột Ghi chú nêu phần còn thiếu
 | Mã | Nội dung | Ghi chú |
 |---|---|---|
 | D01 | Chuẩn xưởng `Cabinet.rules.shop` (kệ, chốt, bản lề, tay nắm, ngăn kéo, liên kết), lưu / áp chuẩn (mẫu nhóm `all`) | mặc định = giá trị cũ |
@@ -72,7 +72,7 @@ Khe cánh từng phía; cao từng ngăn kéo (KHÓA/%/AUTO) + kéo đường ch
 Quan hệ 2 tấm Phủ/Lọt/Bằng mặt/Khe, kéo 4 cạnh tấm trên 2D (giữ ràng buộc / tự do), view Trái/Phải/Mặt cắt dọc/ngang,
 cung cạnh và biên dạng đa giác tự do.
 Còn lại của spec Parametric: đồng bộ SketchUp (dự án `aic_object_relation`).
-Chưa làm: tool 05, 07, 15; chân đế dạng thanh; căn/phân bố nhiều đối tượng.
+Chưa làm: tool 05, 07, 15; chân đế dạng thanh. (Căn / phân bố nhiều đối tượng: xong ở D27.)
 
 ## Chưa làm / hạn chế đã biết
 
@@ -83,7 +83,8 @@ Chưa làm: tool 05, 07, 15; chân đế dạng thanh; căn/phân bố nhiều �
 4. **Snap**: core mới snap theo AABB (mặt, căn, tâm, lưới). Snap theo vertex/edge/midpoint/parallel chưa có.
 5. **Chọn cạnh**: dựa trên edge của tessellation (hộp + đường gia công), chưa phải topo BREP.
 6. **Nesting**: MaxRects theo hình bao chữ nhật, có vân gỗ và xoay 0/90°. Chưa nest theo hình dạng tự do.
-7. **CNC**: chỉ gia công mặt A trên router 3 trục. Khoan mặt B và khoan cạnh được báo là cảnh báo (cần lật tấm / máy khoan ngang).
+7. **CNC**: G-code router 3 trục chỉ gia công mặt A (mặt B / khoan cạnh là cảnh báo). Cho máy khoan CNC / khoan ngang dùng
+   xuất file máy DXF / MPR / CIX (D26, có mặt B lật và khoan cạnh); chưa thử với máy thật.
 8. **Hiệu năng**: chưa đo 1000+ đối tượng / 60 FPS. Đã có sẵn chia sẻ BufferGeometry theo geometry key,
    instancing cho phụ kiện, cập nhật tăng dần theo event, render theo yêu cầu.
 9. **Vỏ desktop Tauri**: đã `cargo check` nhưng chưa build và chạy thử có giao diện.
