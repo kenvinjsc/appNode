@@ -7,6 +7,9 @@ use aic_domain::{DomainObject, ObjectId};
 use aic_math::{Aabb, Transform3D};
 use aic_project::{Command, CoreError};
 
+/// Khoảng dời của một hộp bao để về vị trí căn.
+type Delta = Box<dyn Fn(&Aabb) -> f64>;
+
 impl Engine {
     fn boxes(&self, ids: &[ObjectId]) -> Vec<(ObjectId, Aabb)> {
         ids.iter().map(|&i| (i, self.doc.world_aabb(i))).filter(|(_, b)| !b.is_empty()).collect()
@@ -27,7 +30,7 @@ impl Engine {
             return Err(bad("arrange", "select two or more objects"));
         }
         let all = b.iter().fold(Aabb::empty(), |a, (_, x)| a.union(x));
-        let (axis, target): (usize, Box<dyn Fn(&Aabb) -> f64>) = match mode.to_ascii_uppercase().as_str() {
+        let (axis, target): (usize, Delta) = match mode.to_ascii_uppercase().as_str() {
             "LEFT" => (0, Box::new(move |x: &Aabb| all.min[0] - x.min[0])),
             "RIGHT" => (0, Box::new(move |x: &Aabb| all.max[0] - x.max[0])),
             "BOTTOM" => (1, Box::new(move |x: &Aabb| all.min[1] - x.min[1])),
