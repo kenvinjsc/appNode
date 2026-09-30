@@ -352,6 +352,18 @@ export interface ZonesInfo {
   panels: { uid: number; id: ObjectId }[];
   attachments: ZoneAttachment[];
   fittings: Record<string, unknown>;
+  /** Kích thước sửa trực tiếp trên 2D (core tính điểm đo, tọa độ tủ mm). */
+  dims: EditDim[];
+}
+
+export interface EditDim {
+  view: 'front' | 'side' | 'right';
+  label: string;
+  value: number;
+  a: Vec3;
+  b: Vec3;
+  id: ObjectId;
+  name: string;
 }
 
 export type BayMode = 'AUTO' | 'LOCK' | 'PERCENT';

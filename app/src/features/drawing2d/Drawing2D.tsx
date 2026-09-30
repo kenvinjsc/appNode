@@ -3,7 +3,8 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useUi } from '../../app/uiStore';
-import type { ObjectId } from '../../core-api/types';
+import type { EditDim, ObjectId, ZonesInfo } from '../../core-api/types';
+import { Commands } from '../../core-api/commands';
 import { Icon } from '../../shared/icons';
 import { fmt, objectLabel } from '../../shared/i18n';
 import { expandSubtrees, getEngine, useSceneRevision } from '../../viewport/viewportBus';
@@ -40,7 +41,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   const itemCache = useRef(new Map<ObjectId, Item>());
   // 2D editor: the current cabinet (selection or pinned zone), front view.
   const current = useCurrentCabinet();
-  const zinfo = useZones(plane === 'front' ? current : null);
+  const zinfo = useZones(plane === 'front' || plane === 'side' || plane === 'right' ? current : null);
 
   // Scope: the cabinet(s) of the selection, or everything.
   const scope = useMemo(() => {
@@ -145,6 +146,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   const H = bounds.max.y - bounds.min.y;
   const unit = Math.max(W, H) / 60 || 10;
   const editing = !!zinfo && plane === 'front' && scope.includes(zinfo.cabinet);
+  const dimsOn = !!zinfo && (plane === 'front' || plane === 'side' || plane === 'right') && scope.includes(zinfo.cabinet);
 
   return (
     <div className="panel drawing">
@@ -194,6 +196,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
               <ItemRect key={it.id} it={it} sel={direct.has(it.id)} inSel={selected.has(it.id)} unit={unit} onPick={onPick} />
             ))}
             {editing && <EditLayer info={zinfo!} items={items} unit={unit} svg={svgRef.current} />}
+            {dimsOn && <DimsLayer info={zinfo!} plane={plane as 'front' | 'side' | 'right'} unit={unit} />}
             {showDims && !editing && <Openings items={items} unit={unit} active={active} />}
             {showDims && !editing && !bounds.isEmpty() && (
               <g className="d2-dims" fontSize={unit * 1.3}>
@@ -288,3 +291,64 @@ const ItemRect = memo(function ItemRect({ it, sel, inSel, unit, onPick }: { it: 
     </g>
   );
 });
+
+/** Số đo sửa được (màu cam) do core trả về trong `get_zones.dims`: bấm → nhập → `set_parameter`. */
+function DimsLayer({ info, plane, unit }: { info: ZonesInfo; plane: 'front' | 'side' | 'right'; unit: number }) {
+  const [edit, setEdit] = useState<EditDim | null>(null);
+  const m = useMemo(() => new THREE.Matrix4().fromArray(info.matrix), [info.matrix]);
+  const to2d = (p: [number, number, number]) => {
+    const w = new THREE.Vector3(...p).applyMatrix4(m);
+    return plane === 'front' ? { x: w.x, y: -w.y } : plane === 'side' ? { x: w.z, y: -w.y } : { x: -w.z, y: -w.y };
+  };
+  const fs = unit * 1.7;
+  return (
+    <g className="d2-editdims" fontSize={fs}>
+      {info.dims
+        .filter((d) => d.view === plane)
+        .map((d, i) => {
+          const a = to2d(d.a);
+          const b = to2d(d.b);
+          const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          // Lệch ra ngoài một chút theo pháp tuyến để không đè lên tấm.
+          const nx = -(b.y - a.y) / len;
+          const ny = (b.x - a.x) / len;
+          const o = unit * 1.6;
+          const [ax, ay, bx, by] = [a.x + nx * o, a.y + ny * o, b.x + nx * o, b.y + ny * o];
+          const mx = (ax + bx) / 2 + nx * unit * 1.1;
+          const my = (ay + by) / 2 + ny * unit * 1.1;
+          const editing = edit === d;
+          return (
+            <g key={`${d.name}-${i}`} className="d2-editdim">
+              <line x1={ax} y1={ay} x2={bx} y2={by} markerStart="url(#d2a)" markerEnd="url(#d2a)" />
+              {editing ? (
+                <foreignObject x={mx - unit * 4} y={my - unit * 1.2} width={unit * 8} height={unit * 2.4}>
+                  <input
+                    className="d2e-input"
+                    autoFocus
+                    style={{ fontSize: `${fs}px` }}
+                    defaultValue={String(d.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Escape') setEdit(null);
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                    }}
+                    onBlur={(e) => {
+                      const v = e.currentTarget.value.trim().replace(',', '.');
+                      setEdit(null);
+                      if (v && Number(v) !== d.value) void Commands.setParameter(d.id, d.name, v).catch(() => undefined);
+                    }}
+                  />
+                </foreignObject>
+              ) : (
+                <text x={mx} y={my} textAnchor="middle" dominantBaseline="middle" onClick={() => setEdit(d)}>
+                  <title>{`${d.label}: bấm để nhập`}</title>
+                  {fmt(d.value, 1)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+    </g>
+  );
+}

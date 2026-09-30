@@ -76,3 +76,6 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 
 ## Xem trước khi kéo (D25)
 `preview {cabinet, request}` chạy thử một request sửa tủ (`move_split_panel`, `set_bay`, `resize_cabinet`, `set_parameter`, `resize_panel_side`, `move_drawer_divider`, `set_drawer_height`, `equalize_split`), trả `{ok, bays, front_bays, positions, problems, size}` rồi trả dự án về nguyên trạng: không vào undo (giữ cả redo), không tăng revision, không phát sự kiện. 2D gọi khi kéo vách / kệ (tối đa ~25 lần/giây) để hiện số đúng như sẽ lưu (bắt lỗ hệ 32, KHÓA / % / AUTO); khoang không đủ chỗ → tay nắm kéo tô đỏ.
+
+## Số đo sửa trực tiếp 2D (D03)
+`get_zones` trả `dims: [{view: front|side|right, label, value, a, b, id, name}]` (điểm đo theo tọa độ tủ, mm). UI chiếu lên view và gửi `set_parameter {id, name, value}` khi người dùng nhập số.

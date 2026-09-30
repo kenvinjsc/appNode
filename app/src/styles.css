@@ -605,3 +605,6 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .quote-info .btn { grid-column: 2; justify-self: end; }
 .rb-drop .menu .menu-sep { padding: 6px 10px 2px; font-size: 11px; font-weight: 600; color: #868e96; text-transform: uppercase; border-top: 1px solid #e9ecef; margin-top: 4px; }
 .d2e .d2e-handle.bad { fill: #ffc9c9; stroke: #e03131; }
+.d2-editdims line { stroke: #e8590c; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.d2-editdims text { fill: #e8590c; font-weight: 600; cursor: pointer; }
+.d2-editdims text:hover { text-decoration: underline; }

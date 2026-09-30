@@ -1420,3 +1420,31 @@ fn preview_is_a_dry_run_without_history_or_revision() {
     let r = call(&mut e, json!({"cmd": "preview", "cabinet": cab, "request": {"cmd": "create_project", "name": "x"}}));
     assert!(!r.ok, "only edit requests can be previewed");
 }
+
+#[test]
+fn edit_dims_are_computed_by_core_and_editable() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800, "plinth_height": 100, "shelves": 1, "doors": 2}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    let dims = z.result["dims"].as_array().unwrap().clone();
+    let find = |view: &str, name: &str| dims.iter().find(|d| d["view"] == view && d["name"] == name).cloned();
+    assert_eq!(find("side", "depth").unwrap()["value"], 600.0);
+    assert!(find("side", "shelf_setback").is_some());
+    assert_eq!(find("front", "plinth_height").unwrap()["value"], 100.0);
+    assert!(find("front", "door_gap").is_some());
+    let h = find("front", "s_handle_from_end").expect("handle dim on a base cabinet (top)");
+    assert_eq!(h["value"], 60.0);
+    // Sửa qua đúng tham số dim trả về (như UI): sâu 580, một undo.
+    let dd = find("side", "depth").unwrap();
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": dd["id"], "name": dd["name"], "value": "580"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(e.doc.param_value(cab, "depth"), Some(580.0));
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": h["name"], "value": "80"}));
+    assert!(r.ok, "{:?}", r.error);
+    let z = call(&mut e, json!({"cmd": "get_zones", "cabinet": cab}));
+    assert!(z.result["dims"].as_array().unwrap().iter().any(|d| d["name"] == "s_handle_from_end" && d["value"] == 80.0));
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(e.doc.param_value(cab, "depth"), Some(600.0));
+}

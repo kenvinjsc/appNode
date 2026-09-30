@@ -229,7 +229,54 @@ impl Engine {
             "anchors": def.anchors,
             "attachments": attachments,
             "fittings": layout.fittings,
+            "dims": self.edit_dims(cab, &def, &layout),
         }))
+    }
+
+    /// Kích thước sửa trực tiếp trên 2D (D03): core quyết định đo gì, đo ở đâu (tọa độ tủ, mm) và sửa
+    /// tham số nào; UI chỉ chiếu điểm lên view và gửi `set_parameter {id, name, value}`.
+    fn edit_dims(&self, cab: ObjectId, def: &Cabinet, layout: &aic_domain::Layout) -> Vec<Value> {
+        let p = |n: &str| self.doc.param_value(cab, n).unwrap_or(0.0);
+        let (w, h, d, t, pl) = (p("width"), p("height"), p("depth"), p("thickness"), p("plinth_height"));
+        let dim = |view: &str, label: &str, value: f64, a: [f64; 3], b: [f64; 3], name: &str| {
+            json!({ "view": view, "label": label, "value": (value * 10.0).round() / 10.0, "a": a, "b": b, "id": cab, "name": name })
+        };
+        let mut out = Vec::new();
+        if def.rules.diagonal.is_none() {
+            // View Bên / Phải: sâu tủ (trên đỉnh) và lùi kệ di động đầu tiên.
+            for v in ["side", "right"] {
+                out.push(dim(v, "Sâu", d, [0.0, h, 0.0], [0.0, h, d], "depth"));
+            }
+            if let Some(sh) = layout.parts.iter().find(|q| q.name.starts_with("KệDiĐộng")) {
+                let sb = p("shelf_setback");
+                let y = sh.translation[1];
+                for v in ["side", "right"] {
+                    out.push(dim(v, "Lùi kệ", sb, [0.0, y, d - sb], [0.0, y, d], "shelf_setback"));
+                }
+            }
+        }
+        // View Trước: cao chân, dày ván, khe cánh, tay nắm cách đầu cánh.
+        if pl > 0.5 {
+            out.push(dim("front", "Cao chân", pl, [w, 0.0, d], [w, pl, d], "plinth_height"));
+        }
+        out.push(dim("front", "Dày ván", t, [0.0, h, d], [t, h, d], "thickness"));
+        let door = layout.parts.iter().find(|q| q.name.starts_with("CửaĐơn") || q.name.starts_with("CửaĐôi"));
+        if let Some(door) = door {
+            let gap = p("door_gap");
+            out.push(dim("front", "Khe cánh", gap, [door.translation[0], door.translation[1] + door.size[1], d], [door.translation[0], door.translation[1] + door.size[1] + gap, d], "door_gap"));
+            if let Some(hd) = layout.parts.iter().find(|q| q.name.starts_with("TayNắm_")) {
+                let top = door.translation[1] + door.size[1];
+                let (hy0, hy1) = (hd.translation[1], hd.translation[1] + hd.size[1]);
+                let x = hd.translation[0] + hd.size[0] / 2.0;
+                let from_end = def.rules.shop.handle_from_end;
+                if (top - hy1 - from_end).abs() < 0.5 {
+                    out.push(dim("front", "Tay nắm cách đầu cánh", from_end, [x, hy1, d], [x, top, d], "s_handle_from_end"));
+                } else if (hy0 - door.translation[1] - from_end).abs() < 0.5 {
+                    out.push(dim("front", "Tay nắm cách đầu cánh", from_end, [x, door.translation[1], d], [x, hy0, d], "s_handle_from_end"));
+                }
+            }
+        }
+        out
     }
 
     pub(crate) fn zone_add_panels(&mut self, r: ZoneAddPanels) -> Result<Value, CoreError> {

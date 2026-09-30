@@ -159,6 +159,10 @@ Chọn một tủ. Ở **Mặt đứng (Trước)**, bản vẽ 2D trở thành 
 
 Màu số: xanh dương = AUTO, đỏ = KHÓA, xanh lá = %. Nếu thay đổi làm một khoang nhỏ hơn 1 mm, phần mềm từ chối và giữ nguyên.
 
+### Số đo màu cam (sửa ngay trên bản vẽ)
+- View **Bên / Phải**: **Sâu** tủ, **Lùi kệ** di động. View **Trước**: **Cao chân**, **Dày ván**, **Khe cánh**, **Tay nắm cách đầu cánh**.
+- Bấm số → nhập → Enter (Esc hủy). Core quyết định đo gì và ở đâu; mỗi lần sửa là một bước undo.
+
 ## 4c. Template, rule preset, lật gương, nhân dãy
 ![Template](screenshots/08-template.png)
 
