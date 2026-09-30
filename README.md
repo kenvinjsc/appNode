@@ -91,3 +91,4 @@ Core: Phase 1–6 xong; Phase 7 (tối ưu, test dự án lớn) mới một ph�
 xem [docs/STATUS.md](docs/STATUS.md).
 Hướng dẫn thao tác dựng tủ từng bước: [docs/HUONG-DAN-DUNG-TU.md](docs/HUONG-DAN-DUNG-TU.md).
 Tổng hợp tính năng Parametric Cabinet Editor: [docs/TONG-HOP-PARAMETRIC-EDITOR.md](docs/TONG-HOP-PARAMETRIC-EDITOR.md) · prompt cho dự án `aic_object_relation`: [docs/PROMPT-aic-object-relation.md](docs/PROMPT-aic-object-relation.md).
+Prompt cho AI agent phân tích và đề xuất tính năng (nội thất Việt Nam theo phòng): [docs/PROMPT-phan-tich-tinh-nang.md](docs/PROMPT-phan-tich-tinh-nang.md).
