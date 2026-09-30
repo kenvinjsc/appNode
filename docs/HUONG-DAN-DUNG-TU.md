@@ -171,6 +171,11 @@ Bấm **[TAB] Thêm** để áp vào các vùng đang ghim.
   tiết, người vẽ → **Xem & in** mở trang in (chọn "Lưu PDF" trong hộp in của trình duyệt).
 - Phạm vi là phòng của tủ đang chọn; chưa chọn tủ thì cả dự án. Tỷ lệ tự chọn (1:5 … 1:200), ưu tiên vừa 1 trang.
 
+### 3.7 Xuất file máy (DXF / MPR / CIX)
+- Chọn tấm (hoặc nhiều tấm) → Chỉnh tấm → tab **Gia công** → **Xuất file máy**: DXF theo layer (`CUT`, `DRILL_<Ø>_<sâu>`,
+  `DRILL_B_…` mặt B, `HDRILL_<Ø>_<sâu>` khoan cạnh, `POCKET_…`, `GROOVE_…`) cho phần mềm CAM; MPR (Homag WoodWOP); CIX (Biesse).
+  "Lật mặt B" lật toạ độ lỗ mặt B để gia công sau khi lật tấm. Mỗi tấm một file, tên không dấu.
+
 ## 4. Chỉnh chi tiết (tab Chỉnh tấm)
 ![Chỉnh tấm](screenshots/05-chinh-tam.png)
 

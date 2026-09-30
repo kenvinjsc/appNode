@@ -1,7 +1,7 @@
 // Property sheet rendered generically from the core's read model. Edits are
 // sent as set_parameter; the core validates, recomputes and emits events.
 import { useEffect, useRef, useState } from 'react';
-import { useUi } from '../../app/uiStore';
+import { findNode, useUi } from '../../app/uiStore';
 import { Commands } from '../../core-api/commands';
 import { Queries } from '../../core-api/queries';
 import type { FlatPanel, PropertyField, PropertySheet } from '../../core-api/types';
@@ -144,7 +144,55 @@ function FeatureList({ flat }: { flat: FlatPanel }) {
         </div>
       ))}
       {counts.size === 0 && <div className="empty small">Chưa có gia công.</div>}
+      <MachineExport id={flat.id} />
     </section>
+  );
+}
+
+/** Xuất file máy (D26): tấm đang xem hoặc mọi tấm đang chọn; core sinh nội dung file. */
+function MachineExport({ id }: { id: number }) {
+  const [format, setFormat] = useState<'DXF' | 'MPR' | 'CIX'>('DXF');
+  const [flipB, setFlipB] = useState(true);
+  const run = () => {
+    const s = useUi.getState();
+    const panels = s.selection.filter((x) => findNode(s.tree, x)?.node.kind === 'PANEL');
+    const ids = panels.length > 1 ? panels : [id];
+    void Commands.exportMachine(ids, format, flipB)
+      .then((r) => {
+        for (const f of r.files) {
+          const url = URL.createObjectURL(new Blob([f.content], { type: 'text/plain' }));
+          const a = document.createElement('a');
+          a.href = url;
+          // Tên file không dấu (máy CNC / USB thường không đọc được tên có dấu).
+          a.download = f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd');
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        s.toast({ kind: 'success', title: `Đã xuất ${r.files.length} file ${format}` });
+      })
+      .catch(() => undefined);
+  };
+  return (
+    <div className="machine-export">
+      <h4>Xuất file máy</h4>
+      <div className="prop-row">
+        <label>Định dạng</label>
+        <select className="field" value={format} onChange={(e) => setFormat(e.target.value as 'DXF' | 'MPR' | 'CIX')}>
+          <option value="DXF">DXF (layer cho CAM)</option>
+          <option value="MPR">MPR (Homag WoodWOP)</option>
+          <option value="CIX">CIX (Biesse)</option>
+        </select>
+      </div>
+      <label className="prop-row">
+        <span>Lật mặt B</span>
+        <input type="checkbox" checked={flipB} onChange={(e) => setFlipB(e.target.checked)} />
+      </label>
+      <button className="btn" onClick={run}>
+        Xuất (tấm này / các tấm đang chọn)
+      </button>
+    </div>
   );
 }
 

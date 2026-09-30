@@ -483,6 +483,15 @@ pub enum Request {
         settings: Option<NestingSettings>,
     },
     GenerateCnc { material: String, sheet_id: u32 },
+    /// Xuất file máy theo tấm (D26): `DXF` (layer), `MPR` (Homag), `CIX` (Biesse).
+    ExportMachine {
+        ids: Vec<ObjectId>,
+        format: String,
+        #[serde(default = "yes")]
+        flip_for_b: bool,
+        #[serde(default)]
+        origin_top: bool,
+    },
     Snap { id: ObjectId, delta: [f64; 3], #[serde(default)] grid: Option<f64> },
     GetBounds { ids: Vec<ObjectId> },
     GetTransform { id: ObjectId },

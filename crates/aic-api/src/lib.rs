@@ -644,6 +644,19 @@ impl Engine {
             GetParts => ok(self.parts()),
             RunNesting { material, settings } => ok(self.run_nesting(material, settings.unwrap_or_default())?),
             GenerateCnc { material, sheet_id } => ok(self.generate_cnc(&material, sheet_id)?),
+            ExportMachine { ids, format, flip_for_b, origin_top } => {
+                let fmt = aic_manufacturing::export::Format::parse(&format).ok_or_else(|| zones::bad("format", "DXF | MPR | CIX"))?;
+                let o = aic_manufacturing::export::ExportOptions { flip_for_b, origin_top };
+                let mut files = Vec::new();
+                for id in ids {
+                    let fp = self.flat_panel(id)?;
+                    let cab = self.doc.cabinet_of(id).and_then(|c| self.doc.objects.get(&c)).map(|c| c.name().to_string()).unwrap_or_default();
+                    let base = if cab.is_empty() { fp.name.clone() } else { format!("{cab}_{}", fp.name) };
+                    let name = format!("{}.{}", base.replace(['/', '\\', ' '], "_"), fmt.ext());
+                    files.push(json!({ "id": id, "name": name, "content": aic_manufacturing::export::export(&fp, fmt, o) }));
+                }
+                ok(json!({ "files": files }))
+            }
             Snap { id, delta, grid } => ok(self.snap(id, delta, grid)?),
             GetBounds { ids } => {
                 let mut b = aic_math::Aabb::empty();

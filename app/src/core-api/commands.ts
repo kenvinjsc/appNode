@@ -45,6 +45,9 @@ export const Commands = {
   /** Bản vẽ in: trang A3 / A4 đã chiếu (mm giấy). */
   getDrawingSheet: (p: { ids?: ObjectId[]; room?: string; floor?: string; paper?: string; portrait?: boolean; views?: string[]; hide_fronts?: boolean; drawer?: string; date?: string }) =>
     command<DrawingSheet>({ cmd: 'get_drawing_sheet', ...p }),
+  /** Xuất file máy theo tấm (DXF / MPR / CIX). */
+  exportMachine: (ids: ObjectId[], format: 'DXF' | 'MPR' | 'CIX', flip_for_b = true) =>
+    command<{ files: { id: ObjectId; name: string; content: string }[] }>({ cmd: 'export_machine', ids, format, flip_for_b }),
   getMaterialSets: () => command<{ sets: { set: MaterialSet; builtin: boolean }[] }>({ cmd: 'get_material_sets' }),
   saveMaterialSet: (cabinet: ObjectId, name: string) => command({ cmd: 'save_material_set', cabinet, name }),
   /** Áp bộ vật liệu cho các tủ hoặc mọi tủ của một phòng (một bước undo). */

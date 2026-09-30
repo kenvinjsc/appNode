@@ -636,3 +636,5 @@ input.price { width: 96px; height: 26px; border: 1px solid #a5d8ff; background: 
 .gallery-card:hover { border-color: #ffc078; }
 .gallery-card.on { border-color: #e8590c; box-shadow: 0 0 0 2px rgba(232,89,12,.18); }
 .gallery-form { display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #f1f3f5; padding-left: 12px; }
+
+.machine-export { margin-top: 10px; border-top: 1px solid #f1f3f5; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }

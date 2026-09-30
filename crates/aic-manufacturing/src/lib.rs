@@ -3,6 +3,7 @@
 //! operations (Clipper2) and CNC toolpath / G-code generation.
 
 pub mod cnc;
+pub mod export;
 pub mod features;
 pub mod flatten;
 pub mod polygon_ops;

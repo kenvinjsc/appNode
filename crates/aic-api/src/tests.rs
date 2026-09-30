@@ -1952,3 +1952,30 @@ fn island_front_drawers_rear_doors_face_back_no_back_panel() {
     assert!((tb.min[2] + 300.0).abs() < 1e-6 && (tb.max[2] - 920.0).abs() < 1e-6, "{tb:?}");
     assert_eq!(call(&mut e, json!({"cmd": "get_structure", "cabinet": cab})).result["tabs"][0]["key"], "island");
 }
+
+#[test]
+fn export_machine_files_dxf_layers_mpr_cix() {
+    let mut e = Engine::new();
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE", "overrides": {"width": 800}}));
+    let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    assert!(call(&mut e, json!({"cmd": "set_parameter", "id": cab, "name": "s_joint_type", "value": "CAM_DOWEL"})).ok);
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let all: Vec<Value> = tree.result["roots"].as_array().unwrap().iter().flat_map(|r| r["children"].as_array().unwrap().clone()).collect();
+    let ids: Vec<Value> = all.iter().filter(|k| k["kind"] == "PANEL").map(|k| k["id"].clone()).collect();
+    let r = call(&mut e, json!({"cmd": "export_machine", "ids": ids, "format": "DXF"}));
+    assert!(r.ok, "{:?}", r.error);
+    let files = r.result["files"].as_array().unwrap();
+    let all_dxf: String = files.iter().map(|f| f["content"].as_str().unwrap()).collect();
+    let layers: std::collections::BTreeSet<&str> = all_dxf.lines().collect::<Vec<_>>().windows(2).filter(|w| w[0] == "8").map(|w| w[1]).collect();
+    assert!(layers.contains("CUT"));
+    assert!(layers.contains("DRILL_15_12.5"), "cam Ø15 sâu 12.5: {layers:?}");
+    assert!(layers.iter().any(|l| l.starts_with("HDRILL_8_")), "chốt gỗ khoan cạnh Ø8: {layers:?}");
+    assert!(files.iter().all(|f| f["name"].as_str().unwrap().ends_with(".dxf")));
+    for fmt in ["MPR", "CIX"] {
+        let r = call(&mut e, json!({"cmd": "export_machine", "ids": [ids[0]], "format": fmt}));
+        assert!(r.ok, "{fmt}: {:?}", r.error);
+        let c = r.result["files"][0]["content"].as_str().unwrap();
+        assert!(if fmt == "MPR" { c.contains("_BSX=") } else { c.contains("BEGIN MAINDATA") && c.contains("LPX=") });
+    }
+    assert!(!call(&mut e, json!({"cmd": "export_machine", "ids": [ids[0]], "format": "XYZ"})).ok);
+}

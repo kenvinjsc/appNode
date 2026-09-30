@@ -195,6 +195,9 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-08.4 Chia tấm** (Rust `chia_tam_splits_a_part_into_pieces`). Chia 3, khe 3 → 3 tấm đúng kích thước.
 - **TC-08.6 Tool theo tham số** (E2E 10, Rust `tool_features_are_parametric_and_one_undo`). Khấu góc TR 100 × 100 trên 2 hồi →
   một undo; đổi sâu tủ 560 → 600 → khấu vẫn ở góc trên phải; khấu bề mặt neo góc phải / trên; rãnh LED tính từ mép cuối.
+- **TC-08.7 Xuất file máy** (E2E 28, Rust `export_machine_files_dxf_layers_mpr_cix`). Tủ liên kết cam + chốt → chọn hồi → Chỉnh
+  tấm → Gia công → Xuất DXF → tải file `.dxf` (tên không dấu). DXF có layer `CUT`, `DRILL_15_12.5` (cam), `DRILL_B_…` (mặt B, đã
+  lật), `HDRILL_8_25` (chốt khoan cạnh). MPR có `_BSX=` / `<102 \BohrVert\`, CIX có `BEGIN MAINDATA`, `BV`, `BH`.
 - **TC-08.5 Contour cung / đa giác** (Rust `contour_arc_and_free_polygon_on_a_part`). Đa giác tự cắt → báo lỗi tiếng Việt.
 
 ### 09. Kết cấu & chuẩn xưởng
