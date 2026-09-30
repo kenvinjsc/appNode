@@ -1087,7 +1087,7 @@ fn blind_corner_cabinet_left_and_right() {
     assert!((door.size[0] - 450.0).abs() < 5.0, "door ≈ 450: {}", door.size[0]);
     assert!(l.fittings.hinges == 2 && l.fittings.handles == 1, "only the door has hinges / handle");
     call(&mut e, json!({"cmd": "undo"}));
-    assert!(e.doc.objects.get(&cab).is_none(), "one undo removes the corner cabinet");
+    assert!(!e.doc.objects.contains_key(&cab), "one undo removes the corner cabinet");
     let r = call(&mut e, json!({"cmd": "create_corner", "hand": "RIGHT", "width": 1000}));
     let cab: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
     let l = e.doc.cabinet_layout(cab).unwrap();
