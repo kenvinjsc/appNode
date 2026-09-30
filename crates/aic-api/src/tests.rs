@@ -1356,3 +1356,34 @@ fn kitchen_products_insert_with_one_undo() {
     let r = call(&mut e, json!({"cmd": "insert_product", "key": "KHONG_CO"}));
     assert!(!r.ok);
 }
+
+#[test]
+fn zones_changed_events_only_for_touched_cabinets() {
+    use crate::protocol::CoreEvent;
+    let mut e = Engine::new();
+    let a = created_cabinet(&mut e);
+    let r = call(&mut e, json!({"cmd": "create_cabinet", "kind": "BASE"}));
+    let b: ObjectId = serde_json::from_value(r.result["id"].clone()).unwrap();
+    let zones_of = |r: &Response| r.events.iter().find_map(|ev| match ev {
+        CoreEvent::ZonesChanged { cabinets } => Some(cabinets.clone()),
+        _ => None,
+    });
+    // Kéo vách tủ a → chỉ tủ a có ZonesChanged.
+    let tree = call(&mut e, json!({"cmd": "get_scene_tree"}));
+    let kids = tree.result["roots"][0]["children"].as_array().unwrap().clone();
+    let divider: ObjectId = serde_json::from_value(kids.iter().find(|k| k["name"] == "HôngGiữa_01").unwrap()["id"].clone()).unwrap();
+    let r = call(&mut e, json!({"cmd": "move_split_panel", "id": divider, "before": 600}));
+    assert_eq!(zones_of(&r), Some(vec![a]));
+    // Đổi vật liệu tủ b → khoang không đổi, không có ZonesChanged.
+    let r = call(&mut e, json!({"cmd": "set_parameter", "id": b, "name": "front_material", "value": "MDF17-OAK"}));
+    assert!(r.ok, "{:?}", r.error);
+    assert_eq!(zones_of(&r), None);
+    // Dời tủ b → không đổi khoang (UI dùng TransformChanged cho ma trận).
+    let r = call(&mut e, json!({"cmd": "move_objects", "ids": [b], "delta": [100, 0, 0]}));
+    assert_eq!(zones_of(&r), None);
+    // Undo kéo vách → ZonesChanged cho a (đối xứng).
+    call(&mut e, json!({"cmd": "undo"}));
+    call(&mut e, json!({"cmd": "undo"}));
+    let r = call(&mut e, json!({"cmd": "undo"}));
+    assert_eq!(zones_of(&r), Some(vec![a]));
+}

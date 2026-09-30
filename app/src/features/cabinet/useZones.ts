@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { findNode, useUi } from '../../app/uiStore';
 import { Queries } from '../../core-api/queries';
-import type { ObjectId, SceneTree, ZonesInfo } from '../../core-api/types';
+import type { CoreEvent, ObjectId, SceneTree, ZonesInfo } from '../../core-api/types';
+import { onCoreEvents } from '../../core-api/events';
 
 export function cabinetOf(tree: SceneTree | null, id: ObjectId | null): ObjectId | null {
   if (id === null) return null;
@@ -22,9 +23,35 @@ export function useCurrentCabinet(): ObjectId | null {
   return cabinetOf(tree, active) ?? pinned.cabinet;
 }
 
+/** Sự kiện core có làm thay đổi khoang (hoặc vị trí / tên) của tủ `cabinet` không. */
+export function touchesZones(events: CoreEvent[], cabinet: ObjectId): boolean {
+  return events.some((e) => {
+    switch (e.type) {
+      case 'ProjectLoaded':
+        return true;
+      case 'ZonesChanged':
+        return e.cabinets.includes(cabinet);
+      case 'TransformChanged':
+      case 'ObjectChanged':
+      case 'ObjectDeleted':
+        return e.ids.includes(cabinet);
+      default:
+        return false;
+    }
+  });
+}
+
+/** Khoang của tủ: tải một lần, sau đó chỉ tải lại khi core báo khoang / vị trí của chính tủ này đổi
+ * (sửa tủ khác, dời tủ khác, đổi vật liệu… không làm 2D tải lại). */
 export function useZones(cabinet: ObjectId | null): ZonesInfo | null {
-  const revision = useUi((s) => s.revision);
   const [info, setInfo] = useState<ZonesInfo | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (cabinet === null) return;
+    return onCoreEvents((events) => {
+      if (touchesZones(events, cabinet)) setTick((t) => t + 1);
+    });
+  }, [cabinet]);
   useEffect(() => {
     let alive = true;
     if (cabinet === null) {
@@ -37,7 +64,7 @@ export function useZones(cabinet: ObjectId | null): ZonesInfo | null {
     return () => {
       alive = false;
     };
-  }, [cabinet, revision]);
+  }, [cabinet, tick]);
   return info;
 }
 

@@ -157,6 +157,8 @@ pub struct ChangeSet {
     pub tree: bool,
     pub loaded: bool,
     pub settings: bool,
+    /// Tủ có khoang / kích thước khoang / cao ngăn kéo thay đổi (2D chỉ tải lại các tủ này).
+    pub zones: BTreeSet<ObjectId>,
 }
 
 impl ChangeSet {
@@ -188,6 +190,8 @@ pub struct Document {
     /// Ids of generated parts that disappeared, by (cabinet, part key): a part
     /// that comes back (undo, re-adding) gets its old id again.
     retired: BTreeMap<(ObjectId, String), ObjectId>,
+    /// Vết (hash) khoang của mỗi tủ ở lần dựng trước, để biết khi nào khoang thật sự đổi.
+    zone_sig: BTreeMap<ObjectId, u64>,
 }
 
 pub fn key(owner: ObjectId, name: &str) -> ParamKey {
@@ -225,6 +229,7 @@ impl Document {
             changes: ChangeSet::default(),
             in_regen: false,
             retired: BTreeMap::new(),
+            zone_sig: BTreeMap::new(),
         }
     }
 
@@ -674,6 +679,15 @@ impl Document {
         self.define_params(missing)?;
 
         let layout = build_cabinet(&cab, self.cabinet_values(id));
+        {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            format!("{:?}{:?}{:?}{:?}", layout.zones, layout.bays, layout.front_bays, layout.positions).hash(&mut h);
+            let sig = h.finish();
+            if self.zone_sig.insert(id, sig) != Some(sig) {
+                self.changes.zones.insert(id);
+            }
+        }
 
         // Existing generated children by part key.
         let mut existing: BTreeMap<String, ObjectId> = BTreeMap::new();

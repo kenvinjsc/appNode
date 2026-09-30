@@ -970,6 +970,9 @@ fn events_from(c: &ChangeSet) -> Vec<CoreEvent> {
     if c.tree {
         out.push(CoreEvent::SceneTreeChanged);
     }
+    if !c.zones.is_empty() {
+        out.push(CoreEvent::ZonesChanged { cabinets: v(&c.zones) });
+    }
     out
 }
 

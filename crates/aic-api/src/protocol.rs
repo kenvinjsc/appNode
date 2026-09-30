@@ -424,6 +424,8 @@ pub enum CoreEvent {
     GeometryChanged { ids: Vec<ObjectId> },
     TransformChanged { ids: Vec<ObjectId> },
     SceneTreeChanged,
+    /// Khoang của các tủ này đổi (2D / Tạo tấm chỉ tải lại khoang của chúng).
+    ZonesChanged { cabinets: Vec<ObjectId> },
     SelectionInvalidated { ids: Vec<ObjectId> },
     ProjectLoaded,
 }

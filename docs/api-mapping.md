@@ -69,3 +69,7 @@ Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
 `THICKNESS_OUT_OF_RANGE`, `TOO_MANY_SHELVES`, `DOOR_TOO_NARROW`), `DEPENDENCY_CYCLE`, `INVALID_PARAMETER`, `LOCKED`,
 `NOT_FOUND`, `INVALID_TRANSFORM`, `INVALID_REPARENT`, `GEOMETRY_BOOLEAN_FAILED`, `INVALID_FEATURE`,
 `UNKNOWN_MATERIAL`, `UNSUPPORTED_VERSION`, `INVALID_PROJECT`, `NOTHING_TO`.
+
+
+## Sự kiện khoang (D20)
+`ZonesChanged { cabinets }` chỉ phát cho tủ có khoang / kích thước khoang / cao ngăn kéo / vị trí tấm chia thật sự đổi (so vết khoang lần dựng trước). `useZones` chỉ gọi lại `get_zones` khi có `ZonesChanged`, `TransformChanged`, `ObjectChanged`, `ObjectDeleted` của đúng tủ, hoặc `ProjectLoaded`. Bản vẽ 2D giữ nguyên đối tượng tấm không đổi và vẽ từng tấm bằng `React.memo`, nên sửa một khoang chỉ vẽ lại vài tấm.

@@ -20,6 +20,7 @@ export type CoreEvent =
   | { type: 'GeometryChanged'; ids: ObjectId[] }
   | { type: 'TransformChanged'; ids: ObjectId[] }
   | { type: 'SceneTreeChanged' }
+  | { type: 'ZonesChanged'; cabinets: ObjectId[] }
   | { type: 'SelectionInvalidated'; ids: ObjectId[] }
   | { type: 'ProjectLoaded' };
 

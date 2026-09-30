@@ -219,6 +219,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
 - **TC-14.3 Công thức vượt khoang** (E2E 02.2). Chia 5000 → toast "Không thể…", khoang giữ nguyên.
 - **TC-14.4 Mất kết nối core** (tay). Tắt `aic-dev-server` → thông báo "Không kết nối được lõi CAD…".
 - **TC-14.5 Hiệu năng** (tay, D-LON). 60 tủ: xoay / zoom mượt; đổi rộng 1 tủ < 1 giây; mở báo cáo < 5 giây.
+- **TC-14.7 Cập nhật từng phần** (Rust `zones_changed_events_only_for_touched_cabinets`, vitest `useZones.test`). Kéo vách tủ A →
+  chỉ `ZonesChanged{A}`; đổi vật liệu / dời tủ B → không có `ZonesChanged`; undo phát lại đối xứng; 2D chỉ tải lại khoang tủ đang sửa.
 - **TC-14.6 Undo dài** (tay). 30 thao tác liên tiếp → undo hết về trạng thái đầu, redo lại đủ.
 
 ### 15. Hồi quy (lỗi đã sửa, không được tái diễn)

@@ -1,6 +1,6 @@
 // 2D technical view (elevation / side / plan). A projection of what the
 // viewport already displays — presentation only, no CAD computation.
-import { useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useUi } from '../../app/uiStore';
 import type { ObjectId } from '../../core-api/types';
@@ -37,6 +37,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   /** Section plane position, % of the scope's extent along the cut axis. */
   const [cutAt, setCutAt] = useState(50);
   const svgRef = useRef<SVGSVGElement>(null);
+  const itemCache = useRef(new Map<ObjectId, Item>());
   // 2D editor: the current cabinet (selection or pinned zone), front view.
   const current = useCurrentCabinet();
   const zinfo = useZones(plane === 'front' ? current : null);
@@ -113,7 +114,17 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
       });
     }
     out.sort((a, b) => a.depth - b.depth);
-    return out;
+    // Giữ nguyên đối tượng của tấm không đổi → ItemRect (memo) không vẽ lại.
+    const prev = itemCache.current;
+    const next = new Map<ObjectId, Item>();
+    const stable = out.map((it) => {
+      const old = prev.get(it.id);
+      const keep = old && sameItem(old, it) ? old : it;
+      next.set(it.id, keep);
+      return keep;
+    });
+    itemCache.current = next;
+    return stable;
   }, [scope, plane, hideFronts, rev, cutPos]);
 
   const bounds = useMemo(() => {
@@ -125,6 +136,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
     return b;
   }, [items]);
 
+  const onPick = useCallback((id: ObjectId, toggle: boolean) => select([id], toggle ? 'toggle' : 'replace'), [select]);
   const direct = new Set(selection);
   const selected = new Set(expandSubtrees(tree, selection));
   const pad = Math.max(bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y) * 0.14 + 60;
@@ -178,29 +190,9 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
           <div className="empty">Không có gì để hiển thị.</div>
         ) : (
           <svg ref={svgRef} viewBox={vb} preserveAspectRatio="xMidYMid meet">
-            {items.map((it) => {
-              const sel = direct.has(it.id);
-              const inSel = selected.has(it.id);
-              const w = it.x1 - it.x0;
-              const h = it.y1 - it.y0;
-              return (
-                <g key={it.id} onClick={(e) => select([it.id], e.ctrlKey ? 'toggle' : 'replace')} className="d2-item">
-                  <rect
-                    x={it.x0}
-                    y={it.y0}
-                    width={Math.max(w, 0.5)}
-                    height={Math.max(h, 0.5)}
-                    fill={sel ? '#ffd8bf' : it.cut ? 'url(#d2hatch)' : it.kind === 'HARDWARE' ? '#adb5bd' : it.color}
-                    fillOpacity={it.front ? 0.55 : 0.9}
-                    stroke={sel || inSel ? '#e8590c' : '#495057'}
-                    strokeWidth={sel ? unit * 0.28 : unit * 0.1}
-                    vectorEffect="non-scaling-stroke"
-                  >
-                    <title>{`${it.name} (${objectLabel(it.kind, it.role)}) ${fmt(w, 1)} × ${fmt(h, 1)}`}</title>
-                  </rect>
-                </g>
-              );
-            })}
+            {items.map((it) => (
+              <ItemRect key={it.id} it={it} sel={direct.has(it.id)} inSel={selected.has(it.id)} unit={unit} onPick={onPick} />
+            ))}
             {editing && <EditLayer info={zinfo!} items={items} unit={unit} svg={svgRef.current} />}
             {showDims && !editing && <Openings items={items} unit={unit} active={active} />}
             {showDims && !editing && !bounds.isEmpty() && (
@@ -269,3 +261,30 @@ function Openings({ items, unit }: { items: Item[]; unit: number; active: Object
   }
   return <g>{labels}</g>;
 }
+
+function sameItem(a: Item, b: Item): boolean {
+  return a.x0 === b.x0 && a.y0 === b.y0 && a.x1 === b.x1 && a.y1 === b.y1 && a.depth === b.depth && a.color === b.color && a.name === b.name && a.cut === b.cut && a.front === b.front && a.role === b.role;
+}
+
+/** Một tấm trên bản vẽ 2D; chỉ vẽ lại khi chính tấm này (hoặc trạng thái chọn của nó) đổi. */
+const ItemRect = memo(function ItemRect({ it, sel, inSel, unit, onPick }: { it: Item; sel: boolean; inSel: boolean; unit: number; onPick: (id: ObjectId, toggle: boolean) => void }) {
+  const w = it.x1 - it.x0;
+  const h = it.y1 - it.y0;
+  return (
+    <g onClick={(e) => onPick(it.id, e.ctrlKey)} className="d2-item">
+      <rect
+        x={it.x0}
+        y={it.y0}
+        width={Math.max(w, 0.5)}
+        height={Math.max(h, 0.5)}
+        fill={sel ? '#ffd8bf' : it.cut ? 'url(#d2hatch)' : it.kind === 'HARDWARE' ? '#adb5bd' : it.color}
+        fillOpacity={it.front ? 0.55 : 0.9}
+        stroke={sel || inSel ? '#e8590c' : '#495057'}
+        strokeWidth={sel ? unit * 0.28 : unit * 0.1}
+        vectorEffect="non-scaling-stroke"
+      >
+        <title>{`${it.name} (${objectLabel(it.kind, it.role)}) ${fmt(w, 1)} × ${fmt(h, 1)}`}</title>
+      </rect>
+    </g>
+  );
+});
