@@ -79,11 +79,20 @@ export function surfaceMaterial(color: string, state: VisualState, grained: bool
   return m;
 }
 
-export function hardwareMaterial(): THREE.Material {
-  const key = 'hw';
+/** Kiểu bề mặt phụ kiện do core gửi (`RenderObject.look`). */
+export type HardwareLook = 'GLASS' | 'MIRROR' | null;
+
+export function hardwareMaterial(look: HardwareLook = null): THREE.Material {
+  const key = `hw:${look ?? ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.35, metalness: 0.7 });
+  const m =
+    look === 'GLASS'
+      ? // Kính: trong, hơi xanh, không ghi depth để thấy đồ phía sau.
+        new THREE.MeshStandardMaterial({ color: '#a5d8ff', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide })
+      : look === 'MIRROR'
+        ? new THREE.MeshStandardMaterial({ color: '#e9eef3', roughness: 0.04, metalness: 1.0 })
+        : new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.35, metalness: 0.7 });
   cache.set(key, m);
   return m;
 }

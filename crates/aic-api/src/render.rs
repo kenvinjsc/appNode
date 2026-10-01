@@ -31,6 +31,22 @@ pub struct RenderObject {
     pub cabinet: Option<ObjectId>,
     /// Definition-space size (panels/hardware).
     pub size: Option<[f64; 3]>,
+    /// Kiểu bề mặt phụ kiện để UI chọn vật liệu vẽ: `GLASS` (kính trong), `MIRROR` (gương);
+    /// None = kim loại / nhựa.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub look: Option<&'static str>,
+}
+
+/// Kính / gương nhận theo mã catalog của phụ kiện.
+fn hardware_look(code: &str) -> Option<&'static str> {
+    let c = code.to_ascii_uppercase();
+    if c.starts_with("GLASS") {
+        Some("GLASS")
+    } else if c.starts_with("MIRROR") {
+        Some("MIRROR")
+    } else {
+        None
+    }
 }
 
 enum Job {
@@ -55,6 +71,10 @@ impl Engine {
         let mut jobs: BTreeMap<String, Job> = BTreeMap::new();
         for id in ids {
             let obj = self.doc.object(id)?;
+            let look = match obj {
+                DomainObject::Hardware(h) => hardware_look(&h.catalog_code),
+                _ => None,
+            };
             let (kind, role, key, job, color, material, size) = match obj {
                 DomainObject::Panel(p) => {
                     let mut feats = p.features.clone();
@@ -98,6 +118,7 @@ impl Engine {
                 locked: self.doc.scene.is_effectively_locked(id),
                 parent: node.parent,
                 cabinet: self.doc.cabinet_of(id),
+                look,
                 size,
             });
         }

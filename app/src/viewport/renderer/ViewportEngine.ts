@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ObjectId, RenderBatch, RenderObject, ZonesInfo } from '../../core-api/types';
 import { GeometryCache } from './geometryCache';
-import { edgeMaterial, faceHighlightMaterial, hardwareMaterial, isGrained, roomMaterial, surfaceMaterial, type VisualState } from '../materials/materials';
+import { edgeMaterial, faceHighlightMaterial, hardwareMaterial, isGrained, roomMaterial, surfaceMaterial, type HardwareLook, type VisualState } from '../materials/materials';
 
 export type StandardView = 'front' | 'back' | 'left' | 'right' | 'top' | 'iso';
 
@@ -25,11 +25,24 @@ export interface PickResult {
   normal: THREE.Vector3 | null;
 }
 
+/** Nhóm instance theo hình + kiểu bề mặt (kính / gương vẽ khác kim loại). */
+function instanceKey(ro: RenderObject): string {
+  return ro.look ? `${ro.geometry_key}|${ro.look}` : ro.geometry_key;
+}
+
 class InstanceGroup {
   mesh: THREE.InstancedMesh;
   ids: ObjectId[] = [];
-  constructor(geometry: THREE.BufferGeometry, capacity: number) {
-    this.mesh = new THREE.InstancedMesh(geometry, hardwareMaterial(), capacity);
+  constructor(
+    geometry: THREE.BufferGeometry,
+    capacity: number,
+    readonly geometryKey: string,
+    readonly look: HardwareLook,
+  ) {
+    this.mesh = new THREE.InstancedMesh(geometry, hardwareMaterial(look), capacity);
+    // Kính trong suốt: không đổ bóng, vẽ sau vật đục.
+    this.mesh.castShadow = look !== 'GLASS';
+    this.mesh.renderOrder = look === 'GLASS' ? 2 : 0;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
@@ -203,7 +216,7 @@ export class ViewportEngine {
     for (const ro of batch.objects) {
       const old = this.entries.get(ro.id);
       const matrix = new THREE.Matrix4().fromArray(ro.matrix);
-      if (old && old.ro.geometry_key === ro.geometry_key && old.ro.kind === ro.kind) {
+      if (old && old.ro.geometry_key === ro.geometry_key && old.ro.kind === ro.kind && old.ro.look === ro.look) {
         old.ro = ro;
         old.matrix = matrix;
         if (old.mesh) this.placeMesh(old);
@@ -224,16 +237,17 @@ export class ViewportEngine {
     if (!g) return null;
     this.geometries.retain(ro.geometry_key);
     if (ro.kind === 'HARDWARE') {
-      let group = this.instances.get(ro.geometry_key);
+      const key = instanceKey(ro);
+      let group = this.instances.get(key);
       if (!group) {
-        group = new InstanceGroup(g.surface, 64);
-        group.mesh.userData.instanceKey = ro.geometry_key;
-        this.instances.set(ro.geometry_key, group);
+        group = new InstanceGroup(g.surface, 64, ro.geometry_key, ro.look ?? null);
+        group.mesh.userData.instanceKey = key;
+        this.instances.set(key, group);
         this.content.add(group.mesh);
       }
       group.ids.push(ro.id);
-      touched.add(ro.geometry_key);
-      return { ro, mesh: null, edges: null, instance: { key: ro.geometry_key, index: group.ids.length - 1 }, matrix };
+      touched.add(key);
+      return { ro, mesh: null, edges: null, instance: { key, index: group.ids.length - 1 }, matrix };
     }
     const mat = ro.kind === 'ROOM' ? roomMaterial() : surfaceMaterial(ro.color, 'normal', isGrained(ro.material_id), this.clipping ? [this.clipPlane] : []);
     const mesh = new THREE.Mesh(g.surface, mat);
@@ -276,10 +290,10 @@ export class ViewportEngine {
     const ids = group.ids.filter((id) => this.entries.get(id)?.instance?.key === key || !this.entries.has(id));
     group.ids = ids.filter((id) => this.entries.has(id));
     if (group.ids.length > group.mesh.instanceMatrix.count) {
-      const g = this.geometries.get(key)!;
+      const g = this.geometries.get(group.geometryKey)!;
       this.content.remove(group.mesh);
       group.mesh.dispose();
-      const bigger = new InstanceGroup(g.surface, group.ids.length * 2);
+      const bigger = new InstanceGroup(g.surface, group.ids.length * 2, group.geometryKey, group.look);
       bigger.ids = group.ids;
       bigger.mesh.userData.instanceKey = key;
       this.instances.set(key, bigger);

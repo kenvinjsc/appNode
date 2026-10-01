@@ -121,6 +121,8 @@ export interface RenderObject {
   parent: ObjectId | null;
   cabinet: ObjectId | null;
   size: Vec3 | null;
+  /** Phụ kiện kính / gương (vẽ trong suốt / bóng). */
+  look?: 'GLASS' | 'MIRROR' | null;
 }
 
 export interface RenderBatch {
