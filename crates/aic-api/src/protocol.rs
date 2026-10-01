@@ -117,6 +117,8 @@ pub struct AnchorPatch {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
+// Request chỉ sống trong một lượt xử lý (giải mã JSON → handle), kích thước enum không đáng kể.
+#[allow(clippy::large_enum_variant)]
 pub enum Request {
     // project
     CreateProject { name: String },

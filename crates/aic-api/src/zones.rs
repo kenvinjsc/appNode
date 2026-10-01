@@ -421,8 +421,8 @@ impl Engine {
             }
             if let Some(d) = patch.extend_delta {
                 shift(m, d[0], d[2]);
-                for i in 0..4 {
-                    m.extend[i] += d[i];
+                for (e, v) in m.extend.iter_mut().zip(d) {
+                    *e += v;
                 }
                 let tool = "11. Co giãn tấm".to_string();
                 if !m.tools.contains(&tool) {

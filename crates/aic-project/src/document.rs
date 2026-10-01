@@ -548,7 +548,7 @@ impl Document {
         transform: Transform3D,
         parent: Option<ObjectId>,
     ) -> Result<ObjectId, CoreError> {
-        if size.iter().any(|v| !(*v > 0.0) || !v.is_finite()) {
+        if size.iter().any(|v| v.is_nan() || *v <= 0.0 || !v.is_finite()) {
             return Err(CoreError::InvalidParameter { name: "size".into(), reason: "dimensions must be > 0".into() });
         }
         if self.material(&material).is_none() {

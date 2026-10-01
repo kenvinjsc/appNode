@@ -1862,8 +1862,8 @@ fn apply_mods(out: &mut Layout, mods: &BTreeMap<String, PartMod>) {
             p.name = n.clone();
         }
         let (oext, omove) = offsets_to_local(p.rotation_deg, &m.offsets);
-        for k in 0..3 {
-            p.translation[k] += omove[k];
+        for (t, d) in p.translation.iter_mut().zip(omove) {
+            *t += d;
         }
         if matches!(p.kind, PartKind::Panel { .. }) {
             stretch(p, [m.extend[0] + oext[0], m.extend[1] + oext[1], m.extend[2] + oext[2], m.extend[3] + oext[3]]);

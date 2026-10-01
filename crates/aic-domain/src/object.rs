@@ -260,6 +260,9 @@ pub struct Hardware {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
+// Cabinet lớn hơn hẳn các biến thể khác nhưng đối tượng nằm trong map và được clone nguyên khối;
+// đóng hộp Cabinet phải sửa mọi chỗ khớp mẫu mà không lợi gì đáng kể.
+#[allow(clippy::large_enum_variant)]
 pub enum DomainObject {
     Room(Room),
     Cabinet(Cabinet),

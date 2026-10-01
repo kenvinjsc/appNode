@@ -52,6 +52,8 @@ pub fn snap_translation(moving: &Aabb, delta: [f64; 3], others: &[(ObjectId, Aab
     let mut out = delta;
     let mut hints = Vec::new();
     let moved = Aabb { min: [0, 1, 2].map(|i| moving.min[i] + delta[i]), max: [0, 1, 2].map(|i| moving.max[i] + delta[i]) };
+    // `axis` chỉ số chung cho moved / others / out / hints, giữ vòng chỉ số cho dễ đọc.
+    #[allow(clippy::needless_range_loop)]
     for axis in 0..3 {
         let (mn, mx) = (moved.min[axis], moved.max[axis]);
         let mc = 0.5 * (mn + mx);

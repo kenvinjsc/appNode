@@ -181,8 +181,7 @@ impl Parser {
 
     fn expr(&mut self, min_prec: u8) -> Result<Expr, ParseError> {
         let mut lhs = self.unary()?;
-        loop {
-            let Some(Tok::Op(op)) = self.peek() else { break };
+        while let Some(Tok::Op(op)) = self.peek() {
             let Some((prec, bop)) = Self::bin_prec(op) else { break };
             if prec < min_prec {
                 break;

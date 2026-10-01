@@ -877,7 +877,8 @@ impl ZoneTree {
         if count == 0 || count > 50 {
             return Err("count must be 1..50".into());
         }
-        if !(thickness > 0.0) {
+        // NaN cũng bị từ chối.
+        if thickness.is_nan() || thickness <= 0.0 {
             return Err("thickness must be > 0".into());
         }
         let uids: Vec<Uid> = (0..count).map(|_| self.alloc()).collect();

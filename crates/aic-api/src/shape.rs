@@ -206,7 +206,7 @@ pub fn round_corners(poly: &Polygon2D, corners: &[Corner], size: f64, chamfer: b
         let d2 = Point2::new((w.x - v.x) / l2, (w.y - v.y) / l2);
         let cos = (d1.x * d2.x + d1.y * d2.y).clamp(-1.0, 1.0);
         let theta = cos.acos(); // interior angle
-        if theta < 1e-3 || theta > std::f64::consts::PI - 1e-3 {
+        if !(1e-3..=std::f64::consts::PI - 1e-3).contains(&theta) {
             out.push(v);
             continue;
         }
@@ -470,7 +470,7 @@ impl Engine {
                             }
                         }
                         PolyMode::Hole => {
-                            let inside = polygon_ops::difference(&[pg.clone()], std::slice::from_ref(&poly)).iter().map(|q| q.area()).sum::<f64>() < 1.0;
+                            let inside = polygon_ops::difference(std::slice::from_ref(&pg), std::slice::from_ref(&poly)).iter().map(|q| q.area()).sum::<f64>() < 1.0;
                             if !inside {
                                 skipped.push(json!({ "id": id, "reason": "hole must lie inside the panel" }));
                                 continue;

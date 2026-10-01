@@ -60,7 +60,7 @@ mod tests {
     fn booleans() {
         let a = Polygon2D::rect(0.0, 0.0, 10.0, 10.0);
         let b = Polygon2D::rect(5.0, 0.0, 10.0, 10.0);
-        let u: f64 = union(&[a.clone()], &[b.clone()]).iter().map(|p| p.area()).sum();
+        let u: f64 = union(std::slice::from_ref(&a), std::slice::from_ref(&b)).iter().map(|p| p.area()).sum();
         let d: f64 = difference(&[a], &[b]).iter().map(|p| p.area()).sum();
         assert!((u - 150.0).abs() < 1e-3);
         assert!((d - 50.0).abs() < 1e-3);

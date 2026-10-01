@@ -36,6 +36,9 @@ pub enum Side {
     Front,
 }
 
+/// Cạnh tấm bám vào mặt nào, cách bao nhiêu.
+type EdgeRule = (EdgeSide, AnchorFace, f64);
+
 impl Side {
     fn index(self) -> usize {
         self as usize
@@ -74,7 +77,7 @@ impl Engine {
         let ea = edge_along(pa.rotation_deg, ab, 0.3);
         let eb = edge_along(pb.rotation_deg, ba_dir, 0.3);
         let front = edge_along(pa.rotation_deg, [0.0, 0.0, 1.0], 0.9);
-        let (kind_a, kind_b): (Option<(EdgeSide, AnchorFace, f64)>, Option<(EdgeSide, AnchorFace, f64)>) = match kind {
+        let (kind_a, kind_b): (Option<EdgeRule>, Option<EdgeRule>) = match kind {
             RelationKind::Inset => (ea.map(|e| (e, AnchorFace::Inner, 0.0)), eb.map(|e| (e, AnchorFace::Outer, 0.0))),
             RelationKind::Gap => (ea.map(|e| (e, AnchorFace::Inner, gap)), eb.map(|e| (e, AnchorFace::Outer, 0.0))),
             RelationKind::Overlay => (ea.map(|e| (e, AnchorFace::Outer, 0.0)), eb.map(|e| (e, AnchorFace::Inner, 0.0))),

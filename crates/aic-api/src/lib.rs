@@ -37,13 +37,16 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Gia công sinh từ liên kết, theo tấm.
+pub(crate) type JointFeatures = HashMap<ObjectId, Vec<aic_manufacturing::DerivedFeature>>;
+
 pub struct Engine {
     pub(crate) doc: Document,
     pub(crate) history: History,
     pub(crate) kernel: CsgKernel,
     pub(crate) mesh_cache: HashMap<String, Arc<MeshData>>,
     pub(crate) relations: Option<(u64, Arc<AssemblyGraph>)>,
-    pub(crate) joints: Option<(u64, Arc<HashMap<ObjectId, Vec<aic_manufacturing::DerivedFeature>>>)>,
+    pub(crate) joints: Option<(u64, Arc<JointFeatures>)>,
     pub(crate) nesting: HashMap<String, (u64, NestingResult)>,
     pub(crate) nesting_settings: HashMap<String, aic_nesting::NestingSettings>,
     pub(crate) relation_settings: RelationSettings,
@@ -996,8 +999,8 @@ impl Engine {
             Some(p) => self.doc.scene.world(p).inverse().transform_vector(v),
             None => v,
         };
-        for k in 0..3 {
-            t.translation[k] += local[k];
+        for (t, d) in t.translation.iter_mut().zip(local) {
+            *t += d;
         }
         Ok(Command::SetTransform { id, transform: t })
     }

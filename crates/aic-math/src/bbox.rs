@@ -28,9 +28,9 @@ impl Aabb {
     }
 
     pub fn expand_point(&mut self, p: [f64; 3]) {
-        for i in 0..3 {
-            self.min[i] = self.min[i].min(p[i]);
-            self.max[i] = self.max[i].max(p[i]);
+        for (i, v) in p.into_iter().enumerate() {
+            self.min[i] = self.min[i].min(v);
+            self.max[i] = self.max[i].max(v);
         }
     }
 

@@ -356,7 +356,7 @@ impl GeometryKernel for CsgKernel {
     type Edge = (V3, V3);
 
     fn make_box(&self, width: f64, depth: f64, height: f64) -> Result<CsgShape> {
-        if !(width > 0.0 && depth > 0.0 && height > 0.0) || !(width + depth + height).is_finite() {
+        if !(width > 0.0 && depth > 0.0 && height > 0.0 && (width + depth + height).is_finite()) {
             return Err(GeometryError::InvalidInput(format!("box {width} x {depth} x {height}")));
         }
         let (x, y, z) = (width, depth, height);

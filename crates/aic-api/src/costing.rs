@@ -61,6 +61,9 @@ pub struct Line {
     pub factor: Option<f64>,
 }
 
+/// Ván, chỉ dán, phụ kiện, danh sách cắt của một tủ (hoặc cả dự án).
+type CostLines = (Vec<Line>, Vec<Line>, Vec<Line>, Vec<CutRow>);
+
 impl Engine {
     /// Effective edge bands of a panel: cabinet rule + manual overrides for
     /// generated parts; stored bands for free panels.
@@ -201,7 +204,7 @@ impl Engine {
     }
 
     /// Costing for one cabinet (or everything when `cabinet` is None).
-    fn costing_for(&mut self, cabinet: Option<ObjectId>) -> Result<(Vec<Line>, Vec<Line>, Vec<Line>, Vec<CutRow>), CoreError> {
+    fn costing_for(&mut self, cabinet: Option<ObjectId>) -> Result<CostLines, CoreError> {
         let rows = self.cut_rows(cabinet)?;
         // Panels by (material, thickness).
         let mut panels: BTreeMap<(String, String), f64> = BTreeMap::new();
