@@ -140,6 +140,8 @@ Mẫu: **Tiền điều kiện → Bước → Kết quả mong đợi**. "Một
   view Trước: tay nắm cách đầu cánh 60 → 80; hai undo trả lại.
 - **TC-04.7 Khoang quá nhỏ** (tay; Rust `percent_keeps_ratio_and_conflict_is_reported`). Nhập khoang lớn hơn tủ → từ chối, thông báo
   tiếng Việt, tủ giữ nguyên.
+- **TC-04.9 Mặt sau** (E2E 33). Bàn đảo trống → 2D chọn **Mặt sau** → 2 khoang, khoang sau nằm trên → chuột phải → Cánh đôi
+  → cánh nằm ở mặt sau (quay ra phía ghế). Tủ thường: mặt sau là mặt trước lật trái ↔ phải.
 
 ### 05. Khoang & tấm
 

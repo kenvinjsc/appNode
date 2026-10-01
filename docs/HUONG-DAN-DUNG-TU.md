@@ -84,7 +84,8 @@ Thông số mặc định: ván 17.2, hậu 8.6, rãnh 13, chỉ Đơn 1mm.
   hộc tủ ngăn kéo, chân sắt), rộng hộc (khóa, không đổi theo rộng bàn), số ngăn kéo, yếm, hộc bàn phím, kệ trên (cao, số kệ,
   sâu), lỗ luồn dây (Ø, vị trí), gương.
 - **Bàn đảo 1800 (mở 2 mặt)**: không hậu, vách giữa chia khoang trước / khoang sau; ghim khoang sau (trong 3D, xoay ra phía sau)
-  rồi thêm kệ / cánh / ngăn kéo như thường, chúng tự quay ra sau. Tab **Bàn đảo**: mặt đá nhô phía ghế, nhô trước / hai bên, dày.
+  rồi thêm kệ / cánh / ngăn kéo như thường, chúng tự quay ra sau. Dễ nhất: thanh 2D chọn **Mặt sau**, bấm / chuột
+  phải khoang sau ngay trên bản vẽ. Tab **Bàn đảo**: mặt đá nhô phía ghế, nhô trước / hai bên, dày.
   Không chỉ vị trí thì đặt cách mặt trước dãy tủ của phòng 1000.
 - **Vách TV 3000 × 2700 / Vách lam 1200 × 2700**: tab **Vách ốp** có chia cột / hàng bằng công thức như Chia khoang (`/5`,
   `600,*`, `3*800`), mối ghép (khe bóng / soi V / ghép sát), khe, khung xương, lam gỗ (rộng, khe, dày, dọc / ngang) và danh sách

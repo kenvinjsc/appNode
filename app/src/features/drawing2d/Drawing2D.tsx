@@ -10,9 +10,9 @@ import { Icon } from '../../shared/icons';
 import { fmt, objectLabel } from '../../shared/i18n';
 import { expandSubtrees, getEngine, useSceneRevision } from '../../viewport/viewportBus';
 import { useCurrentCabinet, useZones } from '../cabinet/useZones';
-import { EditLayer } from './EditLayer';
+import { BackZoneLayer, EditLayer } from './EditLayer';
 
-type Plane = 'front' | 'side' | 'right' | 'top' | 'section_x' | 'section_y';
+type Plane = 'front' | 'back' | 'side' | 'right' | 'top' | 'section_x' | 'section_y';
 
 export interface Item {
   id: ObjectId;
@@ -42,7 +42,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
   const itemCache = useRef(new Map<ObjectId, Item>());
   // 2D editor: the current cabinet (selection or pinned zone), front view.
   const current = useCurrentCabinet();
-  const zinfo = useZones(plane === 'front' || plane === 'side' || plane === 'right' ? current : null);
+  const zinfo = useZones(plane === 'front' || plane === 'back' || plane === 'side' || plane === 'right' ? current : null);
 
   // Scope: the cabinet(s) of the selection, or everything.
   const scope = useMemo(() => {
@@ -82,7 +82,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
       const en = e.entries.get(id);
       if (!en || !en.ro.visible || en.ro.kind === 'ROOM') continue;
       const isFront = en.ro.role === 'Door' || en.ro.role === 'DrawerFront' || en.ro.kind === 'HARDWARE';
-      if (hideFronts && isFront && plane === 'front') continue;
+      if (hideFronts && isFront && (plane === 'front' || plane === 'back')) continue;
       const b = e.worldBox(id);
       if (!b) continue;
       // Section: only what the plane cuts, plus what lies behind it (looking along −axis).
@@ -93,13 +93,14 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
         if (!cut && b.min[ax] > cutPos) continue;
       }
       const [ax, ay, dz] =
-        plane === 'front'
+        plane === 'front' || plane === 'back'
           ? (['x', 'y', 'z'] as const)
           : plane === 'side' || plane === 'right' || plane === 'section_x'
             ? (['z', 'y', 'x'] as const)
             : (['x', 'z', 'y'] as const);
-      // 'side' looks from the left (front on the right); 'right' / section X from the right.
-      const flip = plane === 'right' || plane === 'section_x';
+      // 'side' looks from the left (front on the right); 'right' / section X from the right;
+      // 'back' từ phía sau (trái ↔ phải lật, gần mắt là phía sau).
+      const flip = plane === 'right' || plane === 'section_x' || plane === 'back';
       out.push({
         id,
         kind: en.ro.kind,
@@ -110,7 +111,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
         x1: flip ? -b.min[ax] : b.max[ax],
         y0: plane === 'top' || plane === 'section_y' ? b.min[ay] : -b.max[ay],
         y1: plane === 'top' || plane === 'section_y' ? b.max[ay] : -b.min[ay],
-        depth: plane === 'side' ? -b.min[dz] : b.max[dz],
+        depth: plane === 'side' || plane === 'back' ? -b.min[dz] : b.max[dz],
         front: isFront,
         cut,
       });
@@ -157,6 +158,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
         <div className="spacer" />
         <select value={plane} onChange={(e) => setPlane(e.target.value as Plane)}>
           <option value="front">Mặt đứng (Trước)</option>
+          <option value="back">Mặt sau</option>
           <option value="side">Mặt bên (Trái)</option>
           <option value="right">Mặt bên (Phải)</option>
           <option value="top">Mặt bằng (Trên)</option>
@@ -198,6 +200,7 @@ export function Drawing2D({ onClose }: { onClose?: () => void }) {
               <ItemRect key={it.id} it={it} sel={direct.has(it.id)} inSel={selected.has(it.id)} unit={unit} onPick={onPick} />
             ))}
             {editing && <EditLayer info={zinfo!} items={items} unit={unit} svg={svgRef.current} />}
+            {!!zinfo && plane === 'back' && scope.includes(zinfo.cabinet) && <BackZoneLayer info={zinfo} />}
             {dimsOn && <DimsLayer info={zinfo!} plane={plane as 'front' | 'side' | 'right'} unit={unit} />}
             {showDims && !editing && <Openings items={items} unit={unit} active={active} />}
             {showDims && !editing && !bounds.isEmpty() && (

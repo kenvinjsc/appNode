@@ -19,7 +19,7 @@ interface Rect {
 }
 
 /** Front projection (world X, −world Y) of a cabinet-frame box. */
-function project(m: number[], min: Vec3, size: Vec3): Rect {
+export function project(m: number[], min: Vec3, size: Vec3): Rect {
   const r: Rect = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   for (let i = 0; i < 8; i++) {
     const p = [min[0] + (i & 1 ? size[0] : 0), min[1] + (i & 2 ? size[1] : 0), min[2] + (i & 4 ? size[2] : 0)];
@@ -428,7 +428,8 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
   }
 
   // Leaf zones: click = pin, Ctrl+click = add, right-click = quick build menu.
-  const leaves = info.zones.filter((z) => z.leaf);
+  // Khoang sau (bàn đảo) vẽ trước, khoang trước đè lên → bấm trúng khoang trước.
+  const leaves = info.zones.filter((z) => z.leaf).sort((a, b) => a.min[2] - b.min[2]);
 
   // Drag handles over split panels.
   const handles = straight
@@ -590,6 +591,48 @@ export function EditLayer({ info, items, unit, svg }: { info: ZonesInfo; items: 
           />
         </foreignObject>
       )}
+    </g>
+  );
+}
+
+/** Mặt sau: chỉ ghim / dựng nhanh khoang (nhìn từ sau, lật trái ↔ phải), khoang gần mặt sau nằm trên. */
+export function BackZoneLayer({ info }: { info: ZonesInfo }) {
+  const { pinned, set } = useUi();
+  const [hover, setHover] = useState<number | null>(null);
+  const pins = pinned.cabinet === info.cabinet ? pinned.zones : [];
+  const leaves = info.zones.filter((z) => z.leaf).sort((a, b) => b.min[2] + b.size[2] - (a.min[2] + a.size[2]));
+  return (
+    <g className="d2e">
+      {leaves.map((z) => {
+        const r = project(info.matrix, z.min, z.size);
+        const on = pins.includes(z.id);
+        return (
+          <rect
+            key={z.id}
+            className={`d2e-zone ${on ? 'on' : ''} ${hover === z.id ? 'hover' : ''} ${info.misfits?.some((m) => m.zone === z.id) ? 'misfit' : ''}`}
+            x={-r.x1}
+            y={r.y0}
+            width={r.x1 - r.x0}
+            height={r.y1 - r.y0}
+            onMouseEnter={() => setHover(z.id)}
+            onMouseLeave={() => setHover(null)}
+            onClick={(e) => {
+              if (useUi.getState().splitTool) return void applySplit(info.cabinet, z.id);
+              const cur = useUi.getState().pinned;
+              const same = cur.cabinet === info.cabinet;
+              const zones = e.ctrlKey || e.metaKey ? (same ? (cur.zones.includes(z.id) ? cur.zones.filter((x) => x !== z.id) : [...cur.zones, z.id]) : [z.id]) : [z.id];
+              set({ pinned: { cabinet: info.cabinet, zones } });
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              set({ pinned: { cabinet: info.cabinet, zones: [z.id] }, zoneMenu: { x: e.clientX, y: e.clientY, cabinet: info.cabinet, zone: z.id }, contextMenu: null });
+            }}
+          >
+            <title>{`Vùng #${z.id} · ${fmt(z.size[0], 1)} × ${fmt(z.size[1], 1)} — click ghim, chuột phải: dựng nhanh`}</title>
+          </rect>
+        );
+      })}
     </g>
   );
 }
