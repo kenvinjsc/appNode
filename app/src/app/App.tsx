@@ -1,0 +1,103 @@
+import { useEffect } from 'react';
+import { ArrayDialog } from '../features/cabinet/ArrayDialog';
+import { TemplateGallery } from '../features/cabinet/TemplateGallery';
+import { setErrorNotifier } from '../core-api/commands';
+import { onHistoryStatus } from '../core-api/events';
+import { Queries } from '../core-api/queries';
+import { CncWorkspace } from '../features/cnc/CncWorkspace';
+import { Drawing2D } from '../features/drawing2d/Drawing2D';
+import { ManufacturingWorkspace } from '../features/manufacturing/ManufacturingWorkspace';
+import { MaterialBrowser } from '../features/materials/MaterialBrowser';
+import { NestingWorkspace } from '../features/nesting/NestingWorkspace';
+import { ReportWindow } from '../features/report/ReportWindow';
+import { CabinetDesigner } from '../features/cabinet/CabinetDesigner';
+import { ToolColumn } from '../features/tools/ToolColumn';
+import { SceneTree } from '../features/scene-tree/SceneTree';
+import { Icon } from '../shared/icons';
+import { Viewport } from '../viewport/Viewport';
+import { Actions } from './actions';
+import { StructureDialog } from '../features/cabinet/StructureDialog';
+import { SplitDialog } from '../features/cabinet/SplitDialog';
+import { RunDialog } from '../features/cabinet/RunDialog';
+import { ContextMenu, Jobs, PromptDialog, StatusBar, TitleBar, Toasts, WorkspaceRail, ZoneMenu } from './Chrome';
+import { Ribbon } from './Ribbon';
+import { ShortcutSheet, useShortcutLayer } from './Shortcuts';
+import { useUi } from './uiStore';
+
+let booted = false;
+
+export function App() {
+  const { workspace, panels, drawer, set, leftTab } = useUi();
+  useShortcutLayer();
+
+  useEffect(() => {
+    setErrorNotifier((m) => useUi.getState().toast({ kind: 'error', title: m.title, detail: m.detail }));
+    const off = onHistoryStatus((s) => useUi.getState().set({ canUndo: s.canUndo, canRedo: s.canRedo, revision: s.revision }));
+    Queries.materials().then((materials) => set({ materials })).catch(() =>
+      useUi.getState().toast({ kind: 'error', title: 'Không kết nối được lõi CAD.', detail: 'Hãy chạy aic-dev-server (npm run core) hoặc mở ứng dụng desktop.' }),
+    );
+    // First start: open the sample project so the workspace is not empty.
+    if (booted) return off;
+    booted = true;
+    Queries.sceneTree()
+      .then((t) => {
+        if (t.roots.length === 0) void Actions.sampleProject();
+      })
+      .catch(() => undefined);
+    return off;
+  }, [set]);
+
+  return (
+    <div className="app">
+      <TitleBar />
+      <Ribbon />
+      <div className="main">
+        <WorkspaceRail />
+        {/* The design viewport stays mounted so GPU caches survive workspace switches. */}
+        <div className="ws ws-design" style={{ display: workspace === 'design' ? 'flex' : 'none' }}>
+          {panels.tree && (
+            <div className="left-col">
+              <div className="left-tabs">
+                <button className={leftTab === 'tree' ? 'active' : ''} onClick={() => set({ leftTab: 'tree' })}>Cây đối tượng</button>
+                <button className={leftTab === 'tools' ? 'active' : ''} onClick={() => set({ leftTab: 'tools' })}>Tool</button>
+              </div>
+              {leftTab === 'tree' ? <SceneTree /> : <ToolColumn />}
+            </div>
+          )}
+          <div className="center">
+            <div className="panel view3d">
+              <div className="panel-header">
+                <Icon name="box3d" size={16} />
+                <span>3D · Phối cảnh</span>
+              </div>
+              <Viewport />
+            </div>
+            {panels.drawing && <Drawing2D onClose={() => set({ panels: { ...panels, drawing: false } })} />}
+          </div>
+          {panels.properties && <CabinetDesigner />}
+        </div>
+        {workspace === 'manufacturing' && <ManufacturingWorkspace />}
+        {workspace === 'nesting' && <NestingWorkspace />}
+        {workspace === 'cnc' && <CncWorkspace />}
+        {drawer && (
+          <div className="drawer">
+            {drawer === 'materials' && <MaterialBrowser />}
+            {drawer === 'report' && <ReportWindow />}
+            {drawer === 'shortcuts' && <ShortcutSheet />}
+          </div>
+        )}
+      </div>
+      <StatusBar />
+      <ContextMenu />
+      <ZoneMenu />
+      <PromptDialog />
+      <StructureDialog />
+      <TemplateGallery />
+      <ArrayDialog />
+      <SplitDialog />
+      <RunDialog />
+      <Toasts />
+      <Jobs />
+    </div>
+  );
+}

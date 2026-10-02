@@ -1,0 +1,10 @@
+[package]
+name = "aic-dev-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "HTTP bridge exposing the AIC API to the browser during development (Tauri IPC in production)."
+
+[dependencies]
+aic-api.workspace = true
+tiny_http = "0.12"

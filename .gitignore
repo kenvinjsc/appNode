@@ -12,3 +12,10 @@ logs
 results
 
 npm-debug.log
+
+# Rust / Node
+target/
+node_modules/
+dist/
+app/src-tauri/target/
+app/src-tauri/gen/

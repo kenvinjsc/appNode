@@ -1,0 +1,97 @@
+# Ánh xạ UI Action → Core Command → Response → UI Update
+
+Mọi request là JSON `{"cmd": "...", ...}` gửi tới `Engine::dispatch_json`
+(Tauri: lệnh IPC `dispatch`; trình duyệt: `POST /api`). Response luôn có dạng
+`{ ok, result, events[], error{code,message,details}, revision, can_undo, can_redo }`.
+
+| UI action | Request (`cmd`) | Core | Events | UI update |
+|---|---|---|---|---|
+| Ribbon Tủ → click vị trí → nhập W/H/D | `create_cabinet {kind, position, overrides}` | `Command::CreateCabinet` → generator → solve tham số | ObjectCreated, SceneTreeChanged | `get_render_objects(ids, known_keys)` → thêm mesh; làm mới cây; chọn tủ mới |
+| Khung → [TAB] Tạo tủ (theo tab tầng/phòng) | `create_cabinet {kind, position?, overrides{…, top_style, bottom_style, edge_rule, back_groove}, name?, room?, floor?, after?}` | Tên tự đánh số; `after` → đặt bên phải tủ đó; không có `position` → nối dãy của (tầng, phòng), phòng/tầng mới có khu riêng | ObjectCreated, SceneTreeChanged | Cây có `floor`, `room` trên node tủ → tab Tầng/Phòng |
+| Đổi tầng / phòng của tủ (đổi tên tab) | `set_parameter {id, name: "floor" \| "room", value}` | `Command::SetCabinet` (hoàn tác được) | ObjectChanged | Làm mới tab |
+| Tạo tấm: ghim vùng, [TAB] Thêm / chuột phải → Dựng nhanh | `get_zones {cabinet}`, `zone_add_panels`, `zone_add_doors`, `zone_add_drawers`, `zone_add_link`, `zone_remove` | `Command::SetCabinet` → regenerate | ObjectCreated/Deleted/Changed | Vẽ vùng, cập nhật cây |
+| Chỉnh tấm: co giãn, độ dày, vật liệu tấm sinh | `set_part_mod {id, patch}` | PartMod theo key ổn định | ObjectChanged | |
+| Tool 04/09/10 (cắt tự do, cắt theo tấm, bo/vát góc) | `shape_tool {ids, op: CORNERS \| CUT_LINE \| CUT_BY_PANEL}` | Contour ngoài / contour trong / pocket, lưu ở tọa độ local (part mod hoặc feature) | ObjectChanged | Mesh mới (CSG), CNC chạy theo biên dạng |
+| Tool 06 Hợp tấm | `merge_panels {ids}` | Kéo dài tấm đầu, xóa các tấm còn lại (cùng mặt phẳng, cùng dày) | ObjectChanged, ObjectDeleted | |
+| Tool 20 Chia tấm / 14 Ghép bề dày | `set_part_mod {id, patch: {split \| thickness}}` | PartMod.split → các tấm con `key~n` | ObjectCreated/Changed | |
+| 2D: bấm số kích thước khoang, nhập mm hoặc `40%` | `set_bay {cabinet, zone, index, mode?: LOCK \| AUTO \| PERCENT, value?}` | `Split.bays`; khoang AUTO / khoang kề hấp thụ; từ chối nếu khoang < 1 mm (`CONSTRAINT_VIOLATED ZONE_TOO_SMALL`) | ObjectChanged (chỉ tấm bị ảnh hưởng) | 2D + 3D cập nhật |
+| 2D: kéo vách / kệ (PREVIEW cục bộ, thả chuột = COMMIT) | `move_split_panel {id, before}` | Chỉ 2 khoang kề đổi; khoang KHÓA giữ nguyên | ObjectChanged | |
+| Menu vùng: Chia đều lại | `equalize_split {cabinet, zone}` | Mọi khoang AUTO | | |
+| 2D: bấm W / H tủ; Chỉnh tấm: Neo rộng/cao/sâu | `set_parameter {id, name: width \| height \| depth \| anchor_w \| anchor_h \| anchor_d}` | Đổi tham số + dời gốc theo neo + dịch các tủ liền kề cùng dãy (một bước undo), không scale | TransformChanged, ObjectChanged | |
+| Chọn nhiều đối tượng → Chỉnh tấm (giá trị khác nhau = "Nhiều giá trị") | `get_properties_multi {ids}`, `set_parameter_multi {ids, name, value}` | Một bước undo, lỗi một đối tượng thì hoàn tác cả nhóm | ObjectChanged | |
+| Chỉnh tấm kệ: Nghiêng trước-sau; vách: Vách lửng | `set_parameter {id, name: tilt_fb \| extent, value}` | Đổi `SplitPanel.tilt_deg[0]` / `extent` (một undo); layout sinh kệ xoay + ThanhChặnGót, vách thấp | ObjectChanged, ZonesChanged | Menu Dựng nhanh: `zone_add_panels {tilt_deg:[15,0]}` |
+| Chỉnh tấm → Offset (lùi mặt trước/sau/trái/phải/trên/dưới) | `set_parameter {id, name: off_front …}` | `PartMod.offsets` (hướng tủ) → cạnh tấm theo góc xoay, hoặc dời theo chiều dày | ObjectChanged | |
+| Chuột phải tủ → Lưu làm template; Cài đặt → Template | `save_template {cabinet, name}`, `delete_template`, `get_templates` | `ProjectSettings.templates`: định nghĩa logic (zone + khoang KHÓA/%/AUTO, cánh, ngăn kéo, part mod, luật, vật liệu) + tham số | SettingsChanged | |
+| Khung → Template + [TAB] | `insert_template {name, width?, height?, depth?, room?, floor?, after?}` | Tạo tủ + tham số + định nghĩa, giải lại cho W/H/D mới; một bước undo; không vừa → `ZONE_TOO_SMALL`, không tạo gì | ObjectCreated | |
+| Rule preset (có sẵn "AIC Wardrobe Standard", "AIC Bếp dưới", hoặc lưu từ tủ) | `save_rule_preset`, `delete_rule_preset`, `apply_rule_preset {ids, name}` | Tham số kết cấu + kiểu nóc/đáy + luật dán cạnh; một bước undo | ObjectChanged | |
+| Chuột phải: Lật gương / Nhân dãy tủ / Nhân tấm | `mirror_cabinet {id}`, `array_cabinet {id, count, axis, gap}`, `array_split_panel {id, count}` | Lật zone + bản lề + mod trái/phải; nhân bản cả định nghĩa; thêm tấm cùng loại, chia đều | | |
+| Chỉnh tấm → Ràng buộc: cạnh → tấm đích / mặt trong-ngoài / offset | `set_part_mod {id, patch: {add_anchor: {edge, target, face, offset}} \| {remove_anchor: i}}` | `PartMod.anchors`, giải sau các mod khác: cạnh kéo tới mặt đích ± offset; đích dịch thì tấm tự dài/ngắn | ObjectChanged | |
+| 2D: số cao mặt ngăn kéo / nhãn chế độ / kéo đường chia ngăn | `set_drawer_height {cabinet, uid, index, mode?, value?}`, `move_drawer_divider {cabinet, uid, index, before}` | `DrawerSpec.heights` (KHÓA/%/AUTO, dưới → trên); hộc ngăn theo mặt | ObjectChanged | |
+| Chỉnh tấm (cánh): Khe trái/phải/dưới/trên, khe giữa cánh | `set_parameter {id, name: door_gap_left …}` | `DoorSpec.side_gaps` | ObjectChanged | |
+| Quan hệ 2 tấm (chuột phải khi chọn 2 tấm / Tool 23) | `set_relation {a, b, kind: INSET \| OVERLAY \| FLUSH \| GAP \| NONE, gap}` | Tìm cạnh A hướng về B (và B về A), dựng anchor hai phía (mặt trong / ngoài / bằng mặt) | ObjectChanged | |
+| 2D: kéo 4 cạnh tấm (Giữ ràng buộc / Tự do) | `resize_panel_side {id, side: LEFT..FRONT, delta, constrained}` | Có ràng buộc: đổi offset của anchor; tự do: bỏ anchor cạnh đó, đổi offset tấm | ObjectChanged | |
+| Tool 21 Cung cạnh / 22 Biên dạng tự do | `shape_tool {ids, op: EDGE_ARC {edge, sagitta} \| POLYGON {points, mode: OUTLINE \| SUBTRACT \| HOLE}}` | Cung tròn (sai số dây 0.1 mm); đa giác kiểm tra tự cắt (Clipper2) | ObjectChanged | Mesh + CNC theo biên dạng |
+| Kéo / nhập kích thước tủ (3D, 2D) + ô Dãn | `resize_cabinet {id, name, value, stretch: KEEP \| PROPORTIONAL \| EDGE, edge?}` | Viết lại khoang (và cao ngăn kéo) thành % hoặc KHÓA + AUTO ở cạnh kéo rồi đổi tham số; một bước undo | ObjectChanged | |
+| Kéo khối đã chọn trong 3D (gõ số = khoảng dời) | `move_objects {ids, delta: [x,y,z]}` | Dời các đối tượng gốc (bỏ con trùng) theo vector thế giới; một bước undo | ObjectChanged | |
+| Căn chỉnh (tab Chỉnh sửa) | `align_objects {ids, mode}` · `distribute_objects {ids, axis}` · `rotate_objects {ids, deg, pivot}` · `snap_to_wall {ids, gap}` | Hộp bao thế giới → Batch SetTransform, một undo | TransformChanged | |
+| Chia khoang theo công thức (hộp thoại Chia ngang / Chia dọc, phím K) | `split_zone {cabinet, zone, kind, formula, from_end}` | `500` · `500,300` · `30%,*` · `3*400` · `/3`; kind VIRTUAL_H/V = chia không tạo tấm; khoang KHÓA/%/AUTO; từ chối nếu không đủ chỗ; một bước undo | ObjectChanged | |
+| Chuẩn xưởng: sửa field tab Kệ & chốt tầng / Cánh & tay nắm / Ngăn kéo | `set_parameter {id: cabinet, name: "s_*", value}` · `save_group_preset {group: "all"}` · `apply_group_preset {group: "all"}` | `Cabinet.rules.shop` (ShopRules, mặc định = giá trị cũ); `get_structure` trả `standards` | ObjectChanged, GeometryChanged | |
+| Dãy tủ (chuột phải → Tạo dãy tủ, bảng Dãy tủ) | `create_run {ids, rules?}` · `update_run {name, rules}` · `delete_run {name}` · `get_runs` | `ProjectSettings.runs` + `Command::SetRun`; tấm dãy là tấm rời (CreatePanel); sau mọi lệnh sửa, dãy có tủ đổi hộp bao được sinh lại trong cùng bước undo | ObjectCreated/Deleted, SceneTreeChanged | |
+| Tủ góc L mù / góc chéo (Tủ ▾) | `create_corner {hand: LEFT\|RIGHT, kind?: BLIND\|DIAGONAL, wall?, width?, depth?, door_width?, after?}` · `set_parameter dg_shelves / dg_hinge_left / dg_shelf_setback` | Tủ bếp dưới + chia ảo (tấm mù `DoorSpec.fixed` + 1 cánh); cánh 250 ≤ rộng ≤ W − 200 (`CORNER_DOOR`); một bước undo | ObjectCreated | |
+| Mẫu bếp dựng sẵn (Tủ ▾) | `get_products` · `insert_product {key, after?, room?, floor?, position?}` | Core dựng bằng chuỗi request có sẵn (tạo tủ, chuẩn xưởng, chia khoang, cánh / ngăn kéo, bộ vật liệu), một undo | ObjectCreated | |
+| Tool 03 / 08 / 16 / 18 (khấu góc, khấu bề mặt, rãnh LED, V-bit) | `tool_feature {ids, tool, feature: NOTCH\|POCKET\|GROOVE_LINE}` | Tấm của tủ: `PartMod.param_features` (tính lại theo kích thước tấm khi dựng); tấm rời: AddFeature theo cỡ hiện tại; một undo | GeometryChanged | |
+| Bộ vật liệu (bảng Thuộc tính kết cấu) | `get_material_sets` · `save_material_set {cabinet, name}` · `apply_material_set {ids?, room?, name}` · `delete_material_set {name}` | Bộ dựng sẵn + thư viện (`Library.material_sets`); áp = SetMaterial/SetCabinetSlot + chỉ dán theo nhóm, một undo | ObjectChanged | |
+| Báo giá / danh sách cắt gộp / nhãn (Báo cáo) | `get_costing` → `quote`, `cut_groups`, `cut_list[].code` · `set_price {key: "quote:*"}` · `set_parameter {name: "pricing"}` | Đơn giá báo giá trong `prices` (undo); cách tính theo tủ `StructureRules.pricing` | ObjectChanged | |
+| Dán cạnh theo nhóm (tab Dán cạnh) | `set_parameter {name: "edge_g_<front\|carcass\|shelf\|back\|drawer>_<mode\|code>"}` | `EdgeRule.groups`; hậu / đáy hộc không dán theo vai trò | ObjectChanged | |
+| Thuộc tính kết cấu → Hậu → Khoét hậu (+ Ổ điện / Ống / Thoát nhiệt, sửa, bỏ) | `set_back_cutouts {cabinet, cutouts: [{kind, anchor, x, y, w, h, r}]}` | `BackRule.cutouts` → `ContourFeature {inner}` trên tấm hậu chứa tâm lỗ (một undo); `get_structure` trả `back_cutouts` | ObjectChanged, GeometryChanged | Hậu ốp / chia theo kệ: `set_parameter back_overlay \| back_split_at_fixed` |
+| Dựng nhanh → Cánh lật / gập; Chỉnh tấm cánh → Tay nâng, Khung nhôm, Ô nhét | `zone_add_doors {kind: LIFT_UP \| FOLD}` · `set_parameter {name: door_kind \| door_lift \| door_glass_frame \| door_glass_infill}` | `DoorKind::LiftUp/Fold`, `DoorSpec.lift`, `DoorSpec.glass`; `Fittings.lifts`; khoang ngoài tầm tay nâng → `LIFT_HEIGHT` (edit_cabinet_checked) | ObjectChanged | |
+| Tạo tấm → Liên kết → Phụ kiện khoang; Dựng nhanh → Phụ kiện | `get_accessories {cabinet, zones}` · `zone_add_link {kind: ACCESSORY, code, offset}` → `{misfit_zones}` | `LinkKind::Accessory` + `Link.code`, catalog `zone::ACCESSORIES`; `Layout.misfits` → `get_zones.misfits`; `Fittings.accessories / led_mm / led_drivers` | ObjectChanged | 2D tô đỏ `.d2e-zone.misfit` |
+| Dựng nhanh → Khoang thiết bị | `zone_add_link {kind: APPLIANCE_BAY, code}` | `LinkKind::ApplianceBay`, catalog `zone::APPLIANCES`; thiếu lọt lòng → `APPLIANCE_FIT`; khe thoát nhiệt → `Ctx.vents` → khoét hậu | ObjectChanged | |
+| Chỉnh tấm cánh lùa → Hệ ray | `set_parameter {id: cánh / thanh khung, name: door_slide_tracks \| door_slide_overlap \| door_slide_deduct_top \| door_slide_deduct_bottom \| door_slide_frame \| door_slide_infill \| door_slide_rails_h}` | `DoorSpec.sliding: SlidingSpec` → `layout::sliding_doors`; khung = `HardwareKind::Profile`, kính = `HardwareKind::Glass` (`get_render_objects` gửi `look: GLASS / MIRROR` theo mã catalog để 3D vẽ trong suốt / bóng); `Fittings.alu_profile_mm / glass_mm2` | ObjectChanged | |
+| Chỉnh tấm → Gia công → Xuất file máy | `export_machine {ids, format: DXF \| MPR \| CIX, flip_for_b, origin_top}` → `{files: [{name, content}]}` | `aic_manufacturing::export` từ `FlatPanel` (feature local đã có cả liên kết) | Truy vấn | UI tải từng file |
+| Cài đặt → Thư viện nhóm; Thuộc tính kết cấu → Đẩy lên nhóm | `get_library_sources` · `set_library_sources {sources: [{name, path, readonly}], conflict}` · `reload_library` · `publish_library_item {source, kind, name, group}` | `library_sources.rs`: hợp nhất JSON theo (loại, nhóm/tên); lưu file máy bỏ mục nguồn chưa sửa; ngoài dự án (không undo) | Truy vấn | Lỗi `LIBRARY_READONLY`, `LIBRARY_SOURCE` |
+| Chuột phải nhiều tấm → Nối vân / Bỏ nối vân | `set_grain_group {ids, group \| null, vertical}` | `PartMod.grain_group / grain_vertical` (một undo, cùng vật liệu: `GRAIN_MATERIAL`); `nesting_job` gắn `NestingPart.grain_group` (thứ tự theo vị trí) → `MaxRectsNester` gộp khối | ObjectChanged | |
+| Khung → Loại phòng | `get_room_types {room?}` · `set_room_type {room, room_type}` | `ProjectSettings.room_types` (`Command::SetRoomType`, undo được); `create_cabinet` áp luật phòng (`room_rules.rs`) trong cùng một undo, trả `room_rules` | SettingsChanged / ObjectCreated | |
+| Thanh 2D → Bản vẽ in | `get_drawing_sheet {ids \| room, floor, paper, portrait, views, hide_fronts, drawer, date}` | `drawing.rs`: chiếu layout → primitive (rect / line / text, mm giấy), dim đã bung thành nét + chữ, khung tên | Truy vấn | UI `PrintSheet.tsx` vẽ SVG + in |
+| Chuột phải tủ → Nhân dãy tủ… | `array_cabinet {id, count, axis: 0 \| 1 \| 2, gap, sizes?}` | Nhân + đặt liền nhau; `sizes` = công thức kích thước theo trục (tủ mới đổi rộng / cao / sâu giữ mép đầu); một undo | ObjectCreated | UI `ArrayDialog.tsx` |
+| Tủ ▾ → Mẫu dựng sẵn (lưới theo phòng) | `get_products` (size, params) · `insert_product {key, width, height, depth, params, after}` | `products.rs::PRODUCTS` (14 mẫu) dựng bằng chuỗi request có sẵn, một undo | ObjectCreated | UI `TemplateGallery.tsx` |
+| Tủ ▾ → Sản phẩm khác (Giường …) | `create_furniture {kind: BED \| DESK \| CLADDING \| ISLAND, width, height, depth, options}` (ISLAND: `StructureRules.island`, gốc chia BACK_SUB, `island_*`) · `set_parameter {name: bed_* \| desk_* \| cl_*}` · khoét vách: `set_back_cutouts` | `StructureRules.product = Product::Bed(BedSpec)` → `layout::products::bed`; một undo; `get_structure` thêm tab Giường; báo giá `PIECE` (`quote:piece:BED`) | ObjectCreated / ObjectChanged | |
+| Thuộc tính kết cấu → Phào & ốp | `set_parameter {id: cabinet, name: tr_*, value}` (tr_cornice NONE/FRONT/FRONT_LEFT/FRONT_RIGHT/3_SIDES, tr_cornice_h, tr_cornice_overhang, tr_cornice_miter, tr_skirting_h, tr_end_left/right, tr_end_t, tr_end_front, tr_end_to_floor, tr_scribe_left/right) | `StructureRules.trim` → `c:cornice_f/l/r`, `c:skirt_*`, `c:end_l/r`, `c:scribe_l/r` (PanelRole::Trim) | ObjectChanged, GeometryChanged | |
+| Chuột phải tủ → Thuộc tính kết cấu | `get_structure {cabinet}`, `set_parameter` (back_*, rt_*, plinth_setback, top_covers_back …) | `Cabinet.rules` (BackRule, TopRails, plinth_setback) | ObjectChanged | Bảng tab như plugin |
+| Lưu / Áp mẫu từng tab | `save_group_preset {cabinet, group, name}`, `apply_group_preset {ids, group, name}`, `delete_group_preset` | Thư viện dùng chung (file JSON của máy) | | |
+| Mẫu vùng | `save_zone_preset {cabinet, zone, name}`, `apply_zone_preset {cabinet, zones, name}`, `delete_zone_preset` | Sao chép nội dung vùng, đánh số uid mới | ObjectCreated | |
+| Báo cáo | `get_costing`, `set_price {key, value}` | Bóc m², mét chỉ, phụ kiện | SettingsChanged | ReportWindow |
+| Sửa ô Rộng/Cao/… (số hoặc `= biểu thức`) | `set_parameter {id, name, value}` | `Command::SetParameter` → `ParamGraph::set_many` (incremental) | GeometryChanged (chỉ các tấm đổi kích thước), TransformChanged, ObjectChanged | lấy lại mesh theo key mới; ma trận mới; properties |
+| Số đợt/cánh/ngăn kéo, kiểu nóc/đáy, tấm hậu | `set_parameter` (tham số cấu trúc) | sinh lại tủ, khớp (vai trò, chỉ số) để giữ id; lệnh nghịch đảo `ReplaceSubtree` | ObjectCreated/Deleted/Changed, SceneTreeChanged | như trên |
+| Kéo handle W/H/D của tủ | `set_parameter` khi nhả chuột | như trên | như trên | preview khung ghost chỉ ở client |
+| Gizmo Move/Rotate | `snap {id, delta}` khi kéo; `set_transform {id, transform}` khi nhả chuột | `aic_spatial::snap_translation`; `Command::SetTransform` (x/y/z được ghi đè thành số) | TransformChanged cho cả cây con | preview bằng ma trận; khi có event thì lấy ma trận thật |
+| Xóa / Sao chép (Delete, Ctrl+D) | `delete_objects {ids}` / `duplicate_objects {ids}` | `Batch` của Delete/Duplicate (id mới, lệch vị trí) | ObjectDeleted + SelectionInvalidated / ObjectCreated | gỡ/thêm mesh; bỏ chọn id đã xóa |
+| Ẩn/hiện, Khóa | `set_visible` / `set_locked {ids, …}` | Scene node (kế thừa xuống con) | ObjectChanged, SceneTreeChanged | trạng thái hiển thị |
+| Kéo thả trong cây | `reparent {id, parent}` | giữ vị trí world; từ chối chi tiết sinh tự động | SceneTreeChanged, ObjectChanged | cây |
+| Chọn vật liệu | `set_material {id, material, slot}` | tấm hoặc cả slot của tủ (thùng/cánh/hậu) | GeometryChanged | màu/vân (chỉ hiển thị) |
+| Dán cạnh | `set_edge_band {id, edge, enabled}` hoặc `set_parameter edge_left=on` | `Command::SetEdgeBand` | GeometryChanged | properties, bản vẽ trải phẳng |
+| Undo/Redo | `undo` / `redo` | `History` chạy lệnh nghịch đảo | tùy lệnh | như trên |
+| Mở/Lưu | `load_project {project}` / `save_project` | `ProjectFile` (format `aic-project`, version 1, có migrate) | ProjectLoaded | đồng bộ toàn bộ scene |
+| Xem quan hệ | `get_relations {id?}` | sweep → SAT → vùng tiếp xúc (cache theo revision) | — | vẽ polygon tiếp xúc, mũi tên, tooltip, lọc |
+| Gia công | `get_manufacturing {id}` | flatten + feature suy diễn (vai trò, liên kết) | — | bản vẽ trải phẳng, danh sách feature |
+| Báo cáo | `get_parts` | danh sách chi tiết + tổng theo vật liệu | — | bảng, CSV |
+| Xếp tấm | `run_nesting {material, settings}` | `MaxRectsNester` (vân, xoay, khoảng cách, lề) | — | vẽ vị trí đặt, số tấm, % hao hụt |
+| CNC | `generate_cnc {material, sheet_id}` | toolpath (Clipper2 offset), G-code | — | đường chạy dao, mô phỏng, G-code |
+| Truy vấn khác | `get_scene_tree`, `get_properties`, `get_render_objects`, `get_materials`, `get_bounds`, `get_transform`, `get_status` | — | — | — |
+
+## Mã lỗi (UI dịch sang tiếng Việt, xem `app/src/core-api/errors.ts`)
+
+`CONSTRAINT_VIOLATED` (details.constraint: `WIDTH_LESS_THAN_SIDES`, `HEIGHT_TOO_SMALL`, `DEPTH_TOO_SMALL`,
+`THICKNESS_OUT_OF_RANGE`, `TOO_MANY_SHELVES`, `DOOR_TOO_NARROW`), `DEPENDENCY_CYCLE`, `INVALID_PARAMETER`, `LOCKED`,
+`NOT_FOUND`, `INVALID_TRANSFORM`, `INVALID_REPARENT`, `GEOMETRY_BOOLEAN_FAILED`, `INVALID_FEATURE`,
+`UNKNOWN_MATERIAL`, `UNSUPPORTED_VERSION`, `INVALID_PROJECT`, `NOTHING_TO`.
+
+
+## Sự kiện khoang (D20)
+`ZonesChanged { cabinets }` chỉ phát cho tủ có khoang / kích thước khoang / cao ngăn kéo / vị trí tấm chia thật sự đổi (so vết khoang lần dựng trước). `useZones` chỉ gọi lại `get_zones` khi có `ZonesChanged`, `TransformChanged`, `ObjectChanged`, `ObjectDeleted` của đúng tủ, hoặc `ProjectLoaded`. Bản vẽ 2D giữ nguyên đối tượng tấm không đổi và vẽ từng tấm bằng `React.memo`, nên sửa một khoang chỉ vẽ lại vài tấm.
+
+## Xem trước khi kéo (D25)
+`preview {cabinet, request}` chạy thử một request sửa tủ (`move_split_panel`, `set_bay`, `resize_cabinet`, `set_parameter`, `resize_panel_side`, `move_drawer_divider`, `set_drawer_height`, `equalize_split`), trả `{ok, bays, front_bays, positions, problems, size}` rồi trả dự án về nguyên trạng: không vào undo (giữ cả redo), không tăng revision, không phát sự kiện. 2D gọi khi kéo vách / kệ (tối đa ~25 lần/giây) để hiện số đúng như sẽ lưu (bắt lỗ hệ 32, KHÓA / % / AUTO); khoang không đủ chỗ → tay nắm kéo tô đỏ.
+
+## Số đo sửa trực tiếp 2D (D03)
+`get_zones` trả `dims: [{view: front|side|right, label, value, a, b, id, name}]` (điểm đo theo tọa độ tủ, mm). UI chiếu lên view và gửi `set_parameter {id, name, value}` khi người dùng nhập số.

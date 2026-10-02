@@ -1,0 +1,348 @@
+//! Template tủ, rule preset, array và mirror (Phase 4–5).
+//! A template is the cabinet's *logical* definition (zones with LOCK/AUTO/% bays,
+//! fronts, part mods, rules, materials) plus its construction parameters; inserting
+//! it with another W/H/D re-solves the structure instead of scaling geometry.
+
+use crate::protocol::{CabinetOverrides, Request};
+use crate::zones::bad;
+use crate::Engine;
+use aic_domain::{EdgeRule, JoinStyle, ObjectId};
+use aic_project::{CabinetTemplate, Command, CoreError, RulePreset};
+use serde_json::{json, Value};
+use std::collections::BTreeMap;
+
+/// Cabinet parameters a template / preset carries (besides W/H/D for templates).
+pub const RULE_PARAMS: [&str; 9] =
+    ["thickness", "back_thickness", "back_groove", "back_offset", "door_gap", "door_thickness", "shelf_setback", "plinth_height", "rail_width"];
+
+/// Built-in presets (always available, not stored in the project).
+pub fn builtin_presets() -> Vec<RulePreset> {
+    let v = |pairs: &[(&str, f64)]| pairs.iter().map(|(k, x)| (k.to_string(), *x)).collect::<BTreeMap<_, _>>();
+    vec![
+        RulePreset {
+            name: "AIC Wardrobe Standard".into(),
+            values: v(&[("thickness", 17.2), ("back_thickness", 8.6), ("back_groove", 13.0), ("door_gap", 2.0), ("shelf_setback", 30.0)]),
+            top_style: Some(JoinStyle::Overlay),
+            bottom_style: Some(JoinStyle::Inset),
+            edge_rule: Some(EdgeRule::default()),
+        },
+        RulePreset {
+            name: "AIC Bếp dưới".into(),
+            values: v(&[("thickness", 17.2), ("back_thickness", 8.6), ("back_groove", 0.0), ("door_gap", 3.0), ("shelf_setback", 20.0), ("plinth_height", 0.0)]),
+            top_style: Some(JoinStyle::Rails),
+            bottom_style: Some(JoinStyle::Inset),
+            edge_rule: Some(EdgeRule::default()),
+        },
+    ]
+}
+
+impl Engine {
+    fn cabinet_params(&self, id: ObjectId, names: &[&str]) -> BTreeMap<String, f64> {
+        names.iter().filter_map(|n| self.doc.param_value(id, n).map(|v| (n.to_string(), v))).collect()
+    }
+
+    /// SAVE_TEMPLATE: store the cabinet's logical model under `name` (replaces same name).
+    pub(crate) fn save_template(&mut self, cab: ObjectId, name: &str, to_library: bool) -> Result<Value, CoreError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(bad("template", "name required"));
+        }
+        let mut def = self.cabinet_def(cab)?;
+        def.room.clear();
+        def.floor.clear();
+        let mut names: Vec<&str> = vec!["width", "height", "depth"];
+        names.extend(RULE_PARAMS);
+        let t = CabinetTemplate { name: name.into(), kind: def.kind, params: self.cabinet_params(cab, &names), cabinet: def };
+        if to_library {
+            self.library_add_template(t)?;
+        } else {
+            self.exec_cmd(Command::SetTemplate { name: name.into(), template: Some(Box::new(t)) })?;
+        }
+        Ok(json!({ "name": name, "library": to_library }))
+    }
+
+    /// INSERT_TEMPLATE: new cabinet from a template, re-solved for W/H/D. One undo step;
+    /// refused (nothing created) when the structure does not fit the new size.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn insert_template(
+        &mut self,
+        name: &str,
+        size: [Option<f64>; 3],
+        position: Option<[f64; 3]>,
+        room: Option<String>,
+        floor: Option<String>,
+        after: Option<ObjectId>,
+    ) -> Result<Value, CoreError> {
+        let t = self
+            .doc
+            .settings
+            .templates
+            .iter()
+            .chain(self.library.templates.iter())
+            .find(|t| t.name == name)
+            .cloned()
+            .ok_or_else(|| bad("template", "unknown template"))?;
+        let mark = self.history.mark();
+        let run = |e: &mut Engine| -> Result<ObjectId, CoreError> {
+            let created = e.handle(Request::CreateCabinet {
+                kind: t.kind,
+                position,
+                parent: None,
+                overrides: CabinetOverrides::default(),
+                name: None,
+                room: room.clone().or(Some(String::new())),
+                floor: floor.clone(),
+                after,
+            })?;
+            let id: ObjectId = serde_json::from_value(created["id"].clone()).map_err(|_| bad("template", "create failed"))?;
+            let mut params = t.params.clone();
+            for (k, v) in ["width", "height", "depth"].iter().zip(size) {
+                if let Some(v) = v {
+                    params.insert(k.to_string(), v);
+                }
+            }
+            for (k, v) in &params {
+                e.exec_cmd(Command::SetParameter { id, name: k.clone(), value: format!("{v}") })?;
+            }
+            let mut def = t.cabinet.clone();
+            let current = e.cabinet_def(id)?;
+            def.id = current.id;
+            def.name = current.name;
+            def.room = current.room;
+            def.floor = current.floor;
+            let problems = aic_domain::build_cabinet(&def, e.doc.cabinet_values(id)).problems;
+            if !problems.is_empty() {
+                return Err(CoreError::ConstraintViolated { constraint: "ZONE_TOO_SMALL".into(), message: format!("zones {problems:?}") });
+            }
+            e.exec_cmd(Command::SetCabinet { id, cabinet: Box::new(def), label: "Chèn template".into() })?;
+            Ok(id)
+        };
+        match run(self) {
+            Ok(id) => {
+                self.history.squash(mark, "Chèn template");
+                Ok(json!({ "id": id }))
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
+    }
+
+    pub(crate) fn delete_template(&mut self, name: &str) -> Result<(), CoreError> {
+        if self.doc.settings.templates.iter().any(|t| t.name == name) {
+            return self.exec_cmd(Command::SetTemplate { name: name.into(), template: None });
+        }
+        self.library_remove("template", name).map(|_| ())
+    }
+
+    pub(crate) fn save_rule_preset(&mut self, cab: ObjectId, name: &str, to_library: bool) -> Result<(), CoreError> {
+        let name = name.trim();
+        if name.is_empty() || builtin_presets().iter().any(|p| p.name == name) {
+            return Err(bad("preset", "name required and not a built-in preset"));
+        }
+        let def = self.cabinet_def(cab)?;
+        let p = RulePreset {
+            name: name.into(),
+            values: self.cabinet_params(cab, &RULE_PARAMS),
+            top_style: Some(def.top_style),
+            bottom_style: Some(def.bottom_style),
+            edge_rule: Some(def.edge_rule.clone()),
+        };
+        if to_library {
+            return self.library_add_preset(p);
+        }
+        self.exec_cmd(Command::SetRulePreset { name: name.into(), preset: Some(p) })
+    }
+
+    pub(crate) fn delete_rule_preset(&mut self, name: &str) -> Result<(), CoreError> {
+        if self.doc.settings.presets.iter().any(|t| t.name == name) {
+            return self.exec_cmd(Command::SetRulePreset { name: name.into(), preset: None });
+        }
+        self.library_remove("preset", name).map(|_| ())
+    }
+
+    /// APPLY_RULE_PRESET on cabinets: one undo step, all or nothing.
+    pub(crate) fn apply_rule_preset(&mut self, ids: &[ObjectId], name: &str) -> Result<(), CoreError> {
+        let p = builtin_presets()
+            .into_iter()
+            .chain(self.doc.settings.presets.iter().cloned())
+            .chain(self.library.presets.iter().cloned())
+            .find(|p| p.name == name)
+            .ok_or_else(|| bad("preset", "unknown preset"))?;
+        let mark = self.history.mark();
+        let run = |e: &mut Engine| -> Result<(), CoreError> {
+            for &id in ids {
+                e.cabinet_def(id)?;
+                for (k, v) in &p.values {
+                    e.exec_cmd(Command::SetParameter { id, name: k.clone(), value: format!("{v}") })?;
+                }
+                let (ts, bs, er) = (p.top_style, p.bottom_style, p.edge_rule.clone());
+                e.edit_cabinet_checked(id, "Rule preset", |c| {
+                    if let Some(s) = ts {
+                        c.top_style = s;
+                    }
+                    if let Some(s) = bs {
+                        c.bottom_style = s;
+                    }
+                    if let Some(r) = er {
+                        c.edge_rule = r;
+                    }
+                    Ok(())
+                })?;
+            }
+            Ok(())
+        };
+        match run(self) {
+            Ok(()) => {
+                self.history.squash(mark, "Áp rule preset");
+                Ok(())
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
+    }
+
+    pub(crate) fn templates_info(&self) -> Value {
+        let templates: Vec<Value> = self
+            .doc
+            .settings
+            .templates
+            .iter()
+            .map(|t| (t, "project"))
+            .chain(self.library.templates.iter().map(|t| (t, "library")))
+            .map(|(t, src)| {
+                let g = |k: &str| t.params.get(k).copied().unwrap_or(0.0);
+                json!({ "name": t.name, "kind": t.kind, "frame": t.kind.frame_name(), "size": [g("width"), g("height"), g("depth")],
+                        "zones": t.cabinet.zones.zones().len(), "source": src })
+            })
+            .collect();
+        let presets: Vec<Value> = builtin_presets()
+            .into_iter()
+            .map(|p| (p, "builtin"))
+            .chain(self.doc.settings.presets.iter().cloned().map(|p| (p, "project")))
+            .chain(self.library.presets.iter().cloned().map(|p| (p, "library")))
+            .map(|(p, src)| json!({ "name": p.name, "builtin": src == "builtin", "source": src, "values": p.values, "top_style": p.top_style, "bottom_style": p.bottom_style }))
+            .collect();
+        let mut v = json!({ "templates": templates, "presets": presets });
+        if let (Some(o), Value::Object(lib)) = (v.as_object_mut(), self.library_info()) {
+            for (k, x) in lib {
+                o.insert(k, x);
+            }
+        }
+        v
+    }
+
+    /// Array a split panel: `count` more of the same kind in its split, all bays equal.
+    pub(crate) fn array_split_panel(&mut self, id: ObjectId, count: u32) -> Result<Value, CoreError> {
+        let (cab, key) = self.part_ref(id).ok_or_else(|| bad("part", "not a cabinet part"))?;
+        let uid: aic_domain::zone::Uid = key.strip_prefix("p:").and_then(|u| u.parse().ok()).ok_or_else(|| bad("split", "only shelves / dividers"))?;
+        let mark = self.history.mark();
+        let res = self.edit_cabinet_checked(cab, "Nhân tấm", |c| {
+            let (s, i) = c.zones.split_of_panel_mut(uid).ok_or_else(|| bad("split", "panel not found"))?;
+            let proto = s.panels[i].clone();
+            let _ = s;
+            let zone = c.zones.zones().into_iter().find(|z| z.split.as_ref().is_some_and(|s| s.panels.iter().any(|p| p.uid == uid))).map(|z| z.id).unwrap();
+            c.zones.add_panels(zone, proto.kind, count, proto.thickness, aic_domain::zone::Lock::Even, 0.0).map_err(|e| bad("split", e))?;
+            let s = c.zones.split_mut(zone).unwrap();
+            s.equalize();
+            for p in &mut s.panels {
+                p.lock = aic_domain::zone::Lock::Even;
+            }
+            Ok(())
+        });
+        if let Err(e) = res {
+            self.history.rollback(&mut self.doc, mark);
+            return Err(e);
+        }
+        Ok(json!({}))
+    }
+
+    /// Array cabinets: `count` copies along an axis with a gap (clones the full definition).
+    pub(crate) fn array_cabinet(&mut self, id: ObjectId, count: u32, axis: usize, gap: f64, sizes: Option<&str>) -> Result<Value, CoreError> {
+        if let Some(f) = sizes.filter(|f| !f.trim().is_empty()) {
+            return self.array_sized(id, axis, gap, f);
+        }
+        if !(1..=50).contains(&count) || axis > 2 {
+            return Err(bad("array", "count 1–50, axis 0–2"));
+        }
+        let size = [self.doc.param_value(id, "width"), self.doc.param_value(id, "height"), self.doc.param_value(id, "depth")][axis].ok_or_else(|| bad("array", "not a cabinet"))?;
+        let cmds = (1..=count)
+            .map(|k| {
+                let mut off = [0.0; 3];
+                off[axis] = (size + gap) * k as f64;
+                Command::DuplicateObject { id, offset: Some(off) }
+            })
+            .collect();
+        self.exec_cmd(Command::Batch { label: "Nhân dãy tủ".into(), commands: cmds })?;
+        Ok(json!({}))
+    }
+
+    /// Nhân dãy theo công thức kích thước: mỗi tủ mới có rộng / cao / sâu (theo trục) riêng,
+    /// đặt liền nhau (cộng khe), một bước undo.
+    fn array_sized(&mut self, id: ObjectId, axis: usize, gap: f64, formula: &str) -> Result<Value, CoreError> {
+        if axis > 2 {
+            return Err(bad("axis", "0–2"));
+        }
+        let mut sizes = Vec::new();
+        for tok in formula.split([',', ';', ' ']).filter(|t| !t.trim().is_empty()) {
+            let (n, v) = match tok.split_once('*') {
+                Some((n, v)) => (n.trim().parse::<u32>().map_err(|_| bad("sizes", "n*giá trị"))?, v),
+                None => (1, tok),
+            };
+            let v: f64 = v.trim().replace(',', ".").parse().map_err(|_| bad("sizes", format!("không hiểu “{tok}”")))?;
+            if !(v > 50.0 && v < 5000.0) {
+                return Err(bad("sizes", "kích thước 50–5000 mm"));
+            }
+            sizes.extend(std::iter::repeat_n(v, n as usize));
+        }
+        if sizes.is_empty() || sizes.len() > 50 {
+            return Err(bad("sizes", "1–50 tủ"));
+        }
+        let key = ["width", "height", "depth"][axis];
+        let base = self.doc.param_value(id, key).ok_or_else(|| bad("array", "not a cabinet"))?;
+        let mark = self.history.mark();
+        let res = (|| -> Result<Vec<ObjectId>, CoreError> {
+            let mut at = base + gap;
+            let mut out = Vec::new();
+            for s in &sizes {
+                let before: std::collections::BTreeSet<ObjectId> = self.doc.objects.keys().copied().collect();
+                let mut off = [0.0; 3];
+                off[axis] = at;
+                self.exec_cmd(Command::DuplicateObject { id, offset: Some(off) })?;
+                let new = self.doc.objects.keys().copied().find(|k| !before.contains(k) && self.doc.objects.get(k).is_some_and(|o| o.as_cabinet().is_some())).ok_or_else(|| bad("array", "duplicate failed"))?;
+                // Đổi kích thước giữ mép đầu (neo trái / dưới / sau).
+                let anchor = format!("anchor_{}", ["w", "h", "d"][axis]);
+                let a = self.cabinet_def(new)?.anchors;
+                let old = format!("{:?}", [a.width, a.height, a.depth][axis]).to_uppercase();
+                self.set_parameter_pub(new, &anchor, "START")?;
+                self.set_parameter_pub(new, key, &s.to_string())?;
+                self.set_parameter_pub(new, &anchor, &old)?;
+                out.push(new);
+                at += s + gap;
+            }
+            Ok(out)
+        })();
+        match res {
+            Ok(ids) => {
+                self.history.squash(mark, "Nhân dãy tủ");
+                Ok(json!({ "created": ids }))
+            }
+            Err(e) => {
+                self.history.rollback(&mut self.doc, mark);
+                Err(e)
+            }
+        }
+    }
+
+    /// Lật gương trái ↔ phải (zone tree, hinges, left/right mods).
+    pub(crate) fn mirror_cabinet(&mut self, id: ObjectId) -> Result<(), CoreError> {
+        self.edit_cabinet(id, "Lật gương", |c| {
+            c.mirror_x();
+            Ok(())
+        })
+    }
+}
+
