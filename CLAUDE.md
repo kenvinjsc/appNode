@@ -1,6 +1,7 @@
 # AIC CAD: hướng dẫn cho Claude Code
 
 Phần mềm CAD nội thất gỗ. Đặc tả gốc: UI/UX + 3D viewer và CAD Core (Rust). Trạng thái & việc tiếp theo: `docs/STATUS.md`.
+**Phiên mới đọc trước `docs/dev/README.md`** (kiến trúc, mô hình dữ liệu, công thức thêm tính năng, test, bẫy, việc tiếp theo).
 
 ## Quy tắc kiến trúc (bắt buộc)
 - Core (`crates/`) là nguồn dữ liệu gốc. UI (`app/`) chỉ gửi `Request` qua `app/src/core-api` và vẽ kết quả.

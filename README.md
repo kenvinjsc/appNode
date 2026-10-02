@@ -82,7 +82,7 @@ app/
   src/features       scene-tree, properties, drawing2d, manufacturing, nesting, cnc, materials, report
   src/app            khung ứng dụng: ribbon, rail, status bar, shortcut layer, context menu
   src-tauri          vỏ desktop: một lệnh IPC `dispatch`
-docs/                ADR, bảng ánh xạ API, phím tắt, checklist kiểm thử, ảnh chụp
+docs/                ADR, bảng ánh xạ API, tài liệu phát triển (dev/), phím tắt, kịch bản test, ảnh chụp
 ```
 
 ## Tiến độ theo phase
@@ -90,5 +90,6 @@ docs/                ADR, bảng ánh xạ API, phím tắt, checklist kiểm th
 Core: Phase 1–6 xong; Phase 7 (tối ưu, test dự án lớn) mới một phần. UI: Phase 1–6 xong. Chi tiết và việc còn lại
 xem [docs/STATUS.md](docs/STATUS.md).
 Hướng dẫn thao tác dựng tủ từng bước: [docs/HUONG-DAN-DUNG-TU.md](docs/HUONG-DAN-DUNG-TU.md).
+Tài liệu cho người / Claude phát triển tiếp (kiến trúc, mô hình dữ liệu, công thức thêm tính năng, test, bẫy, việc tiếp theo): [docs/dev/README.md](docs/dev/README.md).
 Tổng hợp tính năng Parametric Cabinet Editor: [docs/TONG-HOP-PARAMETRIC-EDITOR.md](docs/TONG-HOP-PARAMETRIC-EDITOR.md) · prompt cho dự án `aic_object_relation`: [docs/PROMPT-aic-object-relation.md](docs/PROMPT-aic-object-relation.md).
 Prompt cho AI agent phân tích và đề xuất tính năng (nội thất Việt Nam theo phòng): [docs/PROMPT-phan-tich-tinh-nang.md](docs/PROMPT-phan-tich-tinh-nang.md).
