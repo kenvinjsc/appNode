@@ -4,6 +4,7 @@
 #include <functional>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -155,7 +156,7 @@ int main() {
     NEAR(q.panels[0].banding, 2 * 600 + 2 * 400, 1e-9);
     auto f = board(); f.bandEdges = "F"; auto q2 = hsx::solve(f);
     NEAR(q2.panels[0].band[2], 1.0, 1e-9); NEAR(q2.panels[0].band[3], 0, 1e-9); NEAR(q2.panels[0].banding, 600, 1e-9); }
-  CHECK(hsx::exportDxf(r, "/tmp/hsx_test.dxf"));
+  CHECK(hsx::exportDxf(r, (std::filesystem::temp_directory_path() / "hsx_test.dxf").string()));
   // hậu quá khổ được tách, mỗi tấm <= khổ ván, tổng rộng đúng
   { double sum = 0; int n = 0;
     for (auto& pn : r.panels) if (pn.role == "back") { CHECK(pn.s[0] <= 1220 + 1e-6); sum += pn.s[0]; ++n; }
@@ -186,7 +187,7 @@ int main() {
     CHECK(q.panels.size() == 1); }
   { hsx::Params b; b.kind = "bend"; b.angle = 0; CHECK(!hsx::solve(b).ok); }
   { hsx::Params s; s.kind = "shelf_round"; s.width = 600; s.depth = 400; s.cornerFL = 80; s.cornerFR = 80;
-    auto q = polyOk(s, "shelf_round"); CHECK(hsx::exportDxf(q, "/tmp/hsx_part.dxf")); }
+    auto q = polyOk(s, "shelf_round"); CHECK(hsx::exportDxf(q, (std::filesystem::temp_directory_path() / "hsx_part.dxf").string())); }
   for (const char* pf : {"cove", "round", "bevel", "step", "rect"}) {
     hsx::Params m; m.kind = "moulding"; m.profile = pf; m.length = 2000; polyOk(m, pf);
   }
@@ -428,8 +429,8 @@ int main() {
     CHECK(!hsx::parseJob("---\ncount=1\nwidth=abc\nbogus=3\n", bj, err));
     hsx::NestResult E; CHECK(runJob("kerf=4\n", E)); CHECK(!E.ok);                     // không có chi tiết
     // xuất DXF xếp ván
-    CHECK(hsx::exportNestDxf(R, "/tmp/hsx_nest.dxf"));
-    std::ifstream f("/tmp/hsx_nest.dxf"); std::stringstream ss; ss << f.rdbuf(); CHECK(ss.str().find("SHEET") != std::string::npos && ss.str().find("PARTS") != std::string::npos);
+    CHECK(hsx::exportNestDxf(R, (std::filesystem::temp_directory_path() / "hsx_nest.dxf").string()));
+    std::ifstream f((std::filesystem::temp_directory_path() / "hsx_nest.dxf").string()); std::stringstream ss; ss << f.rdbuf(); CHECK(ss.str().find("SHEET") != std::string::npos && ss.str().find("PARTS") != std::string::npos);
   }
   // ===== luồng nền (không chặn luồng gọi) =====
   {
@@ -451,7 +452,7 @@ int main() {
     int sn = hsx_nest_sheet(h, 0, 0, nullptr, 0); CHECK(sn > 20);
     std::string sb(sn + 1, '\0'); hsx_nest_sheet(h, 0, 0, &sb[0], sn + 1); CHECK(sb.find("\"items\"") != std::string::npos);
     CHECK(hsx_nest_sheet(h, 99, 0, nullptr, 0) > 0);                                   // chỉ số sai -> {"ok":false}
-    CHECK(hsx_nest_export_dxf(h, "/tmp/hsx_nest_thread.dxf") == 1);
+    CHECK(hsx_nest_export_dxf(h, (std::filesystem::temp_directory_path() / "hsx_nest_thread.dxf").string().c_str()) == 1);
     hsx_nest_free(h); CHECK(hsx_nest_status(h, nullptr) == -1);
     // hủy giữa chừng
     int h2 = hsx_nest_start(("---\ncount=3000\n" + cabText(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay))).c_str());
