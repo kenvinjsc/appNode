@@ -11,11 +11,13 @@ module AicDesignDC
       lower = [400, 900, 450, 800, 400].map { |w| { 'w' => w, 'fixed' => false, 'params' => { 'layout' => 'V(0:L[l=-1])' } } }
       lower[2]['params'] = { 'layout' => 'V(0:L[d=3])' }
       lower[4]['params']['end_panel'] = 'R'
+      lower.each { |m| m['params']['top_cover'] = 9 }   # tấm đỉnh phủ mặt trên tủ dưới
       upper = [400, 900, 550, 600, 500].map { |w| { 'w' => w, 'fixed' => false, 'params' => { 'layout' => 'V(0:L[l=-1])' } } }
-      upper[3]['params']['layout'] = 'V(0:L[x=220,f=155,l=2])'   # khối hút mùi
+      upper[3]['params']['layout'] = 'V(0:L[x=220,f=155,g=60,l=2])'   # khối hút mùi: cánh 810 phủ lên tấm fix
+      upper[0]['params'] = { 'layout' => 'V(0:L[s=2])', 'depth' => 350 }   # hộc mở 3 tầng, không cánh
       { 'rows' => [{ 'name' => 'Tủ dưới', 'type' => 'base', 'x0' => 0, 'modules' => lower },
                    { 'name' => 'Tủ treo', 'type' => 'wall', 'x0' => 0, 'modules' => upper }],
-        'mouldings' => [{ 'name' => 'Phào', 'row' => 'Tủ treo', 'profile' => 'rect', 'size_a' => 50, 'size_b' => 55 }] }
+        'mouldings' => [{ 'name' => 'Phào', 'row' => 'Tủ treo', 'profile' => 'rect', 'size_a' => 50, 'size_b' => 55, 'ext_r' => 50 }] }
     end
 
     # Mẫu KHUNG (rỗng, rồi thêm đợt/vách/ngăn kéo/cánh bằng công cụ) + mẫu tủ có sẵn nội dung để tham khảo.
@@ -31,7 +33,7 @@ module AicDesignDC
       { 'name' => 'Khung tủ bếp treo (rỗng, treo cao 1495)', 'kind' => 'cabinet', 'params' => {
         'cab_type' => 'wall', 'width' => 900, 'height' => 880, 'depth' => 331, 'plinth' => 0, 'hang_z' => 1495 } },
       { 'name' => 'Mẫu đủ: tủ treo hút mùi (ống 220 + tấm fix 155)', 'kind' => 'cabinet', 'params' => {
-        'cab_type' => 'wall', 'width' => 600, 'height' => 880, 'depth' => 331, 'plinth' => 0, 'hang_z' => 1495, 'layout' => 'V(0:L[x=220,f=155,l=2])' } },
+        'cab_type' => 'wall', 'width' => 600, 'height' => 880, 'depth' => 331, 'plinth' => 0, 'hang_z' => 1495, 'layout' => 'V(0:L[x=220,f=155,g=60,l=2])' } },
       { 'name' => 'Khung tủ bếp cao (rỗng)', 'kind' => 'cabinet', 'params' => {
         'cab_type' => 'tall', 'width' => 600, 'height' => 2200, 'depth' => 561, 'plinth' => 75, 'side_on_plinth' => true, 'plinth_front' => true } },
       { 'name' => 'Khung kệ hở (rỗng)', 'kind' => 'cabinet', 'params' => {

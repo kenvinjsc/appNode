@@ -4,7 +4,7 @@ module AicDesignDC
   DEFAULTS = {
     width: 1600, depth: 560, height: 2400, thick: 17.5, back_thick: 9.5, plinth: 60,
     has_back: true, back_style: 'overlay', door_style: 'overlay', door_thick: 18, gap: 2,
-    cab_type: 'std', end_panel: '', end_panel_w: 50, drawer_slide: 'side', slide_len: 450, rail_w: 70, rail_count: 2, hang_z: 0, side_on_plinth: false, plinth_front: false, plinth_setback: 50,
+    cab_type: 'std', top_cover: 0, top_cover_overhang: 19, end_panel: '', end_panel_w: 50, drawer_slide: 'side', slide_len: 450, rail_w: 70, rail_count: 2, hang_z: 0, side_on_plinth: false, plinth_front: false, plinth_setback: 50,
     front_return: 19, loft_height: 0, loft_doors: 0, sheet_w: 1220, door_max_w: 600,
     cam: true, band: true, band_thick: 1.0, band_front_thick: 2.0,
     layout: 'V(0:L[])',     # khung rỗng: một khoang trống, chia đợt/vách và thêm ngăn kéo/cánh bằng công cụ
@@ -29,7 +29,7 @@ module AicDesignDC
   LIMITS = { width: [300, 6000], depth: [150, 1200], height: [300, 3500] }.freeze
 
   module Params
-    NUMERIC = %i[width depth height thick back_thick plinth door_thick gap front_return loft_height sheet_w door_max_w rail_w end_panel_w hang_z slide_len plinth_setback band_thick band_front_thick].freeze
+    NUMERIC = %i[width depth height thick back_thick plinth door_thick gap front_return loft_height sheet_w door_max_w rail_w top_cover top_cover_overhang end_panel_w hang_z slide_len plinth_setback band_thick band_front_thick].freeze
 
     # Nhận Hash (khóa string/symbol, giá trị từ JSON/hộp thoại) -> Hash sạch, đúng kiểu, trong giới hạn.
     def self.sanitize(input, base = DEFAULTS)

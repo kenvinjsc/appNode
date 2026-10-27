@@ -12,7 +12,7 @@ sp = Cluster.sample_kitchen
 Cluster.placements(sp).each { |pl| r = Core.solve(pl[:params]); check(r['ok'], "#{pl[:row]['name']}: #{r['error']}") }
 check(Cluster.total_width(sp) == 2950.0, 'tổng rộng')
 mo = Cluster.mouldings(sp)
-check(mo.size == 1 && mo[0][:z] == 2375.0 && mo[0][:len] == 2950.0, 'phào chạy suốt tủ treo')
+check(mo.size == 1 && mo[0][:z] == 2375.0 && mo[0][:len] == 3000.0, 'phào chạy suốt tủ treo')
 
 big = Cluster.resize(sp, 3500.0 / 2950, 1, 1)
 check((Cluster.total_width(big) - 3500).abs < 0.11, 'giãn rộng')
@@ -30,4 +30,7 @@ begin; Cluster.resize(sp, 0.2, 1, 1); check(false, 'phải báo quá hẹp'); re
 
 cl = Cluster.cutlist(sp)
 check(cl.sum { |r| r['qty'] } == Cluster.placements(sp).sum { |pl| Core.solve(pl[:params])['panels'].size }, 'bảng cắt cụm khớp số tấm')
+check(sp['rows'][1]['modules'][0]['params']['depth'] == 350 && sp['rows'][1]['modules'][0]['params']['layout'] == 'V(0:L[s=2])', 'hộc mở trái sâu 350, không cánh')
+check(Core.solve(Cluster.placements(sp)[0][:params])['panels'].any? { |p| p['name'] == 'Đỉnh' }, 'tủ dưới có tấm đỉnh')
+check(mo[0][:len] == 3000.0, 'thanh che nhô 50 mm ra phải: 2950 + 50')
 puts 'CLUSTER OK'

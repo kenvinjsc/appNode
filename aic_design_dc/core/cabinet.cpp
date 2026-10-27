@@ -160,7 +160,7 @@ struct Builder {
     if (c.fixH > 0) {   // tấm fix che phía dưới khoang (vd. dưới hộp hút mùi); cánh bắt đầu phía trên
       if (doorLo + c.fixH + 100 > z1) { failMsg = "Tấm fix quá cao trong khoang " + tag; return; }
       add(tag + " Tấm fix", "carcass", x0, 0, doorLo, w, t, c.fixH, w);
-      doorLo += c.fixH; doorLoOuter = false;
+      if (c.doorGap <= 0) { doorLo += c.fixH; doorLoOuter = false; }   // có doorGap thì cánh phủ lên tấm fix
     }
     if (c.ductW > 0) {   // ống hút mùi: 2 tấm dọc + tấm fix hậu, nằm giữa khoang sát hậu
       const double dw = c.ductW, dd = 202.0;
@@ -170,6 +170,8 @@ struct Builder {
       add(tag + " Ống dọc phải", "carcass", cx + dw / 2 - t, yb, z0, t, dd, h, h);
       add(tag + " Ống tấm fix hậu", "carcass", cx - dw / 2 + t, yb - t, z0, dw - 2 * t, t, h, dw - 2 * t);
     }
+
+    if (c.doorGap > 0) { doorLo = z0 + c.doorGap; doorLoOuter = false; }
 
     int count = c.doors;
     if (count < 0) count = std::max(1, (int)std::ceil((fx1 - fx0) / std::max(100.0, p.doorMaxW) - 1e-9));   // tự theo rộng tối đa một cánh
@@ -239,6 +241,10 @@ struct Builder {
         add(pieces > 1 ? "Hậu " + std::to_string(k + 1) : "Hậu", "back", bx + k * bw / pieces, by, bz, bw / pieces, bt, bh, 0);
     }
 
+    if (p.topCover > 0) {   // tấm đỉnh phủ liền mặt trên thân tủ (đặt lên trên, nhô ra trước)
+      const double oh = std::max(0.0, p.topCoverOverhang);
+      add("Đỉnh", "carcass", 0, -oh, H, W, sideDepth + oh, p.topCover, W);
+    }
     for (const char ch : p.endPanel) {   // tấm ốp hông ngoài thân tủ (vd. cuối dãy tủ dưới), cao đến dưới mặt hông 10 mm
       if (ch != 'L' && ch != 'R') continue;
       const double ew = std::max(20.0, std::min(p.endPanelW, innerDepth));

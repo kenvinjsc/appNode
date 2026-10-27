@@ -95,10 +95,10 @@ Ghi chú: component "ThomThom" 803×803×1856 trong model là hình người m�
 
 ## 7. Dựng lại tủ bếp bằng bản f9bcf06 (SketchUp 2025 thật, 2026-10-27)
 `Cluster.create(model, Cluster.sample_kitchen, tr)` → thành công: nhóm "Cụm tủ", **95 tấm**, 2967 × 579 × 2430 mm (gốc 3000 × 591 × 2425, 120 nhóm). Có: hồi, đáy, nóc (tủ treo), chân trước ×5, thanh giằng trước/sau ×5, cánh 1 lá/2 lá, 3 ngăn kéo (khối 450), ống dọc trái/phải + tấm fix hậu + tấm fix 155 (khối hút mùi), tấm ốp hông phải, phào chạy suốt. Đã đối chiếu bằng ảnh chụp cạnh tủ gốc: bố cục tổng khớp. Còn lệch (cần sửa):
-16. [ ] Khối treo ngoài cùng bên trái (rộng 400, sâu 350) ở tủ gốc là **hộc MỞ 3 tầng, không cánh**; mẫu `kitchen_spec` đang gắn cánh (`l=-1`). Sửa mẫu: layout hộc mở có đợt (vd `V(0:L[s=2])`) và sâu 350.
-17. [ ] Tủ dưới gốc có **ĐỈNH 9 mm** phủ liền mặt trên các khối (z≈861–866, sâu ~580–581, dài 371/900/1650); bản dựng thử để hở (chỉ có thanh giằng). Thêm tấm đỉnh/mặt phủ (tuỳ chọn, rộng chạy qua nhiều khối).
-18. [ ] Tổng rộng 2967 so với gốc 3000: gốc có thêm ốp/hồi chồng ~33 mm (khối trái gốc bắt đầu x1449 và tủ dưới kéo tới x4402+50). Kiểm tra cách tính `Cluster.placements` (khe giữa khối, hồi dùng chung hay hồi đôi).
-19. [ ] Khối hút mùi: đã có ống + tấm fix + cánh 2 lá; cần đo lại kích thước cánh (gốc 298 × 810, z1565..2375) so với bản dựng.
+16. [x] (đã sửa mẫu: khối trái hộc mở `s=2`, sâu 350) Khối treo ngoài cùng bên trái (rộng 400, sâu 350) ở tủ gốc là **hộc MỞ 3 tầng, không cánh**; mẫu `kitchen_spec` đang gắn cánh (`l=-1`). Sửa mẫu: layout hộc mở có đợt (vd `V(0:L[s=2])`) và sâu 350.
+17. [x] (đã làm: `top_cover`, `top_cover_overhang`; mẫu tủ dưới dùng 9 mm; tấm đỉnh theo từng khối, chưa liền qua nhiều khối) Tủ dưới gốc có **ĐỈNH 9 mm** phủ liền mặt trên các khối (z≈861–866, sâu ~580–581, dài 371/900/1650); bản dựng thử để hở (chỉ có thanh giằng). Thêm tấm đỉnh/mặt phủ (tuỳ chọn, rộng chạy qua nhiều khối).
+18. [x] (xử lý: thanh che HT nhô `ext_r`=50 ra phải → dài 3000 như gốc; tổng 2950 + ốp hông 17.5; cần bên test đo lại) Tổng rộng 2967 so với gốc 3000: gốc có thêm ốp/hồi chồng ~33 mm (khối trái gốc bắt đầu x1449 và tủ dưới kéo tới x4402+50). Kiểm tra cách tính `Cluster.placements` (khe giữa khối, hồi dùng chung hay hồi đôi).
+19. [x] (đã làm: khóa khoang `g=60` → cánh 810 phủ lên tấm fix, đỉnh z2375; cần đo lại trong SketchUp) Khối hút mùi: đã có ống + tấm fix + cánh 2 lá; cần đo lại kích thước cánh (gốc 298 × 810, z1565..2375) so với bản dựng.
 20. [ ] Chưa kiểm tra bằng chuột: co giãn cụm bằng Scale gốc, DivideTool/DoorTool/DrawerTool, mở dialog/toolbar qua menu.
 
 ## 8. Người dùng chụp mặt SAU: kết cấu CHƯA khớp (thu hồi nhận định "khớp" ở mục 7, vốn chỉ dựa vào ảnh nhìn trước)

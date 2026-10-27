@@ -1,14 +1,14 @@
 # encoding: UTF-8
 # Cây bố cục khoang của tủ (khớp cú pháp lõi C++ `core/layout.hpp`) + cú pháp gõ số của công cụ chia.
 #   Lá : {'type'=>'leaf', 'd'=>ngăn kéo, 'p'=>cao ngăn, 's'=>đợt, 'l'=>cánh (-1 tự), 'm'=>kiểu cánh 1..3 hoặc nil, 'h'=>bản lề,
-#          'f'=>cao tấm fix dưới khoang, 'x'=>rộng ống hút mùi, 'r'=>bản lề cánh đơn 1 trái/2 phải}
+#          'f'=>cao tấm fix dưới khoang, 'x'=>rộng ống hút mùi, 'r'=>bản lề cánh đơn 1 trái/2 phải, 'g'=>cánh bắt đầu cách đáy khoang g mm (phủ lên tấm fix)}
 #   Chia: {'type'=>'split', 'dir'=>'V'|'H', 'kids'=>[[size_mm, node], ...]}   (size 0 = tự chia đều)
 module AicDesignDC
   module Layout
-    LEAF_KEYS = %w[d p s l m h f x r].freeze
+    LEAF_KEYS = %w[d p s l m h f x r g].freeze
 
     def self.leaf(attrs = {})
-      { 'type' => 'leaf', 'd' => 0, 'p' => 0, 's' => 0, 'l' => 0, 'm' => nil, 'h' => 0, 'f' => 0, 'x' => 0, 'r' => 0 }.merge(attrs)
+      { 'type' => 'leaf', 'd' => 0, 'p' => 0, 's' => 0, 'l' => 0, 'm' => nil, 'h' => 0, 'f' => 0, 'x' => 0, 'r' => 0, 'g' => 0 }.merge(attrs)
     end
 
     def self.split(dir, kids)
@@ -87,7 +87,7 @@ module AicDesignDC
         raise ParseError, "Cần '='" unless s[pos[0] + 1] == '='
         m = /\G-?\d+(?:\.\d+)?/.match(s, pos[0] + 2) or raise ParseError, 'Cần một số'
         pos[0] = m.end(0)
-        n[k] = %w[p f x].include?(k) ? m[0].to_f : m[0].to_i
+        n[k] = %w[p f x g].include?(k) ? m[0].to_f : m[0].to_i
         n[k] = nil if k == 'm' && n[k].zero?
         pos[0] += 1 if s[pos[0]] == ','
       end

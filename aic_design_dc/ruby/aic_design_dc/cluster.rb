@@ -84,14 +84,15 @@ module AicDesignDC
       end
     end
 
-    # Phào / thanh che chạy suốt hàng: [{m, x0, len, z, y}] (mm)
+    # Phào / thanh che chạy suốt hàng: [{m, x0, len, z, y}] (mm). `ext_l`/`ext_r`: nhô ra hai đầu hàng.
     def self.mouldings(spec)
       (spec['mouldings'] || []).filter_map do |ml|
         row = spec['rows'].find { |r| r['name'] == ml['row'] }
         next unless row && !row['modules'].empty?
         prm = row['modules'].map { |m| module_params(row, m) }
         top = prm.map { |p| p[:hang_z] + p[:height] }.max
-        { m: ml, x0: row['x0'].to_f, len: row_width(row), z: top, y: -prm.first[:door_thick] }
+        el = ml['ext_l'].to_f
+        { m: ml, x0: row['x0'].to_f - el, len: row_width(row) + el + ml['ext_r'].to_f, z: top, y: -prm.first[:door_thick] }
       end
     end
 

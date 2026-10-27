@@ -404,6 +404,18 @@ int main() {
       auto bad = h; bad.layout = "V(0:L[x=900])"; CHECK(!hsx::solve(bad).ok);
       bad.layout = "V(0:L[f=900,l=1])"; CHECK(!hsx::solve(bad).ok);
     }
+    { hsx::Params h; h.cabType = "wall"; h.width = 600; h.depth = 331; h.height = 880; h.plinth = 0; h.hangZ = 1495;
+      h.layout = "V(0:L[x=220,f=155,g=60,l=2])";
+      auto q = hsx::solve(h); CHECK(q.ok); double dz0 = 1e9, dz1 = 0, fz = -1;
+      for (auto& pn : q.panels) { if (pn.name.find("Cánh") != std::string::npos) { dz0 = std::min(dz0, pn.o[2]); dz1 = std::max(dz1, pn.o[2] + pn.s[2]); } if (pn.name.find("Tấm fix") != std::string::npos && pn.name.find("Ống") == std::string::npos) fz = pn.s[2]; }
+      NEAR(dz1 - dz0, 810.25, 0.5); NEAR(dz1, 2375, 1e-6); NEAR(fz, 155, 1e-6);   // cánh 810 phủ lên tấm fix như model gốc
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) if (q.panels[i].role != "front" && q.panels[j].role != "front") CHECK(!overlap(q.panels[i], q.panels[j]));
+      hsx::Params b; b.cabType = "base"; b.width = 900; b.depth = 561; b.height = 866; b.plinth = 75; b.topCover = 9; b.layout = "V(0:L[l=1])";
+      auto qb = hsx::solve(b); CHECK(qb.ok); bool top = false;
+      for (auto& pn : qb.panels) if (pn.name == "Đỉnh") { top = true; NEAR(pn.o[2], 866, 1e-6); NEAR(pn.s[2], 9, 1e-6); NEAR(pn.s[0], 900, 1e-6); NEAR(pn.o[1], -19, 1e-6); }
+      CHECK(top);
+      for (size_t i = 0; i < qb.panels.size(); ++i) for (size_t j = i + 1; j < qb.panels.size(); ++j) CHECK(!overlap(qb.panels[i], qb.panels[j]));
+    }
     { hsx::Params d; d.width = 900; d.depth = 561; d.height = 866; d.plinth = 75; d.layout = "V(0:L[d=3,l=1])";
       auto qs = hsx::solve(d); d.drawerSlide = "under"; auto qu = hsx::solve(d); CHECK(qs.ok && qu.ok);
       auto sideW = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name.find("Hộc kéo 1 đáy") != std::string::npos) return pn.s[0]; return -1.0; };
