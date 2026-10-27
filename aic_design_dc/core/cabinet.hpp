@@ -14,7 +14,9 @@ struct Column {            // 1 khoang giữa 2 vách đứng
   int drawers = 0;         // số ngăn kéo (xếp từ đáy lên)
   double drawerPitch = 0;  // cao mỗi ngăn kéo, 0 = 180
   int shelves = 0;         // số đợt ngang chia đều
-  int doors = 0;           // số cánh (0 = hở)
+  int doors = 0;           // số cánh (0 = hở, -1 = tự theo rộng tối đa một cánh)
+  int doorStyle = -1;      // kiểu cánh riêng của khoang: 0 trùm ngoài, 1 trùm nửa, 2 lọt lòng; -1 = theo tủ
+  int hinges = 0;          // số bản lề mỗi cánh (0 = tự theo chiều cao)
 };
 
 struct Params {
@@ -34,6 +36,8 @@ struct Params {
   double bandThick = 1.0, bandFrontThick = 2.0;   // dày chỉ cạnh thân tủ / mặt cánh, hộc kéo
   std::string bandEdges = "FRBL";                 // tấm ván gia công: các cạnh dán (F trước, R phải, B sau, L trái)
   double sheetW = 1220;        // khổ ván: hậu rộng hơn sẽ tách thành nhiều tấm bằng nhau
+  double doorMaxW = 600;       // rộng tối đa một cánh (cánh tự chia khi khoang rộng hơn)
+  std::string layout;          // bố cục cây khoang (xem layout.hpp); rỗng = dùng cols/loft kiểu cũ
 
   // --- chi tiết lẻ (kind != "cabinet") ---
   std::string kind = "cabinet";  // cabinet | bend | shelf_round | moulding | beam | board | kerf_bend | door_frame
@@ -92,12 +96,21 @@ struct Panel {
   double L = 0, W = 0, T = 0;
 };
 
+// Khoang lá (toạ độ cục bộ của tủ, mm): để công cụ chọn khoang bằng chuột.
+struct Opening {
+  std::string tag;                 // vd. K1, K1.2
+  std::vector<int> path;           // đường đi trong cây bố cục
+  double x0, x1, z0, z1;
+  int drawers = 0, shelves = 0, doors = 0;
+};
+
 struct Result {
   bool ok = true;
   std::string error;
   std::vector<Panel> panels;
   int hingeCount = 0;
   std::string info;          // ghi chú tính toán (vd. bước xẻ rãnh)
+  std::vector<Opening> openings;   // các khoang lá của bố cục (kind = cabinet)
 };
 
 Result solve(const Params& p);      // kind=cabinet -> tủ; còn lại -> chi tiết lẻ
