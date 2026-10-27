@@ -57,3 +57,23 @@ Giả định cần xác nhận: hồi lên trước 19; cam cách đầu 34 / �
 ## 5. Lưu ý cho agent
 - Không đổi tên `hsx_core` hay khóa `parseParams` (xem `CLAUDE.md`).
 - Mọi thay đổi lõi C++ kèm test trong `tests/test_core.cpp`; báo rõ cái gì đã chạy thật, cái gì chưa.
+
+## 6. Dựng thử tủ bếp "Tu-bep-01" bằng plugin (2026-10-27, SketchUp 2025 thật)
+Đã làm: đọc model (120 nhóm ván của plugin khác, tên kiểu `[2705] THANH GIẰNG`), dựng 10 khối bằng `Builder.build` (5 tủ dưới + 5 tủ treo) vào nhóm "AicDC dựng lại tủ bếp (thử)". Kết quả: ra **50 tấm (chỉ khung rỗng, 5 tấm/khối)**, bố cục và kích thước khung đúng, KHÔNG có cánh/ngăn kéo/thanh giằng.
+
+### Kết cấu tủ bếp gốc (mm, toạ độ model: X rộng, Y sâu, Z cao; tổng 3000 × 591 × 2425, x 1449..4449)
+- **Tủ dưới** (5 khối, rộng 400 / 900 / 450 / 800 / 400): sâu 561, đáy dày 18 ở z=75 (trên chân 75), hồi 17–18 cao ~779, hậu 9 ở y=2244, **không có nóc**: thay bằng THANH GIẰNG 70×18 (trước, sau, hai bên) ở z≈796–866 (+ "ĐỈNH" 9 mm ở z861–866 rộng bằng khối). Chân trước (CHÂN TRƯỚC) liền 1282 × 17 × 75.
+- **Tủ treo** (5 khối, rộng 400 / 900 / 550 / 600 / 500): đáy ở z=1495, cao 880 (khối 600: đáy z=1677–1692, cao 673), sâu 331 (khối trái 350), có ĐỢT DI ĐỘNG, nóc "ĐỈNH" 18 ở z≈2347–2357, PHÀO 50×18 chạy suốt 1450 trên 2 khối (x1849..3299, z2365).
+- **Cánh**: CÁNH TRÁI/PHẢI A 400–448 × 785 (z45..830) cho tủ dưới; 448 × 880 cho tủ treo. 6 cánh trái + 6 cánh phải.
+- **Ngăn kéo** (3 ngăn ở khối 450): MẶT NGĂN KÉO, ĐÁY NGĂN KÉO, TNK TRÁI/PHẢI/SAU (thành ngăn kéo), **RAY ÂM 450** (ray giấu).
+- Khác: TẤM DỌC ×3, TẤM FIX ×2, "HT: 30"/"HT: 20" ×2 (chưa rõ nghĩa, hỏi người dùng).
+
+### Lỗ hổng plugin phát hiện khi dựng (cần Claude Code sửa)
+1. [ ] `Builder.build(model, {cols: [[0,drawers,0,0,doors]]})` KHÔNG tạo cánh/ngăn kéo vì `DEFAULTS[:layout]='V(0:L[])'` (khung rỗng) đè lên `cols`. Cần: hoặc `cols` có hiệu lực khi `layout` rỗng/không truyền, hoặc API Ruby thêm cánh/ngăn kéo theo khoang không cần click chuột (để script/test dựng được).
+2. [ ] Loại tủ: thiếu `kind = base|wall|tall`. Tủ dưới phải **bỏ nóc, thêm 2–4 thanh giằng** (kích thước/vị trí tham số hoá); tủ treo cần tham số độ cao treo (z đáy 1495/1692) thay vì phải tự dịch bằng Transformation.
+3. [ ] Chân: `plinth` chỉ 60 mỗi khối; bếp dùng chân 75 liền nhiều khối (CHÂN TRƯỚC).
+4. [ ] Ngăn kéo **ray âm 450** (TNK trái/phải/sau, đáy, mặt); hiện chỉ có ray 12.7.
+5. [ ] Cụm nhiều khối: nhóm + co giãn chung + phào chạy suốt qua nhiều khối (hiện phào chỉ là chi tiết lẻ).
+6. [ ] Chưa kiểm tra: bấm chuột bằng DivideTool/DoorTool/DrawerTool (chỉ test qua API), dialog/toolbar mở bằng menu.
+7. [ ] Quy ước trục: lõi dùng Y=sâu, Z=cao (đúng). Lưu ý `Sketchup::BoundingBox#height`=Y, `#depth`=Z khi viết test/đo.
+Việc dựng thử có thể chạy lại: 5 tủ dưới `{width:W, depth:561, height:866, plinth:75}`, 5 tủ treo `{depth:331, height:880, plinth:0}`, đặt bằng `Geom::Transformation.translation`.
