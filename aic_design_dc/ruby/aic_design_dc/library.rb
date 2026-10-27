@@ -6,24 +6,29 @@ require_relative 'params'
 module AicDesignDC
   # Thư viện mẫu: có sẵn + mẫu người dùng lưu (~/.aic_design_dc/library.json).
   module Library
+    # Mẫu KHUNG (rỗng, rồi thêm đợt/vách/ngăn kéo/cánh bằng công cụ) + mẫu tủ có sẵn nội dung để tham khảo.
     BUILTIN = [
-      { 'name' => 'Tủ áo 2 khoang + hộc trên', 'kind' => 'cabinet', 'params' => {} },
-      { 'name' => 'Tủ áo 4 cánh', 'kind' => 'cabinet', 'params' => {
-        'width' => 1800, 'cols' => [[0, 0, 0, 0, 2], [0, 0, 0, 0, 2]] } },
-      { 'name' => 'Tủ ngăn kéo 5 tầng', 'kind' => 'cabinet', 'params' => {
-        'width' => 800, 'height' => 1100, 'loft_height' => 0, 'loft_doors' => 0, 'cols' => [[0, 5, 0, 0, 0]] } },
-      { 'name' => 'Kệ vuông hở', 'kind' => 'cabinet', 'params' => {
-        'width' => 1200, 'height' => 800, 'depth' => 300, 'plinth' => 0, 'loft_height' => 0, 'loft_doors' => 0,
-        'cols' => [[0, 0, 0, 1, 0], [0, 0, 0, 1, 0], [0, 0, 0, 1, 0]] } },
-      { 'name' => 'Tủ bếp dưới', 'kind' => 'cabinet', 'params' => {
-        'width' => 1200, 'height' => 810, 'depth' => 560, 'plinth' => 100, 'loft_height' => 0, 'loft_doors' => 0,
-        'cols' => [[0, 1, 0, 0, 0], [0, 0, 0, 1, 2]] } },
-      { 'name' => 'Tủ giày 3 đợt', 'kind' => 'cabinet', 'params' => {
-        'width' => 900, 'height' => 1200, 'depth' => 350, 'loft_height' => 0, 'loft_doors' => 0,
-        'cols' => [[0, 0, 0, 3, 2]] } },
-      { 'name' => 'Tủ TV thấp (cánh lọt lòng)', 'kind' => 'cabinet', 'params' => {
-        'width' => 1800, 'height' => 450, 'depth' => 400, 'door_style' => 'inset', 'loft_height' => 0, 'loft_doors' => 0,
-        'cols' => [[0, 0, 0, 0, 1], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1]] } },
+      { 'name' => 'Khung tủ áo 1600x2400 (rỗng)', 'kind' => 'cabinet', 'params' => {} },
+      { 'name' => 'Khung tủ áo 2 khoang + hộc trên (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'layout' => 'V(0:H(0:L[],400:L[]),0:H(0:L[],400:L[]))' } },
+      { 'name' => 'Khung tủ áo 4 khoang (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'width' => 1800, 'layout' => 'V(0:L[],0:L[],0:L[],0:L[])' } },
+      { 'name' => 'Khung tủ bếp dưới (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'width' => 1200, 'height' => 810, 'depth' => 560, 'plinth' => 100 } },
+      { 'name' => 'Khung kệ hở (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'width' => 1200, 'height' => 800, 'depth' => 300, 'plinth' => 0 } },
+      { 'name' => 'Khung tủ giày (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'width' => 900, 'height' => 1200, 'depth' => 350 } },
+      { 'name' => 'Khung tủ TV thấp (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'width' => 1800, 'height' => 450, 'depth' => 400, 'door_style' => 'inset' } },
+      { 'name' => 'Mẫu đủ: tủ áo 2 khoang + ngăn kéo + hộc trên', 'kind' => 'cabinet', 'params' => {
+        'layout' => 'V(0:H(0:L[l=2],400:L[l=1]),0:H(0:L[d=3,l=1],400:L[l=1]))' } },
+      { 'name' => 'Mẫu đủ: tủ ngăn kéo 5 tầng', 'kind' => 'cabinet', 'params' => {
+        'width' => 800, 'height' => 1100, 'layout' => 'V(0:L[d=5])' } },
+      { 'name' => 'Mẫu đủ: tủ bếp dưới', 'kind' => 'cabinet', 'params' => {
+        'width' => 1200, 'height' => 810, 'plinth' => 100, 'layout' => 'V(0:L[d=1],0:L[s=1,l=2])' } },
+      { 'name' => 'Mẫu đủ: kệ vuông 3 ô', 'kind' => 'cabinet', 'params' => {
+        'width' => 1200, 'height' => 800, 'depth' => 300, 'plinth' => 0, 'layout' => 'V(0:L[s=1],0:L[s=1],0:L[s=1])' } },
       { 'name' => 'Cong 90° R300', 'kind' => 'part', 'params' => { 'kind' => 'bend', 'radius' => 300, 'angle' => 90 } },
       { 'name' => 'Cong 180° R150', 'kind' => 'part', 'params' => { 'kind' => 'bend', 'radius' => 150, 'angle' => 180 } },
       { 'name' => 'Đợt bo 2 góc trước R80', 'kind' => 'part', 'params' => {

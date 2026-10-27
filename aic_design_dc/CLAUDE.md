@@ -30,3 +30,4 @@ Chạy `ruby -c` cho mọi file `.rb`. Code Ruby phải chạy trên Ruby 2.7 (S
 - Mọi thay đổi lõi C++ phải kèm test trong `tests/test_core.cpp`.
 - Cung tròn chia theo sai số 0.3 mm (`kSag` trong `core/geom.hpp`).
 - Báo rõ cái gì đã chạy thật và cái gì chưa (ví dụ chưa có SketchUp).
+- Bố cục tủ = cây khoang (`core/layout.cpp`, ruby `layout.rb` phải cùng cú pháp). Công cụ Đợt/Vách/Ngăn kéo/Cánh ở `opening_tools.rb` sửa cây rồi `Builder.rebuild`.

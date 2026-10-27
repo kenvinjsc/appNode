@@ -1,6 +1,7 @@
 #include "../core/cabinet.hpp"
 #include "../core/nest.hpp"
 #include <thread>
+#include <functional>
 #include <fstream>
 #include <sstream>
 #include <cstdio>
@@ -289,6 +290,84 @@ int main() {
     auto n = d; n.panelType = "none"; CHECK(hsx::solve(n).panels.size() == 4);
     auto bad = d; bad.stile = 300; CHECK(!hsx::solve(bad).ok); }
 
+  // ===== bố cục cây khoang (quy trình như video: khung rỗng -> chia -> thêm ngăn kéo/cánh) =====
+  {
+    auto lay = [](const char* L, double w = 1600) { hsx::Params p; p.width = w; p.loftHeight = 0; p.loftDoors = 0; p.layout = L; return p; };
+    auto cnt = [](const hsx::Result& q, const char* pre) { int n = 0; for (auto& pn : q.panels) n += pn.name.rfind(pre, 0) == 0; return n; };
+    const double t = 17.5, Wi = 1600 - 2 * t;
+    // khung rỗng: 2 hông + đáy + nóc + 2 tấm hậu, đúng 1 khoang bao trọn lòng tủ
+    { auto q = hsx::solve(lay("V(0:L[])")); CHECK(q.ok && q.panels.size() == 6 && q.openings.size() == 1);
+      const auto& o = q.openings[0]; NEAR(o.x0, t, 1e-9); NEAR(o.x1, 1600 - t, 1e-9); NEAR(o.z0, 60 + t, 1e-9); NEAR(o.z1, 2400 - t, 1e-9);
+      CHECK(q.hingeCount == 0 && count(q, "hinge_cup") == 0); }
+    // 3 vách đều -> 4 khoang bằng nhau
+    { auto q = hsx::solve(lay("V(0:L[],0:L[],0:L[],0:L[])")); CHECK(q.ok && q.openings.size() == 4 && cnt(q, "Vách") == 3);
+      for (auto& o : q.openings) NEAR(o.x1 - o.x0, (Wi - 3 * t) / 4, 1e-9); }
+    // "200 cách mép": khoang đầu cố định 200, phần còn lại tự do; kéo rộng tủ thì khoang cố định giữ nguyên
+    for (double w : {1600.0, 1207.0, 2000.0}) { auto q = hsx::solve(lay("V(200:L[],0:L[])", w)); CHECK(q.ok);
+      NEAR(q.openings[0].x1 - q.openings[0].x0, 200, 1e-9); NEAR(q.openings[1].x1 - q.openings[1].x0, (w - 2 * t) - t - 200, 1e-9); }
+    // mọi khoang cố định mà không khớp -> co/giãn tỉ lệ để vừa khít
+    { auto q = hsx::solve(lay("V(300:L[],100:L[])", 1000)); CHECK(q.ok);
+      NEAR((q.openings[0].x1 - q.openings[0].x0) + (q.openings[1].x1 - q.openings[1].x0) + t, 1000 - 2 * t, 1e-9);
+      NEAR((q.openings[0].x1 - q.openings[0].x0) / (q.openings[1].x1 - q.openings[1].x0), 3.0, 1e-9); }
+    // chia đợt ngang: khoang trên cao đúng 400
+    { auto q = hsx::solve(lay("H(0:L[],400:L[])")); CHECK(q.ok && q.openings.size() == 2);
+      NEAR(q.openings[1].z1 - q.openings[1].z0, 400, 1e-9); NEAR(q.openings[1].z0 - q.openings[0].z1, t, 1e-9); }
+    // lồng nhau: cột trái chia ngang, cột phải có ngăn kéo + cánh
+    { auto q = hsx::solve(lay("V(0:H(0:L[s=2],300:L[l=1]),0:L[d=3,l=1])")); CHECK(q.ok && q.openings.size() == 3);
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+      CHECK(q.openings[1].path.size() == 2 && q.openings[1].tag == "K1.2"); }
+    // cánh tự chia theo rộng tối đa một cánh: 1565 / 600 -> 3 cánh; đặt tay l=2 thì đúng 2
+    { auto q = hsx::solve(lay("V(0:L[l=-1])")); CHECK(q.ok && cnt(q, "K1 Cánh") == 3);
+      auto q2 = hsx::solve(lay("V(0:L[l=2])")); CHECK(q2.ok && cnt(q2, "K1 Cánh") == 2);
+      auto p3 = lay("V(0:L[l=-1])"); p3.doorMaxW = 900; CHECK(cnt(hsx::solve(p3), "K1 Cánh") == 2); }
+    // số bản lề tự đặt + lỗ đế nằm trên vách đúng; mỗi bản lề có 2 lỗ đế
+    { auto q = hsx::solve(lay("V(0:L[l=1,h=4])")); CHECK(q.ok && q.hingeCount == 4 && count(q, "hinge_cup") == 4 && count(q, "hinge_plate") == 8);
+      for (auto& pn : q.panels) for (auto& h : pn.holes) if (std::string(h.kind) == "hinge_plate") CHECK(pn.tAxis == 0 && pn.role == "carcass"); }
+    // kiểu cánh riêng từng khoang: lọt lòng thụt vào frontReturn, trùm ngoài nhô ra trước
+    { auto q = hsx::solve(lay("V(0:L[l=1,m=3],0:L[l=1,m=1])")); CHECK(q.ok);
+      for (auto& pn : q.panels) { if (pn.name == "K1 Cánh 1") NEAR(pn.o[1], 19, 1e-9); if (pn.name == "K2 Cánh 1") NEAR(pn.o[1], -18, 1e-9); } }
+    // lỗi: cú pháp, khoang quá hẹp, ngăn kéo vượt chiều cao
+    for (const char* bad : {"V(", "X", "V(0:L[z=1])", "L[d=1]x", "V(0:L[d=])", "V(-5:L[])", "V(0 L[])", ""}) {
+      hsx::Params p; p.layout = bad; auto q = hsx::solve(p);
+      if (std::string(bad).empty()) CHECK(q.ok);    // rỗng = dùng bố cục cột kiểu cũ
+      else { CHECK(!q.ok); CHECK(q.error.find("Bố cục") != std::string::npos); } }
+    { auto q = hsx::solve(lay("V(0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[],0:L[])", 900)); CHECK(!q.ok); }
+    { auto q = hsx::solve(lay("V(0:L[d=40])")); CHECK(!q.ok && q.error.find("Ngăn kéo") != std::string::npos); }
+    { auto q = hsx::solve(lay("H(0:L[],2250:L[])")); CHECK(!q.ok); }
+    // bố cục cũ (cols + hộc trên) và bố cục cây tương đương cho cùng số tấm
+    { auto legacy = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay);
+      auto tree = legacy; tree.layout = "V(0:H(0:L[l=2],400:L[l=1]),0:H(0:L[d=3,l=1],400:L[l=1]))";
+      auto a = hsx::solve(legacy), b = hsx::solve(tree); CHECK(a.ok && b.ok && a.panels.size() == b.panels.size() && a.hingeCount == b.hingeCount); }
+    // kiểm thử ngẫu nhiên: cây khoang bất kỳ hợp lệ thì không chồng tấm, mọi khoang nằm trong lòng tủ
+    unsigned seed = 12345; auto rnd = [&](int n) { seed = seed * 1103515245u + 12345u; return (int)((seed >> 16) % (unsigned)n); };
+    std::function<std::string(int)> gen = [&](int depth) -> std::string {
+      if (depth >= 3 || rnd(3) == 0) {
+        std::string s = "L[";
+        if (rnd(3) == 0) s += "d=" + std::to_string(1 + rnd(3)) + ",";
+        if (rnd(3) == 0) s += "s=" + std::to_string(1 + rnd(3)) + ",";
+        if (rnd(2) == 0) s += "l=" + std::to_string(rnd(4) - 1) + ",";
+        if (rnd(4) == 0) s += "h=" + std::to_string(2 + rnd(5)) + ",";
+        if (s.back() == ',') s.pop_back();
+        return s + "]";
+      }
+      const bool v = rnd(2) == 0; const int n = 2 + rnd(3);
+      std::string s = v ? "V(" : "H(";
+      for (int i = 0; i < n; ++i) { if (i) s += ","; s += std::to_string(rnd(3) == 0 ? 100 + rnd(300) : 0) + ":" + gen(depth + 1); }
+      return s + ")";
+    };
+    int okN = 0, failN = 0;
+    for (int it = 0; it < 400; ++it) {
+      hsx::Params p; p.width = 800 + rnd(1800); p.height = 900 + rnd(1600); p.loftHeight = 0; p.layout = gen(0);
+      auto q = hsx::solve(p);
+      if (!q.ok) { ++failN; CHECK(!q.error.empty()); continue; }
+      ++okN;
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j)
+        if (overlap(q.panels[i], q.panels[j])) { std::printf("fuzz overlap %s: %s <> %s\n", p.layout.c_str(), q.panels[i].name.c_str(), q.panels[j].name.c_str()); return 1; }
+      for (auto& o : q.openings) CHECK(o.x0 >= t - 1e-6 && o.x1 <= p.width - t + 1e-6 && o.z0 >= 60 + t - 1e-6 && o.z1 <= p.height - t + 1e-6 && o.x1 > o.x0 && o.z1 > o.z0);
+    }
+    std::printf("fuzz bố cục: %d hợp lệ, %d bị từ chối đúng lý do\n", okN, failN);
+    CHECK(okN > 100);
+  }
   // ===== gom chi tiết + xếp ván =====
   {
     const auto cab = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay);

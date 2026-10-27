@@ -5,6 +5,7 @@ require_relative 'draw_tool'
 require_relative 'part_tool'
 require_relative 'library'
 require_relative 'nest_session'
+require_relative 'opening_tools'
 
 module AicDesignDC
   module Dialog
@@ -81,6 +82,7 @@ module AicDesignDC
         old = Builder.params_of(cab)
         changes = Params.sanitize(incoming, old)
         changes.delete(:cols) if changes[:cols] == old[:cols]  # chỉ đổi rộng -> để lõi co giãn khoang cố định
+        changes.delete(:layout)                                  # bố cục chỉ sửa bằng công cụ khoang
         new_cab = Builder.rebuild(model, cab, changes)
         model.selection.clear
         model.selection.add(new_cab)
@@ -146,6 +148,23 @@ module AicDesignDC
         end
       end
       @dlg.add_action_callback('apply') { |_c, json| apply(json) }
+      @dlg.add_action_callback('tool') do |_c, name|
+        klass = { 'divide' => DivideTool, 'drawer' => DrawerTool, 'door' => DoorTool }[name]
+        Sketchup.active_model.select_tool(klass.new) if klass
+      end
+      @dlg.add_action_callback('reset_frame') do |_c|
+        cab = selected_cab
+        if cab
+          begin
+            nc = Builder.rebuild(Sketchup.active_model, cab, { layout: 'V(0:L[])', cols: [[0, 0, 0, 0, 0]], loft_height: 0, loft_doors: 0 })
+            Sketchup.active_model.selection.clear
+            Sketchup.active_model.selection.add(nc)
+          rescue StandardError => e
+            UI.messagebox("AicDesignDC: #{e.message}")
+          end
+        end
+        sync
+      end
       @dlg.add_action_callback('draw') { |_c| Sketchup.active_model.select_tool(DrawTool.new) }
       @dlg.add_action_callback('cutlist') do |_c|
         cab = selected_cab

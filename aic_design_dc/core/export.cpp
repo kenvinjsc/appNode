@@ -122,6 +122,7 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     else if (k == "cam_spacing") o.camSpacing = d; else if (k == "cam_edge") o.camEdge = d; else if (k == "cam_back") o.camBack = d;
     else if (k == "band") o.band = b(v); else if (k == "band_thick") o.bandThick = d;
     else if (k == "band_front_thick") o.bandFrontThick = d; else if (k == "band_edges") o.bandEdges = v;
+    else if (k == "door_max_w") o.doorMaxW = d; else if (k == "layout") o.layout = v;
     else if (k == "sheet_w") o.sheetW = d; else if (k == "kind") o.kind = v;
     else if (k == "radius") o.radius = d; else if (k == "angle") o.angle = d;
     else if (k == "part_height") o.partHeight = d; else if (k == "part_thick") o.partThick = d;
@@ -200,6 +201,15 @@ std::string toJson(const Result& r) {
                     h.p[0], h.p[1], h.p[2], h.axis, h.dia, h.depth, h.kind, h.side);
       o += buf;
     }
+    o += "]}";
+  }
+  o += "],\"openings\":[";
+  for (size_t i = 0; i < r.openings.size(); ++i) {
+    const Opening& op = r.openings[i];
+    std::snprintf(buf, sizeof buf, "%s{\"t\":\"%s\",\"x0\":%.2f,\"x1\":%.2f,\"z0\":%.2f,\"z1\":%.2f,\"d\":%d,\"s\":%d,\"l\":%d,\"p\":[", i ? "," : "",
+                  op.tag.c_str(), op.x0, op.x1, op.z0, op.z1, op.drawers, op.shelves, op.doors);
+    o += buf;
+    for (size_t j = 0; j < op.path.size(); ++j) o += (j ? "," : "") + std::to_string(op.path[j]);
     o += "]}";
   }
   o += "],\"cutlist\":[";

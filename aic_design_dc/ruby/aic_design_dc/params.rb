@@ -4,9 +4,10 @@ module AicDesignDC
   DEFAULTS = {
     width: 1600, depth: 560, height: 2400, thick: 17.5, back_thick: 9.5, plinth: 60,
     has_back: true, back_style: 'overlay', door_style: 'overlay', door_thick: 18, gap: 2,
-    front_return: 19, loft_height: 400, loft_doors: 1, sheet_w: 1220,
+    front_return: 19, loft_height: 0, loft_doors: 0, sheet_w: 1220, door_max_w: 600,
     cam: true, band: true, band_thick: 1.0, band_front_thick: 2.0,
-    cols: [[0, 0, 0, 0, 2], [0, 3, 0, 0, 1]]
+    layout: 'V(0:L[])',     # khung rỗng: một khoang trống, chia đợt/vách và thêm ngăn kéo/cánh bằng công cụ
+    cols: [[0, 0, 0, 0, 0]]
   }.freeze
 
   PART_DEFAULTS = {
@@ -27,7 +28,7 @@ module AicDesignDC
   LIMITS = { width: [300, 6000], depth: [150, 1200], height: [300, 3500] }.freeze
 
   module Params
-    NUMERIC = %i[width depth height thick back_thick plinth door_thick gap front_return loft_height sheet_w band_thick band_front_thick].freeze
+    NUMERIC = %i[width depth height thick back_thick plinth door_thick gap front_return loft_height sheet_w door_max_w band_thick band_front_thick].freeze
 
     # Nhận Hash (khóa string/symbol, giá trị từ JSON/hộp thoại) -> Hash sạch, đúng kiểu, trong giới hạn.
     def self.sanitize(input, base = DEFAULTS)
@@ -43,7 +44,8 @@ module AicDesignDC
         a = (c.is_a?(Hash) ? c.values_at('width', 'drawers', 'pitch', 'shelves', 'doors') : c).map(&:to_f)
         [a[0] || 0, (a[1] || 0).to_i, a[2] || 0, (a[3] || 0).to_i, (a[4] || 0).to_i].map { |x| x < 0 ? 0 : x }
       end
-      h[:cols] = [[0, 0, 0, 0, 2]] if h[:cols].empty?
+      h[:cols] = [[0, 0, 0, 0, 0]] if h[:cols].empty?
+      h[:layout] = h[:layout].to_s.gsub(/\s+/, '')
       h
     end
   end
@@ -77,8 +79,10 @@ module AicDesignDC
   module State
     @params = DEFAULTS.dup
     @part = PART_DEFAULTS.dup
+    # Tuỳ chọn các công cụ trên khung tủ (thanh chip như video)
+    @tool = { mode: 'shelf', door_style: 1, hinges: 0, door_count: -1, drawer_count: 3, drawer_pitch: 180 }
     class << self
-      attr_accessor :params, :part
+      attr_accessor :params, :part, :tool
     end
   end
 end

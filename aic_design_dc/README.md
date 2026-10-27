@@ -25,10 +25,17 @@ DLL dùng trong SketchUp là `build\Release\hsx_core.dll` (nên dùng Release, k
 
 Bổ sung: **chi tiết lẻ** (`core/parts.cpp`): uốn cong (`bend`), đợt bo góc (`shelf_round`), phào (`moulding`: cove/round/bevel/step/rect),
 xà (`beam`) — biên dạng đa giác đùn theo trục, cung chia theo sai số 0.3 mm; **hậu quá khổ** tự tách theo khổ ván (`sheet_w`).
-Hiệu năng: ~0.1–0.3 ms/lần giải; C ABI nhớ kết quả lần gọi gần nhất nên Ruby gọi 2 lần chỉ giải 1 lần.
+Hiệu năng: ~0.1 ms/lần giải; C ABI nhớ kết quả lần gọi gần nhất nên Ruby gọi 2 lần chỉ giải 1 lần.
 
 Chưa làm: bo góc/cong cho thân tủ liền khối, khấu ván khi các tấm giao cắt (cần cắt boolean trên hình học có sẵn), ghép hậu theo khổ 1830.
 Giả định cần bạn xác nhận: "Hồi lên trước 19" = cánh lọt lòng thụt vào 19mm; cam cách đầu tấm 34mm, cách đầu mối nối 37mm, bước tối đa 320mm; chốt gỗ Ø8 nằm giữa hai cam.
+
+## Quy trình dựng tủ (như video): khung rỗng → thêm từng thứ
+1. **Vẽ tủ mới** / nạp mẫu "Khung tủ … (rỗng)" ở Thư viện: chỉ có khung (hông, đáy, nóc, hậu).
+2. **Đợt / Vách**: bấm vào khoang để chia (xem trước ván); gõ `3` = 3 ván đều, `/3` = chia 3 khoảng, `200` = cách mép 200 mm; **Alt** đổi đợt ↔ vách.
+3. **Ngăn kéo**: bấm vào khoang, đặt từ đáy khoang lên (số ngăn, cao mỗi ngăn trên thanh tuỳ chọn).
+4. **Cánh**: Trùm ngoài / Trùm nửa / Lọt trong, số bản lề, số cánh (tự theo rộng tối đa); **Shift** mở cài đặt dày cánh/khe/rộng tối đa.
+Bố cục là cây khoang (`V(...)`/`H(...)`/`L[...]`, `core/layout.cpp`); mỗi thao tác sửa cây rồi lõi C++ dựng lại (một Undo). Khoang lấy từ `openings` của lõi.
 
 ## Lớp SketchUp (Ruby) — `ruby/`
 Cài: chép `ruby/aic_design_dc.rb` + thư mục `ruby/aic_design_dc/` vào thư mục Plugins; đặt `hsx_core.dll` (Win) / `libhsx_core.dylib` (Mac) vào `aic_design_dc/`.

@@ -232,7 +232,8 @@ module AicDesignDC
     def self.rebuild(model, cab, changes, transformation = nil, transparent: false)
       old = params_of(cab)
       params = Params.sanitize(changes, old)
-      params[:cols] = rescale_cols(old, params) if changes.keys.map(&:to_sym).include?(:width) && !changes.key?(:cols) && !changes.key?('cols')
+      legacy = old[:layout].to_s.empty?
+      params[:cols] = rescale_cols(old, params) if legacy && changes.keys.map(&:to_sym).include?(:width) && !changes.key?(:cols) && !changes.key?('cols')
       tr = transformation || cab.transformation
       model.start_operation('AicDesignDC: Sửa tủ', true, false, transparent)
       begin

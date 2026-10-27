@@ -41,10 +41,13 @@
  <button onclick="libDel()">Xóa</button>
  <div class="tip">Nạp: mẫu tủ áp vào tủ đang chọn (hoặc làm mặc định cho tủ mới); mẫu chi tiết đưa vào mục Chi tiết bên dưới.</div>
 </div>
-<h4>Khoang</h4>
+<h4>Thêm vào khung (bấm vào khoang)</h4>
 <div class="sec">
- <table id="cols"><thead><tr><th>#</th><th>Rộng<br>(0=đều)</th><th>Ngăn<br>kéo</th><th>Cao<br>ngăn</th><th>Đợt</th><th>Cánh</th><th></th></tr></thead><tbody></tbody></table>
- <button onclick="addCol()">+ Khoang</button>
+ <button onclick="sketchup.tool('divide')">Đợt / Vách</button>
+ <button onclick="sketchup.tool('drawer')">Ngăn kéo</button>
+ <button onclick="sketchup.tool('door')">Cánh</button>
+ <button onclick="if(confirm('Xóa hết đợt, vách, ngăn kéo, cánh – về khung rỗng?'))sketchup.reset_frame()">Về khung rỗng</button>
+ <div class="tip">Quy trình: chọn mẫu khung rỗng ở Thư viện (hoặc Vẽ tủ mới) → chia đợt/vách → đặt ngăn kéo → đặt cánh. Mỗi bước là một lần Undo. Bố cục hiện tại: <code id="lay"></code></div>
  <div class="tip">Kéo giãn: chọn tủ, dùng công cụ Scale (S) của SketchUp, tủ tự tính lại — ván giữ độ dày.</div>
 </div>
 <div class="sec">
@@ -84,20 +87,14 @@
  function q(s){return document.querySelectorAll(s)}
  function fill(){
   q('[data-k]').forEach(function(e){var v=cur[e.dataset.k]; if(e.type==='checkbox')e.checked=!!v; else e.value=v;});
-  var tb=q('#cols tbody')[0]; tb.innerHTML='';
-  cur.cols.forEach(function(c,i){
-   var tr=document.createElement('tr'); tr.innerHTML='<td>'+(i+1)+'</td>'+c.map(function(v,j){return '<td><input type="number" data-c="'+i+','+j+'" value="'+v+'"></td>'}).join('')+'<td><button onclick="delCol('+i+')">×</button></td>';
-   tb.appendChild(tr);});
+  document.getElementById('lay').textContent=cur.layout||'';
   bind();
  }
  function bind(){q('input,select').forEach(function(e){e.onchange=e.oninput=changed;});}
  function changed(){
   q('[data-k]').forEach(function(e){var k=e.dataset.k; cur[k]=e.type==='checkbox'?e.checked:(NUM.indexOf(k)>=0?parseFloat(e.value)||0:e.value);});
-  q('[data-c]').forEach(function(e){var p=e.dataset.c.split(','); cur.cols[+p[0]][+p[1]]=parseFloat(e.value)||0;});
   clearTimeout(timer); timer=setTimeout(function(){sketchup.apply(JSON.stringify(cur))},250);
  }
- function addCol(){cur.cols.push([0,0,0,0,1]); fill(); changed();}
- function delCol(i){if(cur.cols.length>1){cur.cols.splice(i,1); fill(); changed();}}
  // Ruby -> JS (không kích hoạt apply)
  function setParams(s,isCab){cur=JSON.parse(s); document.getElementById('title').textContent=isCab?'Khung tủ (đang chọn)':'Khung tủ (mặc định cho tủ mới)'; fill();}
  function bandTxt(b){function f(v){return v>0?v:'-'} return 'dài '+f(b[0])+'/'+f(b[1])+' · ngắn '+f(b[2])+'/'+f(b[3]);}
