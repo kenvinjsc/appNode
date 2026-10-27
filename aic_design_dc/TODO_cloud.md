@@ -156,3 +156,23 @@ Sửa so với mục 6-11 (số tôi đo bằng bounding box bị cộng 3–6 m
 51. [ ] **Tủ trên**: đáy/đỉnh sâu 330,5 có rãnh hậu (lố 3 cũng bắt buộc); hồi 852,5 (W400 862,5; W600 670); hậu 9 rãnh; phào/tấm ngang HT:30 phía trên. **PHÀO/HT KHÁC NHAU từng tủ** (W400 HT:20; W500/W550 HT:30; phào 1450 chạy x400→1850 và 1150 chạy x1850→3000) — KHÔNG lấy 50–55 làm luật chung (sửa mục 14): xem §4 MO-TA.md.
 52. [ ] **B450**: 3 ngăn kéo ray âm; thanh giằng 415×60 ở z170,5 và z550.
 53. [ ] Cách kiểm: dựng từng tủ theo §4, xuất bảng tấm CSV, so với `BANG-TAM.csv` ±0,5 mm. DesignApp có thang chấm `giao/THANG-DIEM.md` (mục B "kết cấu" dùng §2).
+
+## 13. CHỐT của người dùng + kết quả Codex rà soát (2026-10-27)
+**Người dùng chốt:** "chọn độ sâu đâm xuyên rãnh hậu" ⇒ giải mâu thuẫn mục 45: **"đâm xuyên" = đoạn rãnh hậu chạy lố ra mỗi đầu, người dùng CHỌN được số mm** (mặc định 3, đúng `extra_grooves=3` của xưởng). Việc cần làm:
+54. [ ] Tham số `back_groove_extra` (mm, mặc định 3, chỉnh được ở dialog "Thông số" và option bar) — rãnh HAU-8 trên hồi/đáy (và đáy/đỉnh tủ trên) dài thêm đoạn này mỗi đầu; lưu vào thuộc tính tấm/bảng cắt/DXF để gia công. Không đổi kích thước tấm hậu. Kèm `back_groove_w` (10), `back_groove_d` (9,5), `back_setback` (17,5 từ mép sau), hậu ăn rãnh 8. Test lõi: đổi `back_groove_extra` 0/3/6 ⇒ chiều dài rãnh đổi đúng, kích thước hậu không đổi.
+55. [ ] "Hậu liền suốt qua nhiều khối" (người dùng nói trước đó) vẫn là kiểu hậu riêng (Phủ/Lọt/Liền suốt); hỏi lại người dùng nếu thấy hai thứ này nên gộp. Cập nhật mục 31 và 45 theo đây.
+
+**Codex (agent codex-rescue, chỉ đọc; chưa chạy trong SketchUp)** — đã triển khai ở mục 6 nhưng `kitchen_spec` chưa theo mục 7–10:
+- Đã làm: `cols` không cần `layout`; base/wall/tall + thanh giằng + `hang_z`; chân trước; hồi trên chân; tấm ốp hông; ống/fix/cánh 1–2 lá; phào chạy suốt cụm; cụm nhiều module.
+- Một phần: ray âm (chỉ tính kích thước, không tạo hình ray `core/cabinet.cpp:268`); hậu lọt (có inset, ăn rãnh cứng 8, chưa tạo rãnh gia công); Divide/Door/Drawer riêng (chưa gộp); xóa chỉ qua `clear`.
+- Chưa làm: hộc mở trái, tấm đỉnh 9 phủ tủ dưới, khối hút mùi 673/z1677,5, hệ đợt trong mẫu, hậu 9 lọt trong mẫu, bỏ hậu tủ treo trái, ký hiệu chiều mở cánh, kiểu hậu "through", toolbar 16 nút, thư viện có phân loại/tìm kiếm/thumbnail, thân tủ cong liền khối.
+**Lỗi/gap mới Codex tìm (chưa có trong TODO), cần sửa:**
+56. [ ] `opening_tools.rb:160-177,184,221` lấy `State.params[:thick]` thay vì params của tủ đang chọn (`Builder.params_of(@cab)[:thick]`) ⇒ preview/chia sai khi tủ dày 18/19.
+57. [ ] `Cluster.cutlist` (`cluster.rb:163-172`) bỏ sót phào/thanh che (không duyệt `mouldings`) và sẽ bỏ sót tấm đỉnh khi thêm.
+58. [ ] `rebuild` xóa group rồi tạo mới (`bridge.rb:238-245`, `cluster.rb:139-144`) ⇒ đổi entityID, mất tag/layer/thuộc tính người dùng/selection. Cần giữ metadata hoặc sửa tại chỗ.
+59. [ ] Observer Scale (`observers.rb:14-48`) chỉ quét `active_entities` (tủ trong group lồng không được chuẩn hóa), nhiều tủ tạo nhiều operation (Undo không còn một bước), timer không debounce.
+60. [ ] `Builder.build` (`bridge.rb:204-218`): nếu `Core.solve` lỗi trước `start_operation` thì `rescue` vẫn `abort_operation` ⇒ có thể hủy nhầm operation của code khác.
+61. [ ] Dialog chưa sửa được cụm (`dialog.rb:16-31,90-104,182-186` chỉ xử lý cabinet).
+62. [ ] Scale cụm nhân cả `hang_z` (`cluster.rb:64-68`), không giữ khoảng tương đối sàn–tủ dưới–tủ treo.
+63. [ ] Test còn cố định 2950 mm (`tests/cluster_test.rb:13-19`) trong khi bếp thật 3000: sửa test theo `VI-TRI-TU.csv`.
+**Thứ tự ưu tiên đề xuất:** (1) `kitchen_spec` đúng số đo kho; (2) hậu lọt + `back_groove_extra`; (3) hút mùi 673 + đợt hai bên ống; (4) tấm đỉnh 9 + cutlist; (5) sửa lỗi 56–60; (6) hậu liền suốt; (7) workflow video (mục 34–41).
