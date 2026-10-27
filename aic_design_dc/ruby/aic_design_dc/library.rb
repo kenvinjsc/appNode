@@ -13,8 +13,12 @@ module AicDesignDC
         'layout' => 'V(0:H(0:L[],400:L[]),0:H(0:L[],400:L[]))' } },
       { 'name' => 'Khung tủ áo 4 khoang (rỗng)', 'kind' => 'cabinet', 'params' => {
         'width' => 1800, 'layout' => 'V(0:L[],0:L[],0:L[],0:L[])' } },
-      { 'name' => 'Khung tủ bếp dưới (rỗng)', 'kind' => 'cabinet', 'params' => {
-        'width' => 1200, 'height' => 810, 'depth' => 560, 'plinth' => 100 } },
+      { 'name' => 'Khung tủ bếp dưới (rỗng, thanh giằng)', 'kind' => 'cabinet', 'params' => {
+        'cab_type' => 'base', 'width' => 900, 'height' => 866, 'depth' => 561, 'plinth' => 75, 'side_on_plinth' => true, 'plinth_front' => true } },
+      { 'name' => 'Khung tủ bếp treo (rỗng, treo cao 1495)', 'kind' => 'cabinet', 'params' => {
+        'cab_type' => 'wall', 'width' => 900, 'height' => 880, 'depth' => 331, 'plinth' => 0, 'hang_z' => 1495 } },
+      { 'name' => 'Khung tủ bếp cao (rỗng)', 'kind' => 'cabinet', 'params' => {
+        'cab_type' => 'tall', 'width' => 600, 'height' => 2200, 'depth' => 561, 'plinth' => 75, 'side_on_plinth' => true, 'plinth_front' => true } },
       { 'name' => 'Khung kệ hở (rỗng)', 'kind' => 'cabinet', 'params' => {
         'width' => 1200, 'height' => 800, 'depth' => 300, 'plinth' => 0 } },
       { 'name' => 'Khung tủ giày (rỗng)', 'kind' => 'cabinet', 'params' => {
@@ -26,7 +30,7 @@ module AicDesignDC
       { 'name' => 'Mẫu đủ: tủ ngăn kéo 5 tầng', 'kind' => 'cabinet', 'params' => {
         'width' => 800, 'height' => 1100, 'layout' => 'V(0:L[d=5])' } },
       { 'name' => 'Mẫu đủ: tủ bếp dưới', 'kind' => 'cabinet', 'params' => {
-        'width' => 1200, 'height' => 810, 'plinth' => 100, 'layout' => 'V(0:L[d=1],0:L[s=1,l=2])' } },
+        'cab_type' => 'base', 'width' => 1200, 'height' => 866, 'depth' => 561, 'plinth' => 75, 'side_on_plinth' => true, 'plinth_front' => true, 'drawer_slide' => 'under', 'layout' => 'V(0:L[d=1],0:L[s=1,l=2])' } },
       { 'name' => 'Mẫu đủ: kệ vuông 3 ô', 'kind' => 'cabinet', 'params' => {
         'width' => 1200, 'height' => 800, 'depth' => 300, 'plinth' => 0, 'layout' => 'V(0:L[s=1],0:L[s=1],0:L[s=1])' } },
       { 'name' => 'Cong 90° R300', 'kind' => 'part', 'params' => { 'kind' => 'bend', 'radius' => 300, 'angle' => 90 } },

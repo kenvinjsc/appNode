@@ -20,6 +20,13 @@
  <label>Dày ván <span><input type="number" step="0.5" data-k="thick"> mm</span></label>
  <label>Dày hậu <span><input type="number" step="0.5" data-k="back_thick"> mm</span></label>
  <label>Len chân <span><input type="number" data-k="plinth"> mm</span></label>
+ <label>Loại tủ <select data-k="cab_type"><option value="std">Thường</option><option value="base">Tủ dưới (thanh giằng)</option><option value="wall">Tủ treo</option><option value="tall">Tủ cao</option></select></label>
+ <label>Treo cách sàn <span><input type="number" data-k="hang_z"> mm</span></label>
+ <label>Thanh giằng (rộng / số) <span><input type="number" data-k="rail_w"> / <input type="number" data-k="rail_count"></span></label>
+ <label>Hồi đứng trên chân <input type="checkbox" data-k="side_on_plinth"></label>
+ <label>Có tấm chân trước <input type="checkbox" data-k="plinth_front"></label>
+ <label>Chân lùi vào <span><input type="number" data-k="plinth_setback"> mm</span></label>
+ <label>Ray ngăn kéo <span><select data-k="drawer_slide"><option value="side">Ray bi hông</option><option value="under">Ray âm</option></select> <input type="number" data-k="slide_len"> mm</span></label>
  <label>Có hậu <input type="checkbox" data-k="has_back"></label>
  <label>Kiểu hậu <select data-k="back_style"><option value="overlay">Phủ</option><option value="inset">Âm</option></select></label>
  <label>Cánh <select data-k="door_style"><option value="overlay">Trùm ngoài</option><option value="half">Trùm nửa</option><option value="inset">Lọt lòng</option></select></label>
@@ -83,7 +90,7 @@
  <button onclick="libSavePart()">Lưu chi tiết vào thư viện…</button>
 </div>
 <script>
- var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick'];
+ var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick','rail_w','rail_count','hang_z','plinth_setback','slide_len'];
  function q(s){return document.querySelectorAll(s)}
  function fill(){
   q('[data-k]').forEach(function(e){var v=cur[e.dataset.k]; if(e.type==='checkbox')e.checked=!!v; else e.value=v;});

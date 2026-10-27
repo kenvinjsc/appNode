@@ -16,6 +16,7 @@ struct Builder {
   struct Plate { double x, z; };        // bản lề cần lỗ đế trên vách tương ứng (gán sau khi có đủ tấm)
   std::vector<Plate> plates;
   std::string failMsg;
+  int slides = 0; double slideLenUsed = 0;   // ray âm đã dùng (ghi vào info)
 
   int add(const std::string& name, const char* role, double x, double y, double z,
           double sx, double sy, double sz, double banding) {
@@ -125,9 +126,15 @@ struct Builder {
       add(tag + " Đợt ngăn kéo", "carcass", x0, 0, capZ, w, innerDepth, t, w);
       const double fLo = z0 - ext(ds, bOuter), fHi = capZ + ext(ds, false);
       const double fh = (fHi - fLo - (c.drawers - 1) * p.gap) / c.drawers;
-      const double sl = 12.7, dt = 15;
+      const bool under = p.drawerSlide == "under";
+      const double sl = under ? 21 : 12.7, dt = 15;
       const double y0 = (ds == DoorStyle::Inset ? p.frontReturn + p.doorThick : 0) + 2;
-      const double bd = std::floor((innerDepth - y0 - 20) / 50.0) * 50.0;
+      double bd = std::floor((innerDepth - y0 - 20) / 50.0) * 50.0;
+      if (under) {
+        bd = std::min(bd, std::floor(p.slideLen / 50.0) * 50.0);
+        if (bd < 250) { failMsg = "Khoang " + tag + " quá nông cho ray âm (tối thiểu 250 mm)"; return; }
+        slides += c.drawers; slideLenUsed = bd;
+      }
       const double bw = w - 2 * sl, bx = x0 + sl;
       for (int d = 0; d < c.drawers; ++d) {
         const double fz = fLo + d * (fh + p.gap);
@@ -191,10 +198,23 @@ struct Builder {
     Wi = W - 2 * t; zb = p.plinth + t; zt = H - t;
 
     // khung: hông, đáy, nóc, hậu
-    add("Hông trái", "carcass", 0, 0, 0, t, sideDepth, H, H);
-    add("Hông phải", "carcass", W - t, 0, 0, t, sideDepth, H, H);
+    const double sz0 = p.sideOnPlinth ? p.plinth : 0, sh = H - sz0;
+    add("Hông trái", "carcass", 0, 0, sz0, t, sideDepth, sh, sh);
+    add("Hông phải", "carcass", W - t, 0, sz0, t, sideDepth, sh, sh);
+    if (p.plinthFront && p.plinth > 1) {
+      const double px = p.sideOnPlinth ? 0 : t, pw = p.sideOnPlinth ? W : Wi;
+      const double sb = std::max(0.0, std::min(p.plinthSetback, innerDepth - 2 * t));
+      add("Chân trước", "plinth", px, sb, 0, pw, t, p.plinth, 0);
+    }
     add("Đáy", "carcass", t, 0, p.plinth, Wi, innerDepth, t, Wi);
-    add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
+    if (p.cabType == "base") {   // tủ dưới: không nóc, thanh giằng ngang thay thế
+      const int n = std::max(2, std::min(p.railCount, 6));
+      const double rw = std::max(20.0, std::min(p.railW, innerDepth / 2));
+      for (int i = 0; i < n; ++i) {
+        const std::string nm = i == 0 ? "Thanh giằng trước" : i == n - 1 ? "Thanh giằng sau" : "Thanh giằng " + std::to_string(i + 1);
+        add(nm, "carcass", t, i * (innerDepth - rw) / (n - 1), zt, Wi, rw, t, Wi);
+      }
+    } else add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
     if (p.hasBack) {  // hậu rộng hơn khổ ván -> tách các tấm bằng nhau
       const bool ov = p.back == BackStyle::Overlay;
       const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : innerDepth;
@@ -221,6 +241,11 @@ struct Builder {
         break;
       }
     }
+    if (p.hangZ > 0) {   // tủ treo: nâng cả tủ (tấm, lỗ, khoang) trước khi dò mối nối/dán cạnh để đáy không bị coi là chạm sàn
+      for (auto& P : r.panels) { P.o[2] += p.hangZ; for (auto& h : P.holes) h.p[2] += p.hangZ; }
+      for (auto& o : r.openings) { o.z0 += p.hangZ; o.z1 += p.hangZ; }
+    }
+    if (slides > 0) r.info += "Ray âm " + std::to_string((int)slideLenUsed) + " x " + std::to_string(slides) + " bộ; ";
     if (p.cam) addJoinery(r, p);
     if (p.band) applyBanding(r, p);
   }

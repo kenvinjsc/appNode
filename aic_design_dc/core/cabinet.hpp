@@ -36,7 +36,16 @@ struct Params {
   double bandThick = 1.0, bandFrontThick = 2.0;   // dày chỉ cạnh thân tủ / mặt cánh, hộc kéo
   std::string bandEdges = "FRBL";                 // tấm ván gia công: các cạnh dán (F trước, R phải, B sau, L trái)
   double sheetW = 1220;        // khổ ván: hậu rộng hơn sẽ tách thành nhiều tấm bằng nhau
+  std::string drawerSlide = "side";   // side = ray bi hông (12.7/bên) | under = ray âm (21/bên, dài slideLen)
+  double slideLen = 450;       // chiều dài ray âm tối đa
   double doorMaxW = 600;       // rộng tối đa một cánh (cánh tự chia khi khoang rộng hơn)
+  std::string cabType = "std"; // std | base (tủ dưới: không nóc, thay bằng thanh giằng) | wall (tủ treo) | tall (tủ cao)
+  double railW = 70;           // rộng thanh giằng (tủ dưới)
+  int railCount = 2;           // số thanh giằng (2 = trước + sau; >2 chia đều giữa)
+  bool sideOnPlinth = false;   // hồi (hông) đứng trên chân thay vì chạy xuống sàn
+  bool plinthFront = false;    // thêm tấm chân trước (cao = plinth) lùi vào plinthSetback
+  double plinthSetback = 50;
+  double hangZ = 0;            // độ cao treo: nâng cả tủ lên (tủ treo), đáy tủ cách sàn hangZ
   std::string layout;          // bố cục cây khoang (xem layout.hpp); rỗng = dùng cols/loft kiểu cũ
 
   // --- chi tiết lẻ (kind != "cabinet") ---

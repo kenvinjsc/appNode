@@ -92,7 +92,7 @@ module AicDesignDC
   end
 
   COLORS = { 'carcass' => [235, 232, 224], 'back' => [200, 190, 170],
-             'front' => [248, 248, 246], 'drawer' => [215, 200, 175],
+             'front' => [248, 248, 246], 'plinth' => [90, 90, 90], 'drawer' => [215, 200, 175],
              'bend' => [235, 232, 224], 'moulding' => [244, 240, 230], 'glass' => [190, 225, 235] }.freeze
 
   PART_NAMES = { 'door_frame' => 'Cánh khung' }.freeze

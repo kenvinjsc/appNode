@@ -368,6 +368,44 @@ int main() {
     }
     std::printf("fuzz bố cục: %d hợp lệ, %d bị từ chối đúng lý do\n", okN, failN);
     CHECK(okN > 100);
+    // ===== loại tủ: dưới (không nóc + thanh giằng), treo (nâng cao độ) =====
+    { hsx::Params b; b.cabType = "base"; b.width = 900; b.depth = 561; b.height = 866; b.plinth = 75; b.layout = "V(0:L[d=3,l=1])";
+      auto q = hsx::solve(b); CHECK(q.ok);
+      int rails = 0, tops = 0;
+      for (auto& pn : q.panels) { if (pn.name.find("Thanh giằng") != std::string::npos) { ++rails; NEAR(pn.s[2], b.thick, 1e-6); NEAR(pn.s[1], 70, 1e-6); NEAR(pn.o[2], b.height - b.thick, 1e-6); } if (pn.name == "Nóc") ++tops; }
+      CHECK(rails == 2 && tops == 0);
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+      b.railCount = 4; auto q4 = hsx::solve(b); int r4 = 0; for (auto& pn : q4.panels) if (pn.name.find("Thanh giằng") != std::string::npos) ++r4; CHECK(r4 == 4);
+      for (size_t i = 0; i < q4.panels.size(); ++i) for (size_t j = i + 1; j < q4.panels.size(); ++j) CHECK(!overlap(q4.panels[i], q4.panels[j]));
+      hsx::Params w; w.cabType = "wall"; w.width = 900; w.depth = 331; w.height = 880; w.plinth = 0; w.hangZ = 1495; w.layout = "V(0:L[s=1,l=2])";
+      auto qw = hsx::solve(w); CHECK(qw.ok);
+      double zmin = 1e9, zmax = 0; for (auto& pn : qw.panels) { zmin = std::min(zmin, pn.o[2]); zmax = std::max(zmax, pn.o[2] + pn.s[2]); }
+      NEAR(zmin, 1495, 1e-6); NEAR(zmax, 1495 + 880, 1e-6);
+      for (auto& o : qw.openings) CHECK(o.z0 >= 1495 && o.z1 <= 1495 + 880);
+      auto w0 = w; w0.hangZ = 0; auto qw0 = hsx::solve(w0);
+      auto bandBottom = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name == "Hông trái") return pn.band[4]; return -1.0; };
+      NEAR(bandBottom(qw0), 0, 1e-9); NEAR(bandBottom(qw), 1.0, 1e-9);   // treo: cạnh dưới hông lộ ra nên dán; chạm sàn thì không
+    }
+    { hsx::Params d; d.width = 900; d.depth = 561; d.height = 866; d.plinth = 75; d.layout = "V(0:L[d=3,l=1])";
+      auto qs = hsx::solve(d); d.drawerSlide = "under"; auto qu = hsx::solve(d); CHECK(qs.ok && qu.ok);
+      auto sideW = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name.find("Hộc kéo 1 đáy") != std::string::npos) return pn.s[0]; return -1.0; };
+      auto sideL = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name.find("Hộc kéo 1 hông T") != std::string::npos) return pn.s[1]; return -1.0; };
+      CHECK(sideW(qs) - sideW(qu) > 2 * (21 - 12.7) - 1e-6 && sideW(qs) - sideW(qu) < 2 * (21 - 12.7) + 1e-6);   // ray âm hẹp hơn mỗi bên 8.3
+      NEAR(sideL(qu), 450, 1e-6); CHECK(qu.info.find("Ray âm 450 x 3") != std::string::npos);
+      d.depth = 280; auto qn = hsx::solve(d); CHECK(!qn.ok);   // quá nông
+      for (size_t i = 0; i < qu.panels.size(); ++i) for (size_t j = i + 1; j < qu.panels.size(); ++j) CHECK(!overlap(qu.panels[i], qu.panels[j]));
+    }
+    { hsx::Params c; c.cabType = "base"; c.width = 900; c.depth = 561; c.height = 866; c.plinth = 75; c.sideOnPlinth = true; c.plinthFront = true; c.layout = "V(0:L[d=3,l=1])";
+      auto q = hsx::solve(c); CHECK(q.ok); bool pl = false;
+      for (auto& pn : q.panels) {
+        if (pn.name == "Chân trước") { pl = true; CHECK(pn.role == "plinth"); NEAR(pn.s[2], 75, 1e-6); NEAR(pn.o[1], 50, 1e-6); NEAR(pn.s[0], 900, 1e-6); NEAR(pn.banding, 0, 1e-9); CHECK(pn.holes.empty()); }
+        if (pn.name == "Hông trái") { NEAR(pn.o[2], 75, 1e-6); NEAR(pn.o[2] + pn.s[2], 866, 1e-6); }
+      }
+      CHECK(pl);
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+      c.sideOnPlinth = false; auto q2 = hsx::solve(c); for (auto& pn : q2.panels) if (pn.name == "Chân trước") NEAR(pn.s[0], 900 - 2 * c.thick, 1e-6);
+      for (size_t i = 0; i < q2.panels.size(); ++i) for (size_t j = i + 1; j < q2.panels.size(); ++j) CHECK(!overlap(q2.panels[i], q2.panels[j]));
+    }
   }
   // ===== gom chi tiết + xếp ván =====
   {

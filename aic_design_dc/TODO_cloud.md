@@ -69,10 +69,10 @@ Giả định cần xác nhận: hồi lên trước 19; cam cách đầu 34 / �
 - Khác: TẤM DỌC ×3, TẤM FIX ×2, "HT: 30"/"HT: 20" ×2 (chưa rõ nghĩa, hỏi người dùng).
 
 ### Lỗ hổng plugin phát hiện khi dựng (cần Claude Code sửa)
-1. [ ] `Builder.build(model, {cols: [[0,drawers,0,0,doors]]})` KHÔNG tạo cánh/ngăn kéo vì `DEFAULTS[:layout]='V(0:L[])'` (khung rỗng) đè lên `cols`. Cần: hoặc `cols` có hiệu lực khi `layout` rỗng/không truyền, hoặc API Ruby thêm cánh/ngăn kéo theo khoang không cần click chuột (để script/test dựng được).
-2. [ ] Loại tủ: thiếu `kind = base|wall|tall`. Tủ dưới phải **bỏ nóc, thêm 2–4 thanh giằng** (kích thước/vị trí tham số hoá); tủ treo cần tham số độ cao treo (z đáy 1495/1692) thay vì phải tự dịch bằng Transformation.
-3. [ ] Chân: `plinth` chỉ 60 mỗi khối; bếp dùng chân 75 liền nhiều khối (CHÂN TRƯỚC).
-4. [ ] Ngăn kéo **ray âm 450** (TNK trái/phải/sau, đáy, mặt); hiện chỉ có ray 12.7.
+1. [x] (đã sửa: `Params.sanitize` cho `cols` có hiệu lực khi không truyền `layout`) `Builder.build(model, {cols: [[0,drawers,0,0,doors]]})` KHÔNG tạo cánh/ngăn kéo vì `DEFAULTS[:layout]='V(0:L[])'` (khung rỗng) đè lên `cols`. Cần: hoặc `cols` có hiệu lực khi `layout` rỗng/không truyền, hoặc API Ruby thêm cánh/ngăn kéo theo khoang không cần click chuột (để script/test dựng được).
+2. [x] (đã làm: `cab_type` base/wall/tall, `rail_w`, `rail_count`, `hang_z`; test lõi) Loại tủ: thiếu `kind = base|wall|tall`. Tủ dưới phải **bỏ nóc, thêm 2–4 thanh giằng** (kích thước/vị trí tham số hoá); tủ treo cần tham số độ cao treo (z đáy 1495/1692) thay vì phải tự dịch bằng Transformation.
+3. [x] (đã làm: `plinth_front`, `plinth_setback`, role `plinth`) Chân: `plinth` chỉ 60 mỗi khối; bếp dùng chân 75 liền nhiều khối (CHÂN TRƯỚC).
+4. [x] (đã làm: `drawer_slide=under`, `slide_len`; ray ghi vào `info`, chưa vẽ hình ray) Ngăn kéo **ray âm 450** (TNK trái/phải/sau, đáy, mặt); hiện chỉ có ray 12.7.
 5. [ ] Cụm nhiều khối: nhóm + co giãn chung + phào chạy suốt qua nhiều khối (hiện phào chỉ là chi tiết lẻ).
 6. [ ] Chưa kiểm tra: bấm chuột bằng DivideTool/DoorTool/DrawerTool (chỉ test qua API), dialog/toolbar mở bằng menu.
 7. [ ] Quy ước trục: lõi dùng Y=sâu, Z=cao (đúng). Lưu ý `Sketchup::BoundingBox#height`=Y, `#depth`=Z khi viết test/đo.
@@ -80,6 +80,6 @@ Việc dựng thử có thể chạy lại: 5 tủ dưới `{width:W, depth:561,
 
 ### Bổ sung (đo trên khối dựng thử): hồi / chân / phào
 Mỗi khối `Builder.build` chỉ ra 5 tấm: Hông trái, Hông phải, Đáy, Nóc, Hậu.
-8. [ ] **Hồi**: hông chạy từ z=0 (sàn) đến hết chiều cao; tủ bếp gốc đặt hồi TRÊN chân (z≈89 trở lên, hồi dưới cao ~779). Cần tham số "hồi đứng trên chân" khi có chân.
-9. [ ] **Chân**: `plinth` chỉ nâng Đáy lên z=plinth, KHÔNG tạo tấm CHÂN TRƯỚC (gốc: 1 tấm liền 1282 × 17 × 75 cho nhiều khối, lùi vào so với mặt trước). Cần tấm chân trước (và tuỳ chọn chân sau/bên) có độ lùi.
+8. [x] (đã làm: `side_on_plinth`) **Hồi**: hông chạy từ z=0 (sàn) đến hết chiều cao; tủ bếp gốc đặt hồi TRÊN chân (z≈89 trở lên, hồi dưới cao ~779). Cần tham số "hồi đứng trên chân" khi có chân.
+9. [x] (đã làm) **Chân**: `plinth` chỉ nâng Đáy lên z=plinth, KHÔNG tạo tấm CHÂN TRƯỚC (gốc: 1 tấm liền 1282 × 17 × 75 cho nhiều khối, lùi vào so với mặt trước). Cần tấm chân trước (và tuỳ chọn chân sau/bên) có độ lùi.
 10. [ ] **Phào**: không có tấm phào; gốc có PHÀO 50 × 18 ở đỉnh tủ treo, chạy suốt nhiều khối (x1849..3299, z2365). Cần phào gắn theo khối/cụm (dùng `moulding` trong `core/parts.cpp`, nhưng hiện chỉ đặt rời, chưa gắn vào tủ).
