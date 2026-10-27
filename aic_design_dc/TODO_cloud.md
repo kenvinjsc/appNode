@@ -222,3 +222,10 @@ Dựng riêng B450 (`cab_type base, width 450, depth 560.5, height 866, plinth 7
 68. [ ] **Mặt ngăn kéo**: bản dựng 3 mặt bằng nhau 450×187,1×18 (z75..640, hở 226 phía trên, rộng 450 không khe, dày 18). Kho: **3 mặt KHÁC cao** 220 / 355 / 160 (z −30..190, 215..570, 595..755 thùng ⇒ tuyệt đối 45..265, 290..645, 670..830), **rộng 448** (khe 2), dày 17,5, phủ kín đến mép trên cánh (z830) và chùm xuống len chân 30 (z45). Cần: chiều cao từng ngăn nhập được (không chỉ `d=N` đều), ngăn trên cùng sát giằng.
 69. [ ] **Hộc kéo**: kho có TNK trái/phải (450 × 119/269/89 × 17,5, rãnh đáy), TNK sau + RAY ÂM 450 (366 × 100/250/70), đáy 450×382×9; bản dựng: hông/hậu/đáy theo `drawer_pitch`, kích thước không khớp; ray âm chưa có hình.
 Chụp 2 bước: khung rỗng → thêm 3 ngăn kéo, quay video cho người dùng.
+
+### Bổ sung bên test (người dùng nhắc): CHÂN TRƯỚC phải chạy DÀI liền, không chia theo khối
+70. [ ] Bản dựng cụm hiện có 5 tấm chân trước ngắn (400/450/800/900/400, `plinth_front` theo từng khối). Kho `KHOI-THE-GIOI.csv` / `BANG-TAM.csv` chỉ có **2 tấm chân trước DÀI LIỀN** (17,5 dày × 75 cao), lùi vào 20 mm so mặt trước (y 20 → 37,5), z 0 → 75:
+    - **B900-01**: x **20,5 → 1303** (dài **1282,5**) — chạy liền qua B900 và phần dưới B400-2;
+    - **B400-1-01**: x **1303 → 3000** (dài **1697**) — chạy liền qua B450 + B800 + thùng 400 cuối.
+    Cần: chân trước là thuộc tính của CỤM/HÀNG (đoạn `x0..x1`, độ lùi 20, cao 75, dày 17,5), một tấm cho cả đoạn nhiều khối kề nhau, khai báo trong `kitchen_spec` (`plinth_runs: [{x0:20.5,x1:1303},{x0:1303,x1:3000}]`) và vẫn dùng được khi cụm co giãn bằng Scale (kéo dài/ngắn theo cụm). Khối đơn lẻ vẫn có chân riêng như hiện nay. Test: tổng 2 tấm, dài 1282,5 và 1697, y 20→37,5, khớp `BANG-TAM.csv` ±0,5.
+    (B400-2 là khối cao 875 đứng thẳng xuống sàn, không có chân riêng.)
