@@ -1,4 +1,5 @@
 #include "cabinet.hpp"
+#include "layout.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -9,6 +10,12 @@ struct Builder {
   const Params& p;
   Result& r;
   Builder(const Params& pp, Result& rr) : p(pp), r(rr) {}
+
+  // --- hằng số của tủ đang dựng ---
+  double t = 0, W = 0, D = 0, H = 0, bt = 0, Wi = 0, zb = 0, zt = 0, innerDepth = 0;
+  struct Plate { double x, z; };        // bản lề cần lỗ đế trên vách tương ứng (gán sau khi có đủ tấm)
+  std::vector<Plate> plates;
+  std::string failMsg;
 
   int add(const std::string& name, const char* role, double x, double y, double z,
           double sx, double sy, double sz, double banding) {
@@ -26,22 +33,19 @@ struct Builder {
   }
 
   // Phần chồng của cánh lên ván: outer = mép ngoài thân tủ, inner = vách dùng chung
-  double cover(bool outer) const {
-    switch (p.door) {
-      case DoorStyle::Overlay: return outer ? p.thick : p.thick / 2;
-      case DoorStyle::Half:    return outer ? p.thick / 2 : p.thick / 4;
+  static double cover(DoorStyle ds, double th, bool outer) {
+    switch (ds) {
+      case DoorStyle::Overlay: return outer ? th : th / 2;
+      case DoorStyle::Half:    return outer ? th / 2 : th / 4;
       default:                 return 0;
     }
   }
-  double gapShare(bool outer) const {
-    if (!outer) return p.gap / 2;
-    return p.door == DoorStyle::Inset ? p.gap : 0;
+  static double gapShare(DoorStyle ds, double gap, bool outer) {
+    if (!outer) return gap / 2;
+    return ds == DoorStyle::Inset ? gap : 0;
   }
-  double ext(bool outer) const { return cover(outer) - gapShare(outer); }  // lấn ra khỏi mép khoang
-
-  double frontY() const {  // mặt sau của cánh
-    return p.door == DoorStyle::Inset ? p.frontReturn : -p.doorThick;
-  }
+  double ext(DoorStyle ds, bool outer) const { return cover(ds, t, outer) - gapShare(ds, p.gap, outer); }
+  double frontY(DoorStyle ds) const { return ds == DoorStyle::Inset ? p.frontReturn : -p.doorThick; }
 
   static int hingesFor(double h) {
     if (h <= 900) return 2;
@@ -51,146 +55,172 @@ struct Builder {
     return 6;
   }
 
-  void run() {
-    const double t = p.thick, W = p.width, D = p.depth, H = p.height, bt = p.backThick;
-    if (W < 4 * t || H < p.plinth + 4 * t || D < 150) { r.ok = false; r.error = "Kích thước khung quá nhỏ"; return; }
-    std::vector<Column> cols = p.cols;
-    if (cols.empty()) cols.push_back(Column{});
-    const int n = (int)cols.size();
+  static bool near(double a, double b) { return std::fabs(a - b) < 0.01; }
+  static std::string tagOf(const std::vector<int>& path) {
+    if (path.empty()) return "K1";
+    std::string s = "K";
+    for (size_t i = 0; i < path.size(); ++i) s += (i ? "." : "") + std::to_string(path[i] + 1);
+    return s;
+  }
 
-    double sideDepth = D, innerDepth = D;
+  // Chia kích thước các khoang con: size>0 cố định, 0 = tự chia đều phần còn lại.
+  // Khi không còn khoang tự do mà tổng không khớp thì co/giãn tỉ lệ (kéo giãn tủ vẫn hợp lệ).
+  bool distribute(const LNode& nd, double total, std::vector<double>& out) {
+    const int n = (int)nd.kids.size();
+    const double avail = total - (n - 1) * t;
+    double fixedSum = 0; int autoN = 0;
+    for (double s : nd.size) { if (s > 0) fixedSum += s; else ++autoN; }
+    out.assign(n, 0);
+    if (autoN == 0) {
+      if (avail < 50.0 * n) { failMsg = "Khoang quá hẹp để chia"; return false; }
+      const double k = avail / fixedSum;
+      for (int i = 0; i < n; ++i) out[i] = nd.size[i] * k;
+    } else {
+      const double aw = (avail - fixedSum) / autoN;
+      if (aw < 50) { failMsg = "Các khoang chia vượt quá kích thước còn lại (khoang nhỏ hơn 50 mm)"; return false; }
+      for (int i = 0; i < n; ++i) out[i] = nd.size[i] > 0 ? nd.size[i] : aw;
+    }
+    return true;
+  }
+
+  void layoutNode(const LNode& nd, double x0, double x1, double z0, double z1, std::vector<int> path) {
+    if (!failMsg.empty()) return;
+    if (!nd.split) { leaf(nd.leaf, x0, x1, z0, z1, path); return; }
+    const bool vert = nd.dir == 'V';
+    std::vector<double> sz;
+    if (!distribute(nd, vert ? x1 - x0 : z1 - z0, sz)) return;
+    double pos = vert ? x0 : z0;
+    for (size_t i = 0; i < nd.kids.size(); ++i) {
+      auto kp = path; kp.push_back((int)i);
+      if (vert) layoutNode(nd.kids[i], pos, pos + sz[i], z0, z1, kp);
+      else      layoutNode(nd.kids[i], x0, x1, pos, pos + sz[i], kp);
+      pos += sz[i];
+      if (i + 1 < nd.kids.size()) {                       // ván chia giữa hai khoang
+        const std::string where = path.empty() ? "" : tagOf(path) + "-";
+        if (vert) add("Vách " + where + std::to_string(i + 1), "carcass", pos, 0, z0, t, innerDepth, z1 - z0, z1 - z0);
+        else      add("Đợt " + (path.empty() ? "" : tagOf(path) + "-") + std::to_string(i + 1), "carcass", x0, 0, pos, x1 - x0, innerDepth, t, x1 - x0);
+        pos += t;
+      }
+    }
+  }
+
+  // Nội dung một khoang lá: ngăn kéo (từ đáy khoang lên), đợt chia đều, cánh phủ phần còn lại.
+  void leaf(const Column& c, double x0, double x1, double z0, double z1, const std::vector<int>& path) {
+    const std::string tag = tagOf(path);
+    const DoorStyle ds = c.doorStyle >= 0 && c.doorStyle <= 2 ? (DoorStyle)c.doorStyle : p.door;
+    const bool lOuter = near(x0, t), rOuter = near(x1, W - t), bOuter = near(z0, zb), tOuter = near(z1, zt);
+    const double w = x1 - x0;
+    const double fx0 = x0 - ext(ds, lOuter), fx1 = x1 + ext(ds, rOuter);
+    const double dh = c.drawerPitch > 0 ? c.drawerPitch : 180;
+    double doorLo = z0;                 // mép dưới vùng cánh
+    bool doorLoOuter = bOuter;
+
+    Opening op; op.tag = tag; op.path = path; op.x0 = x0; op.x1 = x1; op.z0 = z0; op.z1 = z1;
+    op.drawers = c.drawers; op.shelves = c.shelves; op.doors = c.doors;
+    r.openings.push_back(op);
+
+    if (c.drawers > 0) {
+      const double capZ = z0 + c.drawers * dh;
+      if (capZ + t > z1 + 1e-6) { failMsg = "Ngăn kéo vượt quá chiều cao khoang " + tag; return; }
+      add(tag + " Đợt ngăn kéo", "carcass", x0, 0, capZ, w, innerDepth, t, w);
+      const double fLo = z0 - ext(ds, bOuter), fHi = capZ + ext(ds, false);
+      const double fh = (fHi - fLo - (c.drawers - 1) * p.gap) / c.drawers;
+      const double sl = 12.7, dt = 15;
+      const double y0 = (ds == DoorStyle::Inset ? p.frontReturn + p.doorThick : 0) + 2;
+      const double bd = std::floor((innerDepth - y0 - 20) / 50.0) * 50.0;
+      const double bw = w - 2 * sl, bx = x0 + sl;
+      for (int d = 0; d < c.drawers; ++d) {
+        const double fz = fLo + d * (fh + p.gap);
+        add(tag + " Mặt hộc kéo " + std::to_string(d + 1), "front", fx0, frontY(ds), fz, fx1 - fx0, p.doorThick, fh, 2 * (fx1 - fx0) + 2 * fh);
+        const double bh = dh - 30, bz = z0 + d * dh + 10;
+        const std::string dn = tag + " Hộc kéo " + std::to_string(d + 1);
+        add(dn + " hông T", "drawer", bx, y0, bz, dt, bd, bh, bd);
+        add(dn + " hông P", "drawer", bx + bw - dt, y0, bz, dt, bd, bh, bd);
+        add(dn + " hậu", "drawer", bx + dt, y0 + bd - dt, bz, bw - 2 * dt, dt, bh, 0);
+        add(dn + " đáy", "drawer", bx + dt, y0, bz + 8, bw - 2 * dt, bd - dt, bt, 0);
+      }
+      doorLo = capZ + t; doorLoOuter = false;
+    }
+
+    if (c.shelves > 0) {
+      const double lo = (c.drawers > 0) ? doorLo : z0;
+      const double step = (z1 - lo - c.shelves * t) / (c.shelves + 1);
+      if (step < 20) { failMsg = "Quá nhiều đợt trong khoang " + tag; return; }
+      for (int s = 0; s < c.shelves; ++s)
+        add(tag + " Đợt " + std::to_string(s + 1), "carcass", x0, 0, lo + step * (s + 1) + s * t, w, innerDepth, t, w);
+    }
+
+    int count = c.doors;
+    if (count < 0) count = std::max(1, (int)std::ceil((fx1 - fx0) / std::max(100.0, p.doorMaxW) - 1e-9));   // tự theo rộng tối đa một cánh
+    if (count > 0) {
+      const double fLo = doorLo - ext(ds, doorLoOuter), fHi = z1 + ext(ds, tOuter);
+      const double fh = fHi - fLo;
+      if (fh < 150) { failMsg = "Khoang " + tag + " quá thấp để đặt cánh"; return; }
+      const double lw = ((fx1 - fx0) - (count - 1) * p.gap) / count;
+      if (lw < 80) { failMsg = "Cánh quá hẹp trong khoang " + tag; return; }
+      const int hn = c.hinges >= 2 ? std::min(c.hinges, 8) : hingesFor(fh);
+      for (int k = 0; k < count; ++k) {
+        const double lx = fx0 + k * (lw + p.gap);
+        bool left = (k == 0) || (k % 2 == 0 && k != count - 1);
+        if (count > 1 && k == count - 1) left = false;
+        const int id = add(tag + " Cánh " + std::to_string(k + 1), "front", lx, frontY(ds), fLo, lw, p.doorThick, fh, 2 * lw + 2 * fh);
+        const double hx = left ? lx + 22.5 : lx + lw - 22.5;          // lỗ chén Ø35 cách mép 22.5, cách đầu 100
+        const double px = left ? x0 : x1;
+        for (int h = 0; h < hn; ++h) {
+          const double z = fLo + 100 + h * (fh - 200) / (hn - 1);
+          hole(id, hx, frontY(ds) + p.doorThick / 2, z, 1, 35, 12.5, "hinge_cup");
+          plates.push_back({px, z});
+          ++r.hingeCount;
+        }
+      }
+    }
+  }
+
+  void run() {
+    t = p.thick; W = p.width; D = p.depth; H = p.height; bt = p.backThick;
+    if (W < 4 * t || H < p.plinth + 4 * t || D < 150) { r.ok = false; r.error = "Kích thước khung quá nhỏ"; return; }
+    LNode root;
+    if (p.layout.empty()) root = layoutFromColumns(p);
+    else { std::string e; if (!parseLayout(p.layout, root, e)) { r.ok = false; r.error = e; return; } }
+
+    double sideDepth = D; innerDepth = D;
     if (p.hasBack) {
       if (p.back == BackStyle::Overlay) sideDepth = innerDepth = D - bt;
       else innerDepth = D - bt - 8;
     }
-    const double Wi = W - 2 * t;
-    const double zb = p.plinth + t, zt = H - t;
+    Wi = W - 2 * t; zb = p.plinth + t; zt = H - t;
 
-    // chia bề rộng khoang
-    double fixedSum = 0; int autoN = 0;
-    for (auto& c : cols) { if (c.width > 0) fixedSum += c.width; else ++autoN; }
-    double autoW = autoN ? (Wi - (n - 1) * t - fixedSum) / autoN : 0;
-    if ((autoN && autoW < 50) || (!autoN && std::fabs(Wi - (n - 1) * t - fixedSum) > 0.5)) {
-      r.ok = false; r.error = "Bề rộng các khoang không khớp với bề rộng tủ"; return;
-    }
-
-    // thân
-    int sideL = add("Hông trái", "carcass", 0, 0, 0, t, sideDepth, H, H);
-    int sideR = add("Hông phải", "carcass", W - t, 0, 0, t, sideDepth, H, H);
-    int bottom = add("Đáy", "carcass", t, 0, p.plinth, Wi, innerDepth, t, Wi);
-    int top = add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
-    (void)bottom; (void)top;
+    // khung: hông, đáy, nóc, hậu
+    add("Hông trái", "carcass", 0, 0, 0, t, sideDepth, H, H);
+    add("Hông phải", "carcass", W - t, 0, 0, t, sideDepth, H, H);
+    add("Đáy", "carcass", t, 0, p.plinth, Wi, innerDepth, t, Wi);
+    add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
     if (p.hasBack) {  // hậu rộng hơn khổ ván -> tách các tấm bằng nhau
       const bool ov = p.back == BackStyle::Overlay;
       const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : innerDepth;
       const double bz = ov ? p.plinth : zb, bh = ov ? H - p.plinth : zt - zb;
-      int pieces = p.sheetW > 0 ? std::max(1, (int)std::ceil(bw / p.sheetW - 1e-9)) : 1;
+      const int pieces = p.sheetW > 0 ? std::max(1, (int)std::ceil(bw / p.sheetW - 1e-9)) : 1;
       for (int k = 0; k < pieces; ++k)
         add(pieces > 1 ? "Hậu " + std::to_string(k + 1) : "Hậu", "back", bx + k * bw / pieces, by, bz, bw / pieces, bt, bh, 0);
     }
-    const double loftZ = (p.loftHeight > 0) ? zt - p.loftHeight - t : -1;  // đáy ván ngăn hộc trên
-    if (loftZ > 0 && loftZ < zb + 200) { r.ok = false; r.error = "Hộc trên quá cao"; return; }
-    const double mainTop = (loftZ > 0) ? loftZ : zt;  // mặt dưới vùng khoang chính
 
-    // vách đứng + x các khoang
-    std::vector<double> x0(n), w(n);
-    std::vector<int> divs(n + 1, -1);   // divs[i] = vách bên trái khoang i; [0]=sideL, [n]=sideR
-    divs[0] = sideL; divs[n] = sideR;
-    double x = t;
-    for (int i = 0; i < n; ++i) {
-      w[i] = cols[i].width > 0 ? cols[i].width : autoW;
-      x0[i] = x;
-      x += w[i];
-      if (i < n - 1) {
-        divs[i + 1] = add("Vách " + std::to_string(i + 1), "carcass", x, 0, zb, t, innerDepth, zt - zb, zt - zb);
-        x += t;
-      }
-    }
-    if (loftZ > 0)
-      for (int i = 0; i < n; ++i)
-        add("K" + std::to_string(i + 1) + " Đợt hộc trên", "carcass", x0[i], 0, loftZ, w[i], innerDepth, t, w[i]);
-
-    for (int i = 0; i < n; ++i) {
-      const Column& c = cols[i];
-      const std::string tag = "K" + std::to_string(i + 1);
-      const double dh = c.drawerPitch > 0 ? c.drawerPitch : 180;
-      const double stack = c.drawers * dh;
-      double doorLo = zb;        // mép dưới khoang cánh (mặt trên của ván/đáy)
-      bool doorLoOuter = true;
-
-      // trái/phải khoang có phải mép ngoài thân tủ?
-      const bool lOuter = (i == 0), rOuter = (i == n - 1);
-      const double fx0 = x0[i] - ext(lOuter), fx1 = x0[i] + w[i] + ext(rOuter);
-
-      auto zLeafLo = [&](double openLo, bool outer) { return openLo - ext(outer); };
-      auto zLeafHi = [&](double openHi, bool outer) { return openHi + ext(outer); };
-
-      // ngăn kéo
-      if (c.drawers > 0) {
-        double capZ = zb + stack;
-        add(tag + " Đợt ngăn kéo", "carcass", x0[i], 0, capZ, w[i], innerDepth, t, w[i]);
-        double fLo = zLeafLo(zb, true), fHi = zLeafHi(capZ, false);
-        double fh = (fHi - fLo - (c.drawers - 1) * p.gap) / c.drawers;
-        const double sl = 12.7, dt = 15;
-        double y0 = (p.door == DoorStyle::Inset ? p.frontReturn + p.doorThick : 0) + 2;
-        double depthAvail = innerDepth - y0 - 20;
-        double bd = std::floor(depthAvail / 50.0) * 50.0;
-        double bw = w[i] - 2 * sl, bx = x0[i] + sl;
-        for (int d = 0; d < c.drawers; ++d) {
-          double fz = fLo + d * (fh + p.gap);
-          add(tag + " Mặt hộc kéo " + std::to_string(d + 1), "front", fx0, frontY(), fz, fx1 - fx0, p.doorThick, fh,
-              2 * (fx1 - fx0) + 2 * fh);
-          double bh = dh - 30, bz = zb + d * dh + 10;
-          std::string dn = tag + " Hộc kéo " + std::to_string(d + 1);
-          add(dn + " hông T", "drawer", bx, y0, bz, dt, bd, bh, bd);
-          add(dn + " hông P", "drawer", bx + bw - dt, y0, bz, dt, bd, bh, bd);
-          add(dn + " hậu", "drawer", bx + dt, y0 + bd - dt, bz, bw - 2 * dt, dt, bh, 0);
-          add(dn + " đáy", "drawer", bx + dt, y0 + 0, bz + 8, bw - 2 * dt, bd - dt, bt, 0);
-        }
-        doorLo = capZ + t; doorLoOuter = false;
-      }
-
-      // đợt ngang chia đều
-      if (c.shelves > 0) {
-        double lo = (c.drawers > 0) ? doorLo : zb, hi = mainTop;
-        double space = hi - lo - c.shelves * t;
-        double step = space / (c.shelves + 1);
-        for (int s = 0; s < c.shelves; ++s) {
-          double z = lo + step * (s + 1) + s * t;
-          add(tag + " Đợt " + std::to_string(s + 1), "carcass", x0[i], 0, z, w[i], innerDepth, t, w[i]);
-        }
-      }
-
-      // cánh khoang chính
-      auto doors = [&](int count, double openLo, bool loOuter, double openHi, bool hiOuter, const std::string& zone) {
-        if (count <= 0) return;
-        double fLo = zLeafLo(openLo, loOuter), fHi = zLeafHi(openHi, hiOuter);
-        double fh = fHi - fLo;
-        double lw = ((fx1 - fx0) - (count - 1) * p.gap) / count;
-        int hn = hingesFor(fh);
-        for (int k = 0; k < count; ++k) {
-          double lx = fx0 + k * (lw + p.gap);
-          bool left = (k == 0) || (k % 2 == 0 && k != count - 1);
-          if (count > 1 && k == count - 1) left = false;
-          int id = add(tag + " Cánh " + zone + std::to_string(k + 1), "front", lx, frontY(), fLo, lw, p.doorThick, fh,
-                       2 * lw + 2 * fh);
-          // bản lề: lỗ chén Ø35 cách mép 22.5, cách đầu 100
-          double hx = left ? lx + 22.5 : lx + lw - 22.5;
-          int plate = left ? divs[i] : divs[i + 1];
-          double px = left ? x0[i] : x0[i] + w[i];
-          for (int h = 0; h < hn; ++h) {
-            double z = fLo + 100 + h * (fh - 200) / (hn - 1);
-            hole(id, hx, frontY() + p.doorThick / 2, z, 1, 35, 12.5, "hinge_cup");
-            for (double dy : {37.0, 69.0}) hole(plate, px, dy, z, 0, 5, 12, "hinge_plate");
-            ++r.hingeCount;
-          }
-        }
-      };
-      doors(c.doors, doorLo, doorLoOuter, mainTop, loftZ < 0, "");  // nếu có hộc trên: mép trên là ván ngăn
-      if (loftZ > 0 && p.loftDoors > 0)
-        doors(p.loftDoors, loftZ + t, false, zt, true, "trên ");
-    }
+    layoutNode(root, t, W - t, zb, zt, {});
+    if (!failMsg.empty()) { r.ok = false; r.error = failMsg; return; }
     for (auto& a : r.panels) finalizePanel(a);
+
+    // lỗ đế bản lề: tìm vách đứng có mặt nằm tại mép khoang
+    for (const Plate& pl : plates) {
+      for (auto& P : r.panels) {
+        if (P.role != "carcass" || P.prismAxis >= 0 || P.tAxis != 0) continue;
+        if (!(near(P.o[0], pl.x) || near(P.o[0] + P.s[0], pl.x))) continue;
+        if (pl.z < P.o[2] - 0.01 || pl.z > P.o[2] + P.s[2] + 0.01) continue;
+        for (double dy : {37.0, 69.0}) {
+          Hole h{{pl.x, dy, pl.z}, 0, 5, 12, "hinge_plate"};
+          P.holes.push_back(h);
+        }
+        break;
+      }
+    }
     if (p.cam) addJoinery(r, p);
     if (p.band) applyBanding(r, p);
   }
