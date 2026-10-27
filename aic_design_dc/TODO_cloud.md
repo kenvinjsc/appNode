@@ -229,3 +229,12 @@ Chụp 2 bước: khung rỗng → thêm 3 ngăn kéo, quay video cho người d
     - **B400-1-01**: x **1303 → 3000** (dài **1697**) — chạy liền qua B450 + B800 + thùng 400 cuối.
     Cần: chân trước là thuộc tính của CỤM/HÀNG (đoạn `x0..x1`, độ lùi 20, cao 75, dày 17,5), một tấm cho cả đoạn nhiều khối kề nhau, khai báo trong `kitchen_spec` (`plinth_runs: [{x0:20.5,x1:1303},{x0:1303,x1:3000}]`) và vẫn dùng được khi cụm co giãn bằng Scale (kéo dài/ngắn theo cụm). Khối đơn lẻ vẫn có chân riêng như hiện nay. Test: tổng 2 tấm, dài 1282,5 và 1697, y 20→37,5, khớp `BANG-TAM.csv` ±0,5.
     (B400-2 là khối cao 875 đứng thẳng xuống sàn, không có chân riêng.)
+
+### Bổ sung bên test: thử CÔNG CỤ bằng CHUỠT/BÀN PHÍM THẬT (SketchUp 2025, bản d7aa3dd, 2026-10-27)
+Cách thử: hiệu chỉnh tọa độ viewport (đưa con trỏ thật tới 2 điểm, đọc `onMouseMove` của một tool ghi log → tỉ lệ 1:1, gốc viewport = màn hình (1585,116)), rồi `SetCursorPos` + `mouse_event` (click) + `SendKeys` (VCB) từ PowerShell. Không phải gọi hàm tạo tủ bằng code.
+- CHẠY ĐƯỢC (có chuột/phím thật): **Vẽ tủ** — click điểm 1, rê (xem trước khung bao), gõ VCB `450mm,560.5mm` + Enter ⇒ tạo "Khung tủ" 450 × 561 × 866, 7 tấm (hông ×2, chân trước, đáy, giằng trước/sau, hậu). **Ngăn kéo** — chọn 3 ngăn, click vào khoang ⇒ 23 tấm, 3 mặt hộc kéo, layout `V(0:L[d=3,p=180])`.
+- CHƯA thử bằng chuột thật: Đợt/Vách, Cánh, Shift/Alt, thanh chip, hộp Thông số, Scale, nút toolbar (công cụ được bật bằng `model.select_tool`, không phải bấm icon).
+Lỗi/gap tìm được khi thao tác:
+71. [ ] **VCB bỏ qua "đơn vị mm"**: `draw_tool.rb:65` dùng `"450".to_l.to_mm` ⇒ trong model đơn vị **inch** (model của người dùng `LengthUnit=0`), gõ `450` ra 450 **inch** (kẹp 6000 mm). Người dùng xác nhận "đơn vị mm": mọi số gõ vào VCB của plugin (Vẽ tủ, Đợt/Vách `3`, `/3`, `200`...) phải hiểu là **mm** bất kể đơn vị model (hoặc đọc theo đơn vị hiển thị và hiện rõ trong nhãn VCB). Kiểm tra cả `opening_tools.rb`.
+72. [ ] **Làm tròn mm**: `DrawTool#dims` làm tròn số nguyên ⇒ gõ `560.5` ra sâu **561**. Kho dùng 560,5; cần giữ phần thập phân khi gõ VCB (và khi đọc từ `finish`).
+73. [ ] Chiều cao mỗi ngăn kéo chỉ đều (`p=180`), kho cần 220/355/160 (xem mục 68). Công cụ nên cho đặt chiều cao từng ngăn.
