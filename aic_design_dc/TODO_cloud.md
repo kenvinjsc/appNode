@@ -211,3 +211,14 @@ Cách thử (model MỚI, không đụng model thật). Build lại `hsx_core.dl
 - Gợi ý ưu tiên sửa: (1) độ sâu thùng/hồi/đáy dùng 560,5 và hồi 773,5 đứng trên đáy trùm; (2) dày ván cánh 17,5 và khe 2 (cánh 397,3/448/…); (3) hậu 9 lọt rãnh + `back_groove_extra`; (4) chân trước liền theo cụm; (5) ngăn kéo ray âm đủ chi tiết; (6) ống hút mùi 650,5; (7) phào/HT từng tủ.
 - Tái hiện: `m=Sketchup.active_model; g=AicDesignDC::Cluster.create(m, AicDesignDC::Cluster.sample_kitchen, tr)` rồi duyệt nhóm lá, so bounds đã sắp xếp với `BANG-TAM.csv` (ghép tham lam ±0,5 mm).
 - Nhóm "Cụm tủ" thử nằm bên phải tủ gốc trong model người dùng, chưa lưu.
+
+### Bổ sung bên test: ảnh "Screenshot 125535" (người dùng khoanh đỏ) + dựng từng bước B450 (bản d7aa3dd)
+Khung đỏ của người dùng: (a) **3 ô ở tủ treo = ĐỢT DI ĐỘNG** (khối 900 hai lá, 550, 500) — bản dựng không có đợt; (b) **ô lớn ở tủ dưới = khối ngăn kéo B450** — bố cục ngăn kéo khác bản gốc.
+Dựng riêng B450 (`cab_type base, width 450, depth 560.5, height 866, plinth 75, side_on_plinth, plinth_front, drawer_slide under`, `layout 'V(0:L[])'` rồi rebuild `'V(0:L[d=3])'`), đo (mm, z tuyệt đối; gốc = kho `B450`, z kho + 75):
+64. [ ] **Hồi**: bản dựng 551 sâu × 791 cao, z75..866 (CHUI vào đáy z75..92,5). Kho: **560,5 × 773,5, z92,5..866** (hồi đứng trên đáy). Độ sâu thùng đang trừ dày hậu (9,5) vào hồi/đáy: sai, thùng sâu = tham số `depth` (560,5).
+65. [ ] **Hậu**: 450 × 9,5 × 791 (kho 431 × 9 × 781,5, z9,5→791).
+66. [ ] **Giằng trước** bản dựng 415×70 lọt giữa hồi; kho **450×70** trùm đầu hồi, nằm trong khấu hồi 70×17,5 (hồi bản dựng KHÔNG có khấu). Giằng sau 415×70 ✔.
+67. [ ] **Thiếu 2 giằng ngang** 415×60×17,5 ở z170,5 và z550 (thùng) chia ngăn kéo; bản dựng lại có **1 "Đợt ngăn kéo" thừa** 415×551×17,5 ở z632,5..650.
+68. [ ] **Mặt ngăn kéo**: bản dựng 3 mặt bằng nhau 450×187,1×18 (z75..640, hở 226 phía trên, rộng 450 không khe, dày 18). Kho: **3 mặt KHÁC cao** 220 / 355 / 160 (z −30..190, 215..570, 595..755 thùng ⇒ tuyệt đối 45..265, 290..645, 670..830), **rộng 448** (khe 2), dày 17,5, phủ kín đến mép trên cánh (z830) và chùm xuống len chân 30 (z45). Cần: chiều cao từng ngăn nhập được (không chỉ `d=N` đều), ngăn trên cùng sát giằng.
+69. [ ] **Hộc kéo**: kho có TNK trái/phải (450 × 119/269/89 × 17,5, rãnh đáy), TNK sau + RAY ÂM 450 (366 × 100/250/70), đáy 450×382×9; bản dựng: hông/hậu/đáy theo `drawer_pitch`, kích thước không khớp; ray âm chưa có hình.
+Chụp 2 bước: khung rỗng → thêm 3 ngăn kéo, quay video cho người dùng.
