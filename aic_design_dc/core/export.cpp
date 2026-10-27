@@ -114,7 +114,7 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     if (k == "width") o.width = d; else if (k == "depth") o.depth = d; else if (k == "height") o.height = d;
     else if (k == "thick") o.thick = d; else if (k == "back_thick") o.backThick = d;
     else if (k == "plinth") o.plinth = d; else if (k == "has_back") o.hasBack = b(v);
-    else if (k == "back_style") o.back = v == "inset" ? BackStyle::Inset : BackStyle::Overlay;
+    else if (k == "back_style") o.back = v == "inset" ? BackStyle::Inset : v == "flush" ? BackStyle::Flush : BackStyle::Overlay;
     else if (k == "door_style") o.door = v == "inset" ? DoorStyle::Inset : v == "half" ? DoorStyle::Half : DoorStyle::Overlay;
     else if (k == "door_thick") o.doorThick = d; else if (k == "gap") o.gap = d;
     else if (k == "front_return") o.frontReturn = d; else if (k == "loft_height") o.loftHeight = d;
@@ -175,7 +175,7 @@ std::string toJson(const Result& r) {
   for (size_t i = 0; i < r.panels.size(); ++i) {
     const Panel& p = r.panels[i];
     if (i) o += ',';
-    o += "{\"name\":\""; esc(o, p.name); o += "\",\"role\":\"" + p.role + "\",";
+    o += "{\"id\":\""; esc(o, p.id); o += "\",\"name\":\""; esc(o, p.name); o += "\",\"role\":\"" + p.role + "\",";
     if (p.prismAxis >= 0) {
       o += "\"axis\":" + std::to_string(p.prismAxis) + ",\"poly\":[";
       for (size_t j = 0; j < p.poly.size(); ++j) { std::snprintf(buf, sizeof buf, "%s%.3f", j ? "," : "", p.poly[j]); o += buf; }

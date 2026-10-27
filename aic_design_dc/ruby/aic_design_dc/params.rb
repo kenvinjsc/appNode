@@ -29,6 +29,14 @@ module AicDesignDC
   LIMITS = { width: [300, 6000], depth: [150, 1200], height: [300, 3500] }.freeze
 
   module Params
+    SCHEMA = 2   # 1: cols + loft (chưa có layout); 2: cây khoang `layout` + loại tủ, ID tấm
+
+    # Nâng dữ liệu cũ lên schema hiện tại. Tủ schema 1 không có `layout` -> để rỗng để lõi dùng cols/loft (không biến thành khung rỗng).
+    def self.migrate(h, from_schema = nil)
+      h = (h || {}).each_with_object({}) { |(k, v), o| o[k.to_s] = v }
+      h['layout'] = '' if (from_schema.to_i < 2) && !h.key?('layout')
+      h
+    end
     NUMERIC = %i[width depth height thick back_thick plinth door_thick gap front_return loft_height sheet_w door_max_w rail_w top_cover top_cover_overhang end_panel_w hang_z slide_len plinth_setback band_thick band_front_thick].freeze
 
     # Nhận Hash (khóa string/symbol, giá trị từ JSON/hộp thoại) -> Hash sạch, đúng kiểu, trong giới hạn.
@@ -44,7 +52,7 @@ module AicDesignDC
       h[:drawer_slide] = %w[side under].include?(h[:drawer_slide].to_s) ? h[:drawer_slide].to_s : 'side'
       h[:end_panel] = h[:end_panel].to_s.upcase.chars.select { |c| 'LR'.include?(c) }.uniq.join
       h[:rail_count] = [[h[:rail_count], 2].max, 6].min
-      h[:back_style] = %w[overlay inset].include?(h[:back_style].to_s) ? h[:back_style].to_s : 'overlay'
+      h[:back_style] = %w[overlay inset flush].include?(h[:back_style].to_s) ? h[:back_style].to_s : 'overlay'
       h[:door_style] = %w[overlay half inset].include?(h[:door_style].to_s) ? h[:door_style].to_s : 'overlay'
       LIMITS.each { |k, (lo, hi)| h[k] = [[h[k], lo].max, hi].min }
       h[:cols] = (h[:cols] || []).map do |c|

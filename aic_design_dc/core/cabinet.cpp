@@ -2,6 +2,7 @@
 #include "layout.hpp"
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 namespace hsx {
 namespace {
@@ -210,6 +211,7 @@ struct Builder {
     double sideDepth = D; innerDepth = D;
     if (p.hasBack) {
       if (p.back == BackStyle::Overlay) sideDepth = innerDepth = D - bt;
+      else if (p.back == BackStyle::Flush) innerDepth = D - bt;       // hậu lọt: hông giữ nguyên sâu D, hậu nằm sát mép sau giữa hai hông
       else innerDepth = D - bt - 8;
     }
     Wi = W - 2 * t; zb = p.plinth + t; zt = H - t;
@@ -233,9 +235,9 @@ struct Builder {
       }
     } else add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
     if (p.hasBack) {  // hậu rộng hơn khổ ván -> tách các tấm bằng nhau
-      const bool ov = p.back == BackStyle::Overlay;
-      const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : innerDepth;
-      const double bz = ov ? p.plinth : zb, bh = ov ? H - p.plinth : zt - zb;
+      const bool ov = p.back == BackStyle::Overlay, fl = p.back == BackStyle::Flush;
+      const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : fl ? D - bt : innerDepth;
+      const double bz = (ov || fl) ? p.plinth : zb, bh = (ov || fl) ? H - p.plinth : zt - zb;
       const int pieces = p.sheetW > 0 ? std::max(1, (int)std::ceil(bw / p.sheetW - 1e-9)) : 1;
       for (int k = 0; k < pieces; ++k)
         add(pieces > 1 ? "Hậu " + std::to_string(k + 1) : "Hậu", "back", bx + k * bw / pieces, by, bz, bw / pieces, bt, bh, 0);
@@ -279,12 +281,22 @@ struct Builder {
 
 }  // namespace
 
+// ID ổn định = tên cấu trúc; trùng tên thì thêm hậu tố #n theo thứ tự sinh (xác định, không phụ thuộc kích thước).
+void assignIds(Result& r) {
+  std::map<std::string, int> seen;
+  for (auto& a : r.panels) {
+    const int n = seen[a.name]++;
+    a.id = n ? a.name + "#" + std::to_string(n + 1) : a.name;
+  }
+}
+
 Result solve(const Params& p) {
-  if (p.kind != "cabinet") return solvePart(p);
+  if (p.kind != "cabinet") { Result q = solvePart(p); assignIds(q); return q; }
   Result r;
   Builder b(p, r);
   b.run();
   if (!r.ok) r.panels.clear();
+  assignIds(r);
   return r;
 }
 

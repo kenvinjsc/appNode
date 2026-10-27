@@ -168,6 +168,7 @@ module AicDesignDC
       end
       g.material = material(model, pn['role'])
       g.set_attribute('hsx', 'role', pn['role'])
+      g.set_attribute('hsx', 'id', pn['id']) if pn['id']
       g.set_attribute('hsx', 'holes', JSON.generate(pn['holes']))
       g
     end
@@ -198,7 +199,7 @@ module AicDesignDC
     end
 
     def self.params_of(cab)
-      Params.sanitize(JSON.parse(cab.get_attribute('hsx', 'params')))
+      Params.sanitize(Params.migrate(JSON.parse(cab.get_attribute('hsx', 'params')), cab.get_attribute('hsx', 'schema')))
     end
 
     def self.build(model, params, transformation = nil, operation: true, parent: nil)
@@ -211,6 +212,7 @@ module AicDesignDC
       res['panels'].each { |pn| add_panel(cab.entities, pn, model) }
       cab.transformation = transformation if transformation
       cab.set_attribute('hsx', 'params', JSON.generate(params))
+      cab.set_attribute('hsx', 'schema', Params::SCHEMA)
       model.commit_operation if operation
       cab
     rescue StandardError

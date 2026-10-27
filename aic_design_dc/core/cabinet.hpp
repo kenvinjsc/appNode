@@ -6,7 +6,7 @@
 
 namespace hsx {
 
-enum class BackStyle { Overlay, Inset };           // Kiểu hậu: Phủ / Âm
+enum class BackStyle { Overlay, Inset, Flush };    // Kiểu hậu: Phủ (ốp sau hông) / Âm (lùi 8 mm) / Lọt (nằm giữa hông, sát mép sau)
 enum class DoorStyle { Overlay, Half, Inset };     // Cánh: Trùm ngoài / Trùm nửa / Lọt lòng
 
 struct Column {            // 1 khoang giữa 2 vách đứng
@@ -95,6 +95,7 @@ struct Hole {
 };
 
 struct Panel {
+  std::string id;           // ID ổn định: suy ra từ tên cấu trúc (khoang + vai trò), không đổi khi chỉ đổi kích thước
   std::string name, role;   // role: carcass | back | front | drawer
   double o[3];              // góc min
   double s[3];              // kích thước theo X,Y,Z
@@ -130,6 +131,7 @@ struct Result {
   std::vector<Opening> openings;   // các khoang lá của bố cục (kind = cabinet)
 };
 
+void assignIds(Result& r);          // gán Panel::id ổn định
 Result solve(const Params& p);      // kind=cabinet -> tủ; còn lại -> chi tiết lẻ
 Result solvePart(const Params& p);
 Result solveBoard(const Params& p);

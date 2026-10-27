@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -385,6 +386,34 @@ int main() {
       auto w0 = w; w0.hangZ = 0; auto qw0 = hsx::solve(w0);
       auto bandBottom = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name == "Hông trái") return pn.band[4]; return -1.0; };
       NEAR(bandBottom(qw0), 0, 1e-9); NEAR(bandBottom(qw), 1.0, 1e-9);   // treo: cạnh dưới hông lộ ra nên dán; chạm sàn thì không
+    }
+    // ===== kiểu hậu Phủ / Âm / Lọt: không chồng tấm, hậu đúng chỗ, ngăn kéo không chạm hậu =====
+    for (auto bs : {hsx::BackStyle::Overlay, hsx::BackStyle::Inset, hsx::BackStyle::Flush}) {
+      hsx::Params k; k.width = 1600; k.depth = 560; k.height = 2200; k.plinth = 60; k.back = bs; k.layout = "V(0:H(0:L[l=2],0:L[d=2]),0:L[d=3,l=1])";
+      auto q = hsx::solve(k); CHECK(q.ok);
+      double backY0 = 0, backY1 = 0, backX0 = 1e9, backX1 = 0, drawerMaxY = 0, sideD = 0;
+      for (auto& pn : q.panels) {
+        if (pn.role == "back") { backY0 = pn.o[1]; backY1 = pn.o[1] + pn.s[1]; backX0 = std::min(backX0, pn.o[0]); backX1 = std::max(backX1, pn.o[0] + pn.s[0]); }
+        if (pn.role == "drawer") drawerMaxY = std::max(drawerMaxY, pn.o[1] + pn.s[1]);
+        if (pn.name == "Hông trái") sideD = pn.s[1];
+      }
+      NEAR(backY1 - backY0, 9.5, 1e-6);
+      CHECK(drawerMaxY <= backY0 + 1e-6);                                   // hộc kéo không xuyên hậu
+      if (bs == hsx::BackStyle::Flush) { NEAR(backY1, 560, 1e-6); NEAR(sideD, 560, 1e-6); NEAR(backX0, 17.5, 1e-6); NEAR(backX1, 1582.5, 1e-6); }   // lọt giữa hai hông, sát mép sau
+      if (bs == hsx::BackStyle::Overlay) { NEAR(backY1, 560, 1e-6); NEAR(sideD, 560 - 9.5, 1e-6); NEAR(backX0, 0, 1e-6); NEAR(backX1, 1600, 1e-6); }
+      if (bs == hsx::BackStyle::Inset) NEAR(backY1, 560 - 8, 1e-6);
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+    }
+    // ===== ID ổn định: duy nhất, không đổi khi chỉ đổi kích thước, roundtrip 1600→1850→1600 =====
+    { hsx::Params k; k.width = 1600; k.depth = 560; k.height = 2200; k.plinth = 60; k.layout = "V(0:H(0:L[l=2],0:L[d=2]),0:L[d=3,l=1])";
+      auto ids = [](const hsx::Result& r) { std::vector<std::string> v; for (auto& pn : r.panels) v.push_back(pn.id); return v; };
+      auto a = hsx::solve(k); auto idA = ids(a);
+      { auto u = idA; std::sort(u.begin(), u.end()); CHECK(std::adjacent_find(u.begin(), u.end()) == u.end()); }   // duy nhất
+      for (auto& i : idA) CHECK(!i.empty());
+      auto k2 = k; k2.width = 1850; k2.height = 1950; k2.depth = 450; auto b = hsx::solve(k2); CHECK(b.ok); CHECK(ids(b) == idA);   // đổi D/W/H: ID giữ nguyên, cùng thứ tự
+      auto k3 = k2; k3.width = 1600; k3.height = 2200; k3.depth = 560; auto c = hsx::solve(k3); CHECK(ids(c) == idA);
+      CHECK(hsx::toJson(a) == hsx::toJson(c));                                                                         // roundtrip không trôi số
+      CHECK(hsx::toJson(a).find("\"id\":\"Hông trái\"") != std::string::npos);
     }
     // ===== ống hút mùi, tấm fix, ốp hông, bản lề phải =====
     { hsx::Params h; h.cabType = "wall"; h.width = 600; h.depth = 331; h.height = 673; h.plinth = 0; h.hangZ = 1692; h.endPanel = "LR";
