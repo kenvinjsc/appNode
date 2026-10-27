@@ -28,6 +28,10 @@
  <label>Hồi lên trước <span><input type="number" data-k="front_return"> mm</span></label>
  <label>Cao hộc trên <span><input type="number" data-k="loft_height"> mm</span></label>
  <label>Cánh hộc trên <span><input type="number" data-k="loft_doors"></span></label>
+ <label>Cam chốt liên kết <input type="checkbox" data-k="cam"></label>
+ <label>Dán cạnh tự động <input type="checkbox" data-k="band"></label>
+ <label>Dày chỉ thân tủ <span><input type="number" step="0.05" data-k="band_thick"> mm</span></label>
+ <label>Dày chỉ cánh/hộc kéo <span><input type="number" step="0.05" data-k="band_front_thick"> mm</span></label>
 </div>
 <h4>Thư viện mẫu</h4>
 <div class="sec">
@@ -49,15 +53,34 @@
  <button onclick="sketchup.dxf()">Xuất DXF</button>
  <table id="cut"></table>
 </div>
+<h4>Gom chi tiết &amp; tối ưu cắt ván</h4>
+<div class="sec">
+ <label>Khổ ván (dài × rộng) <span><input type="number" id="n_l" value="2440"> × <input type="number" id="n_w" value="1220"></span></label>
+ <label>Mạch cưa / lề cắt <span><input type="number" id="n_k" value="4"> / <input type="number" id="n_t" value="10"></span></label>
+ <label>Cho phép xoay (bỏ vân) <input type="checkbox" id="n_r"></label>
+ <label>Phạm vi <select id="n_s"><option value="all">Toàn bộ model</option><option value="selection">Đang chọn</option></select></label>
+ <button id="n_go" onclick="nestGo()">Phân tích &amp; xếp ván</button>
+ <button id="n_stop" onclick="sketchup.nest_cancel()" disabled>Hủy</button>
+ <button onclick="sketchup.nest_dxf()">DXF xếp ván</button>
+ <button onclick="sketchup.nest_csv()">CSV chi tiết gộp</button>
+ <progress id="n_p" max="1" value="0" style="width:100%;display:none"></progress>
+ <div id="n_msg" class="tip"></div>
+ <div id="n_sum"></div>
+ <div id="n_sheets"></div>
+ <div id="n_svg"></div>
+ <table id="n_items"></table>
+ <div class="tip">Chạy ở luồng nền: SketchUp vẫn thao tác bình thường trong lúc tính. Chỉ đọc tham số tủ, không tạo thêm hình trong model.</div>
+</div>
 <h4>Chi tiết (uốn cong / phào / xà)</h4>
 <div class="sec">
- <label>Loại <select id="pkind"><option value="bend">Uốn cong</option><option value="shelf_round">Đợt bo góc</option><option value="moulding">Phào</option><option value="beam">Xà</option></select></label>
+ <label>Loại <select id="pkind"><option value="bend">Uốn cong</option><option value="shelf_round">Đợt bo góc</option><option value="moulding">Phào</option><option value="beam">Xà</option><option value="board">Tấm ván gia công (bo góc, mộng, đục khung, rãnh)</option><option value="kerf_bend">Ván uốn xẻ rãnh (kerf)</option><option value="door_frame">Cánh khung / kính</option></select></label>
  <div id="pfields"></div>
+ <div id="pinfo" class="tip"></div>
  <button onclick="sketchup.place_part()">Đặt chi tiết</button>
  <button onclick="libSavePart()">Lưu chi tiết vào thư viện…</button>
 </div>
 <script>
- var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors'];
+ var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick'];
  function q(s){return document.querySelectorAll(s)}
  function fill(){
   q('[data-k]').forEach(function(e){var v=cur[e.dataset.k]; if(e.type==='checkbox')e.checked=!!v; else e.value=v;});
@@ -77,10 +100,48 @@
  function delCol(i){if(cur.cols.length>1){cur.cols.splice(i,1); fill(); changed();}}
  // Ruby -> JS (không kích hoạt apply)
  function setParams(s,isCab){cur=JSON.parse(s); document.getElementById('title').textContent=isCab?'Khung tủ (đang chọn)':'Khung tủ (mặc định cho tủ mới)'; fill();}
- function showCutlist(s){var r=JSON.parse(s),h='<tr><th>Loại</th><th>Dài</th><th>Rộng</th><th>Dày</th><th>SL</th><th>Dán cạnh</th></tr>';
-  r.forEach(function(x){h+='<tr><td>'+x.role+'</td><td>'+x.L+'</td><td>'+x.W+'</td><td>'+x.T+'</td><td>'+x.qty+'</td><td>'+x.banding+'</td></tr>'});
+ function bandTxt(b){function f(v){return v>0?v:'-'} return 'dài '+f(b[0])+'/'+f(b[1])+' · ngắn '+f(b[2])+'/'+f(b[3]);}
+ function showCutlist(s){var r=JSON.parse(s),h='<tr><th>Loại</th><th>Dài×Rộng×Dày</th><th>Cắt</th><th>SL</th><th>Dán cạnh (mm)</th></tr>';
+  r.forEach(function(x){h+='<tr><td>'+x.role+'</td><td>'+x.L+'×'+x.W+'×'+x.T+'</td><td>'+x.cutL+'×'+x.cutW+'</td><td>'+x.qty+'</td><td>'+bandTxt(x.band)+' ('+x.banding+')</td></tr>'});
   document.getElementById('cut').innerHTML=h;}
  
+
+ // ---- Gom chi tiết & xếp ván ----
+ var nestRes=null;
+ function nestGo(){
+  document.getElementById('n_go').disabled=true; document.getElementById('n_stop').disabled=false;
+  document.getElementById('n_p').style.display='block'; document.getElementById('n_p').value=0;
+  document.getElementById('n_sum').innerHTML=''; document.getElementById('n_sheets').innerHTML=''; document.getElementById('n_svg').innerHTML=''; document.getElementById('n_items').innerHTML='';
+  document.getElementById('n_msg').style.color='#777'; document.getElementById('n_msg').textContent='Đang quét model…';
+  sketchup.nest_start(JSON.stringify({sheet_l:+document.getElementById('n_l').value,sheet_w:+document.getElementById('n_w').value,kerf:+document.getElementById('n_k').value,trim:+document.getElementById('n_t').value,rotate:document.getElementById('n_r').checked,scope:document.getElementById('n_s').value}));
+ }
+ function nestEnd(){document.getElementById('n_go').disabled=false; document.getElementById('n_stop').disabled=true; document.getElementById('n_p').style.display='none';}
+ function nestProgress(phase,v){
+  if(phase==='scan') document.getElementById('n_msg').textContent='Đang quét model… '+v+' đối tượng';
+  else {document.getElementById('n_p').value=v; document.getElementById('n_msg').textContent='Đang xếp ván (luồng nền) '+Math.round(v*100)+'%';}
+ }
+ function nestError(m){nestEnd(); var e=document.getElementById('n_msg'); e.style.color='#c33'; e.textContent=m;}
+ function nestDone(s){
+  nestEnd(); nestRes=JSON.parse(s);
+  var e=document.getElementById('n_msg'); e.style.color='#2a7';
+  e.textContent=nestRes.partCount+' chi tiết · '+nestRes.items.length+' dòng gộp · '+nestRes.totalSheets+' tấm ván · hao hụt '+nestRes.wastePct.toFixed(1)+'%';
+  var h='<table><tr><th>Vật liệu</th><th>Tấm</th><th>Chi tiết</th><th>Hao hụt</th></tr>';
+  nestRes.mats.forEach(function(m,mi){h+='<tr><td>'+m.mat+'</td><td>'+m.sheets+'</td><td>'+m.parts+'</td><td>'+m.wastePct.toFixed(1)+'%</td></tr>';
+   if(m.oversize.length) h+='<tr><td colspan="4" style="color:#c33;text-align:left">Quá khổ, không xếp được: '+m.oversize.join(', ')+'</td></tr>';});
+  document.getElementById('n_sum').innerHTML=h+'</table>';
+  var sb='';nestRes.mats.forEach(function(m,mi){for(var s=0;s<m.sheets;s++) sb+='<button onclick="sketchup.nest_sheet('+mi+','+s+')">'+m.mat+' #'+(s+1)+'</button>';});
+  document.getElementById('n_sheets').innerHTML=sb;
+  var it='<tr><th>Tên</th><th>Vật liệu</th><th>Cắt</th><th>SL</th><th>Dán cạnh</th></tr>';
+  nestRes.items.slice().sort(function(a,b){return a.mat<b.mat?-1:a.mat>b.mat?1:b.w-a.w}).forEach(function(x){it+='<tr><td style="text-align:left">'+x.name+'</td><td>'+x.mat+'</td><td>'+x.w+'×'+x.h+'</td><td>'+x.qty+'</td><td>'+bandTxt(x.band)+'</td></tr>';});
+  document.getElementById('n_items').innerHTML=it;
+ }
+ function nestSheet(s){
+  var r=JSON.parse(s); if(!r.ok||!nestRes) return; var W=r.L,H=r.W,sv='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;background:#fff;border:1px solid #bbb">';
+  r.items.forEach(function(p){var c='hsl('+((p.i*47)%360)+',55%,82%)';
+   sv+='<rect x="'+p.x+'" y="'+(H-p.y-p.h)+'" width="'+p.w+'" height="'+p.h+'" fill="'+c+'" stroke="#555" stroke-width="3"><title>'+nestRes.items[p.i].name+' '+p.w+'×'+p.h+'</title></rect>';
+   if(p.w>260&&p.h>90) sv+='<text x="'+(p.x+p.w/2)+'" y="'+(H-p.y-p.h/2)+'" font-size="'+Math.min(60,p.h/3)+'" text-anchor="middle" fill="#222">'+Math.round(p.w)+'×'+Math.round(p.h)+'</text>';});
+  document.getElementById('n_svg').innerHTML='<div class="tip">'+r.mat+' — tấm '+(r.sheet+1)+', dùng '+(100*r.used/(r.L*r.W)).toFixed(1)+'%</div>'+sv+'</svg>';
+ }
  // ---- Thư viện ----
  var libItems=[];
  function setLibrary(s){libItems=JSON.parse(s); var sel=document.getElementById('lib'); sel.innerHTML='';
@@ -91,25 +152,46 @@
  function libSave(){var n=prompt('Tên mẫu tủ:'); if(n)sketchup.lib_save(JSON.stringify({name:n,kind:'cabinet',params:cur}))}
  function libSavePart(){var n=prompt('Tên chi tiết:'); if(n)sketchup.lib_save(JSON.stringify({name:n,kind:'part',params:part}))}
  // ---- Chi tiết ----
- var part={kind:'bend'}, PF={
-  bend:[['radius','Bán kính trong'],['angle','Góc uốn (độ)'],['part_height','Cao'],['part_thick','Dày']],
-  shelf_round:[['width','Rộng'],['depth','Sâu'],['part_thick','Dày'],['corner_fl','Bo trước-trái'],['corner_fr','Bo trước-phải'],['corner_br','Bo sau-phải'],['corner_bl','Bo sau-trái']],
-  moulding:[['length','Dài'],['size_a','Rộng (Y)'],['size_b','Cao (Z)'],['profile','Kiểu']],
-  beam:[['length','Dài'],['size_a','Rộng (Y)'],['size_b','Cao (Z)']]};
- var PROFILES=[['cove','Cong lõm'],['round','Cong lồi'],['bevel','Vát'],['step','Bậc'],['rect','Chữ nhật']];
+ var part={kind:'bend'};
+ var CS=[['round','Cung lồi'],['concave','Cung lõm'],['chamfer','Vát chéo']];
+ var N=function(k,l){return [k,l,'num']}, C=function(k,l){return [k,l,'chk']}, S=function(k,l,o){return [k,l,'sel',o]};
+ var PF={
+  bend:[N('radius','Bán kính trong'),N('angle','Góc uốn (độ)'),N('part_height','Cao'),N('part_thick','Dày')],
+  shelf_round:[N('width','Rộng'),N('depth','Sâu'),N('part_thick','Dày'),N('corner_fl','Bo trước-trái'),N('corner_fr','Bo trước-phải'),N('corner_br','Bo sau-phải'),N('corner_bl','Bo sau-trái')],
+  moulding:[N('length','Dài'),N('size_a','Rộng (Y)'),N('size_b','Cao (Z)'),S('profile','Kiểu',[['cove','Cong lõm'],['round','Cong lồi'],['bevel','Vát'],['step','Bậc'],['rect','Chữ nhật']])],
+  beam:[N('length','Dài'),N('size_a','Rộng (Y)'),N('size_b','Cao (Z)')],
+  board:[N('width','Dài (X)'),N('depth','Rộng (Y)'),N('part_thick','Dày'),
+   S('corner_style','Kiểu bo góc',CS),N('corner_fl','Góc trước-trái'),N('corner_fr','Góc trước-phải'),N('corner_br','Góc sau-phải'),N('corner_bl','Góc sau-trái'),
+   S('joint_type','Mộng',[['none','Không'],['finger','Ngón'],['dovetail','Đuôi én'],['tee','Chữ T']]),
+   S('joint_mode','Loại mộng',[['tab','Dương (nhô ra)'],['slot','Âm (khoét vào)']]),['joint_edges','Cạnh (F trước,R phải,B sau,L trái)','txt'],
+   N('joint_count','Số mộng'),N('joint_len','Bề rộng mộng'),N('joint_depth','Sâu/dài mộng'),N('joint_margin','Cách đầu cạnh'),N('joint_angle','Góc đuôi én (độ)'),
+   N('dogbone','Khử dao: đường kính dao'),
+   N('frame_border','Đục khung: bề rộng khung'),S('frame_style','Góc trong khung',[['square','Vuông'],['round','Bo tròn'],['chamfer','Vát']]),N('frame_r','Bán kính góc khung'),
+   N('rabbet_w','Hèm kính: rộng thêm'),N('rabbet_d','Hèm kính: sâu'),
+   N('groove_count','Số rãnh'),N('groove_w','Rộng rãnh'),N('groove_depth','Sâu rãnh'),N('groove_offset','Rãnh đầu cách mép trước'),N('groove_spacing','Khe giữa các rãnh (0=chia đều)'),N('groove_inset','Rãnh cách 2 đầu'),
+   S('groove_face','Mặt rãnh',[['bottom','Dưới'],['top','Trên']]),
+   C('band','Dán cạnh'),N('band_thick','Dày chỉ dán'),['band_edges','Cạnh dán (F,R,B,L)','txt']],
+  kerf_bend:[N('width','Dài (X)'),N('depth','Rộng (Y)'),N('part_thick','Dày'),N('kerf_w','Bề rộng rãnh cưa'),N('kerf_remain','Độ dày còn lại'),N('bend_radius','Bán kính uốn'),N('kerf_zone','Chiều dài vùng uốn (0=tự)'),N('kerf_start','Bắt đầu cách mép')],
+  door_frame:[N('width','Rộng'),N('height','Cao'),N('stile','Rộng đố đứng'),N('rail','Rộng thanh ngang'),N('frame_thick','Dày khung'),
+   S('panel_type','Ruột cánh',[['glass','Kính'],['flat','Tấm phẳng'],['none','Hở']]),N('panel_thick','Dày kính/tấm')]
+ };
  function renderPart(){
   document.getElementById('pkind').value=part.kind;
   var h='';PF[part.kind].forEach(function(f){
-   if(f[0]==='profile'){h+='<label>'+f[1]+' <select data-p="profile">'+PROFILES.map(function(p){return '<option value="'+p[0]+'"'+(part.profile===p[0]?' selected':'')+'>'+p[1]+'</option>'}).join('')+'</select></label>';}
-   else h+='<label>'+f[1]+' <span><input type="number" step="any" data-p="'+f[0]+'" value="'+(part[f[0]]||0)+'"> mm</span></label>';});
+   var k=f[0], v=part[k];
+   if(f[2]==='sel') h+='<label>'+f[1]+' <select data-p="'+k+'">'+f[3].map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>';
+   else if(f[2]==='chk') h+='<label>'+f[1]+' <input type="checkbox" data-p="'+k+'"'+(v?' checked':'')+'></label>';
+   else if(f[2]==='txt') h+='<label>'+f[1]+' <input type="text" data-p="'+k+'" value="'+(v||'')+'" style="width:90px"></label>';
+   else h+='<label>'+f[1]+' <span><input type="number" step="any" data-p="'+k+'" value="'+(v||0)+'"> mm</span></label>';});
   document.getElementById('pfields').innerHTML=h;
   q('[data-p]').forEach(function(e){e.onchange=partChanged;});
  }
  function partChanged(){
   part.kind=document.getElementById('pkind').value;
-  q('[data-p]').forEach(function(e){part[e.dataset.p]=e.tagName==='SELECT'?e.value:(parseFloat(e.value)||0);});
+  q('[data-p]').forEach(function(e){part[e.dataset.p]=e.type==='checkbox'?e.checked:((e.tagName==='SELECT'||e.type==='text')?e.value:(parseFloat(e.value)||0));});
   sketchup.part_apply(JSON.stringify(part));
  }
+ function setPartInfo(s){var r=JSON.parse(s),el=document.getElementById('pinfo'); el.style.color=r.ok?'#2a7':'#c33'; el.textContent=r.ok?(r.info||'Hợp lệ'):r.error;}
  function setPart(s){part=JSON.parse(s); renderPart();}
  document.getElementById('pkind').onchange=function(){part.kind=this.value; renderPart(); partChanged();};
  window.onload=function(){sketchup.ready()};

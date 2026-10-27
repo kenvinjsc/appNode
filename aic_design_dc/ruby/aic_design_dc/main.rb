@@ -9,7 +9,9 @@ require_relative 'dialog'
 require_relative 'observers'
 
 module AicDesignDC
-  unless @loaded
+  if !Core.available?
+    UI.messagebox("AicDesignDC: #{Core::LOAD_ERROR}\nHãy đặt #{Core::LIB_NAME} cạnh các file .rb của plugin (xem README).")
+  elsif !@loaded
     @loaded = true
     cmd_draw = UI::Command.new('Vẽ tủ') { Sketchup.active_model.select_tool(DrawTool.new) }
     cmd_draw.tooltip = 'Vẽ tủ tham số (click 2 điểm)'

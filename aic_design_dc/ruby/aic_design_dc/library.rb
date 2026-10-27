@@ -30,7 +30,30 @@ module AicDesignDC
         'kind' => 'shelf_round', 'width' => 600, 'depth' => 400, 'corner_fl' => 80, 'corner_fr' => 80 } },
       { 'name' => 'Phào cong lõm 60', 'kind' => 'part', 'params' => { 'kind' => 'moulding', 'profile' => 'cove', 'size_a' => 60, 'size_b' => 60 } },
       { 'name' => 'Phào bậc 80x40', 'kind' => 'part', 'params' => { 'kind' => 'moulding', 'profile' => 'step', 'size_a' => 80, 'size_b' => 40 } },
-      { 'name' => 'Xà 60x60', 'kind' => 'part', 'params' => { 'kind' => 'beam', 'size_a' => 60, 'size_b' => 60, 'length' => 1200 } }
+      { 'name' => 'Xà 60x60', 'kind' => 'part', 'params' => { 'kind' => 'beam', 'size_a' => 60, 'size_b' => 60, 'length' => 1200 } },
+      { 'name' => 'Tấm bo góc R30 (cung lồi)', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'width' => 600, 'depth' => 400, 'corner_style' => 'round', 'corner_fl' => 30, 'corner_fr' => 30, 'corner_br' => 30, 'corner_bl' => 30 } },
+      { 'name' => 'Tấm vát góc 20', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'width' => 600, 'depth' => 400, 'corner_style' => 'chamfer', 'corner_fl' => 20, 'corner_fr' => 20, 'corner_br' => 20, 'corner_bl' => 20 } },
+      { 'name' => 'Mộng ngón dương 3 (cạnh trước)', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'joint_type' => 'finger', 'joint_mode' => 'tab', 'joint_edges' => 'F', 'joint_count' => 3 } },
+      { 'name' => 'Mộng ngón âm 3 + khử dao Ø6', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'joint_type' => 'finger', 'joint_mode' => 'slot', 'joint_edges' => 'F', 'joint_count' => 3, 'dogbone' => 6 } },
+      { 'name' => 'Mộng đuôi én dương', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'joint_type' => 'dovetail', 'joint_mode' => 'tab', 'joint_count' => 3, 'joint_angle' => 10 } },
+      { 'name' => 'Mộng chữ T âm + khử dao Ø6', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'joint_type' => 'tee', 'joint_mode' => 'slot', 'joint_count' => 2, 'joint_depth' => 20, 'dogbone' => 6 } },
+      { 'name' => 'Đục khung cánh kính (khung 60, hèm 10x8)', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'width' => 500, 'depth' => 700, 'part_thick' => 18, 'frame_border' => 60,
+        'frame_style' => 'round', 'frame_r' => 10, 'rabbet_w' => 10, 'rabbet_d' => 8 } },
+      { 'name' => 'Ván phay 3 rãnh (rãnh LED 8x9)', 'kind' => 'part', 'params' => {
+        'kind' => 'board', 'groove_count' => 3, 'groove_w' => 8, 'groove_depth' => 9 } },
+      { 'name' => 'Ván uốn kerf R300', 'kind' => 'part', 'params' => {
+        'kind' => 'kerf_bend', 'width' => 600, 'depth' => 400, 'part_thick' => 18, 'bend_radius' => 300 } },
+      { 'name' => 'Cánh khung kính 500x1800', 'kind' => 'part', 'params' => {
+        'kind' => 'door_frame', 'width' => 500, 'height' => 1800, 'panel_type' => 'glass' } },
+      { 'name' => 'Cánh khung tấm phẳng 450x700', 'kind' => 'part', 'params' => {
+        'kind' => 'door_frame', 'width' => 450, 'height' => 700, 'panel_type' => 'flat', 'panel_thick' => 9 } }
     ].freeze
 
     def self.path

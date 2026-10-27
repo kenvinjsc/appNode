@@ -1,4 +1,8 @@
 #include "../core/cabinet.hpp"
+#include "../core/nest.hpp"
+#include <thread>
+#include <fstream>
+#include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -19,6 +23,54 @@ static hsx::Params video(double w, hsx::DoorStyle ds, hsx::BackStyle bs) {
   p.cols = {a, b};
   return p;
 }
+
+
+// ---- kiểm tra hình học tấm ván ----
+static bool segCross(double ax, double ay, double bx, double by, double cx, double cy, double dx, double dy) {
+  auto o = [](double px, double py, double qx, double qy, double rx, double ry) { return (qx - px) * (ry - py) - (qy - py) * (rx - px); };
+  double d1 = o(ax, ay, bx, by, cx, cy), d2 = o(ax, ay, bx, by, dx, dy), d3 = o(cx, cy, dx, dy, ax, ay), d4 = o(cx, cy, dx, dy, bx, by);
+  return ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9));
+}
+static bool selfIntersects(const std::vector<double>& p) {   // cạnh không kề nhau không được cắt nhau
+  size_t n = p.size() / 2;
+  for (size_t i = 0; i < n; ++i)
+    for (size_t j = i + 2; j < n; ++j) {
+      if (i == 0 && j == n - 1) continue;
+      size_t i2 = (i + 1) % n, j2 = (j + 1) % n;
+      if (segCross(p[2*i], p[2*i+1], p[2*i2], p[2*i2+1], p[2*j], p[2*j+1], p[2*j2], p[2*j2+1])) return true;
+    }
+  return false;
+}
+static double polyArea(const std::vector<double>& p) {
+  double a = 0; size_t n = p.size() / 2;
+  for (size_t i = 0; i < n; ++i) { size_t j = (i + 1) % n; a += p[2*i] * p[2*j+1] - p[2*j] * p[2*i+1]; }
+  return a / 2;
+}
+extern "C" {
+int hsx_nest_start(const char*); int hsx_nest_status(int, double*); void hsx_nest_cancel(int);
+int hsx_nest_result(int, char*, int); int hsx_nest_sheet(int, int, int, char*, int); int hsx_nest_export_dxf(int, const char*); void hsx_nest_free(int);
+}
+static std::string cabText(const hsx::Params& p) {            // tham số -> văn bản như Ruby gửi
+  std::ostringstream o;
+  o << "width=" << p.width << "\ndepth=" << p.depth << "\nheight=" << p.height << "\nloft_height=" << p.loftHeight << "\nloft_doors=" << p.loftDoors << "\n";
+  for (auto& c : p.cols) o << "col=" << c.width << "," << c.drawers << "," << c.drawerPitch << "," << c.shelves << "," << c.doors << "\n";
+  return o.str();
+}
+static bool runJob(const std::string& text, hsx::NestResult& out) {
+  hsx::NestJob j; std::string err;
+  if (!hsx::parseJob(text, j, err)) { std::printf("parseJob: %s\n", err.c_str()); return false; }
+  out = hsx::runNest(j, nullptr, nullptr);
+  return true;
+}
+static bool rectsSeparated(const hsx::Placement& a, const hsx::Placement& b, double kerf) {
+  const double gx = std::max(b.x - (a.x + a.w), a.x - (b.x + b.w)), gy = std::max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+  return std::max(gx, gy) >= kerf - 1e-6;      // cách nhau ít nhất kerf theo một trục
+}
+static hsx::Params board() { hsx::Params b; b.kind = "board"; b.width = 600; b.depth = 400; b.partThick = 18; return b; }
+static void near(double a, double b, double tol, const char* what, int line) {
+  if (std::fabs(a - b) > tol) { std::printf("FAIL line %d: %s: %.4f vs %.4f (tol %.4f)\n", line, what, a, b, tol); std::exit(1); }
+}
+#define NEAR(a, b, tol) near((a), (b), (tol), #a, __LINE__)
 
 int main() {
   for (auto ds : {hsx::DoorStyle::Overlay, hsx::DoorStyle::Half, hsx::DoorStyle::Inset})
@@ -44,8 +96,64 @@ int main() {
   hsx::Params bad; bad.width = 30; CHECK(!hsx::solve(bad).ok);
   // xuất DXF
   auto r = hsx::solve(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay));
-  for (auto& pn : r.panels) for (auto& h : pn.holes) CHECK(std::string(h.kind) != "cam" && std::string(h.kind) != "bolt");
-  { auto pc = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay); pc.cam = true; CHECK(hsx::solve(pc).panels.size() == r.panels.size()); }
+  // ===== cam chốt =====
+  auto count = [](const hsx::Result& q, const char* kind) { int n = 0; for (auto& pn : q.panels) for (auto& h : pn.holes) n += std::string(h.kind) == kind; return n; };
+  { auto sp = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay); sp.loftHeight = 0; sp.loftDoors = 0; sp.cols = {sp.cols[0]};
+    auto q = hsx::solve(sp); CHECK(q.ok);
+    // 1 khoang: đáy + nóc nối vào 2 hông = 4 mối nối, mỗi mối dài 550.5 -> 3 cam; 2 chốt gỗ ở giữa
+    CHECK(count(q, "cam") == 12 && count(q, "bolt") == 12 && count(q, "channel") == 12);
+    CHECK(count(q, "dowel") == 16);
+    for (auto& pn : q.panels) for (auto& h : pn.holes) {
+      for (int a = 0; a < 3; ++a) CHECK(h.p[a] >= pn.o[a] - 1e-6 && h.p[a] <= pn.o[a] + pn.s[a] + 1e-6);   // lỗ nằm trong tấm
+      const std::string kd = h.kind;
+      if (kd == "bolt" || kd == "dowel") {}   // kiểm tra mặt tiếp xúc bên dưới
+      if (kd == "cam") {                      // tâm cam cách đầu tấm 34 mm theo trục nối
+        double best = 1e9;
+        for (int a = 0; a < 3; ++a) if (a != h.axis) best = std::min(best, std::min(std::fabs(h.p[a] - pn.o[a]), std::fabs(pn.o[a] + pn.s[a] - h.p[a])));
+        NEAR(best, 34, 1e-6); NEAR(h.dia, 15, 1e-9); CHECK(h.axis == pn.tAxis);
+      }
+      if (kd == "bolt") {                     // ty vít nằm đúng trên mặt tấm B
+        const double face = h.side < 0 ? pn.o[h.axis] : pn.o[h.axis] + pn.s[h.axis];
+        NEAR(h.p[h.axis], face, 1e-6); CHECK(pn.tAxis == h.axis);
+      }
+    }
+    auto nc = sp; nc.cam = false; auto q2 = hsx::solve(nc); CHECK(q2.panels.size() == q.panels.size());
+    CHECK(count(q2, "cam") == 0 && count(q2, "bolt") == 0 && count(q2, "dowel") == 0 && count(q2, "channel") == 0);
+    CHECK(count(q2, "hinge_cup") == count(q, "hinge_cup"));        // bản lề không bị ảnh hưởng
+  }
+  { auto q = hsx::solve(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay));   // tủ 2 khoang + hộc trên
+    CHECK(count(q, "cam") > 12 && count(q, "cam") == count(q, "bolt") && count(q, "cam") == count(q, "channel"));
+    CHECK(count(q, "dowel") % 2 == 0); }
+  // ===== dán cạnh =====
+  { auto sp = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay); sp.loftHeight = 0; sp.loftDoors = 0; sp.cols = {sp.cols[0]};
+    auto q = hsx::solve(sp);
+    auto find = [&](const char* nm) -> const hsx::Panel& { for (auto& pn : q.panels) if (pn.name == nm) return pn; std::printf("no panel %s\n", nm); std::exit(1); };
+    const auto& side = find("Hông trái"), &bot = find("Đáy"), &door = find("K1 Cánh 1");
+    // hông: cạnh trước (-Y) và cạnh trên (+Z) lộ -> dán; cạnh sau có hậu che, cạnh dưới chạm sàn
+    NEAR(side.band[2], 1.0, 1e-9); NEAR(side.band[3], 0, 1e-9); NEAR(side.band[4], 0, 1e-9); NEAR(side.band[5], 1.0, 1e-9);
+    NEAR(side.band[0], 0, 1e-9); NEAR(side.band[1], 0, 1e-9);                // mặt dày không dán
+    // đáy: chỉ cạnh trước lộ
+    NEAR(bot.band[2], 1.0, 1e-9); NEAR(bot.band[3], 0, 1e-9); NEAR(bot.band[0], 0, 1e-9); NEAR(bot.band[1], 0, 1e-9);
+    NEAR(bot.banding, bot.s[0], 1e-9);
+    // cánh: 4 cạnh dán 2.0 (các mặt ±X, ±Z); mặt dày (±Y) không dán
+    NEAR(door.band[0], 2.0, 1e-9); NEAR(door.band[1], 2.0, 1e-9); NEAR(door.band[4], 2.0, 1e-9); NEAR(door.band[5], 2.0, 1e-9);
+    NEAR(door.band[2], 0, 1e-9); NEAR(door.banding, 2 * (door.s[0] + door.s[2]), 1e-9);
+    // bảng cắt: kích thước cắt = thành phẩm trừ chỉ dán
+    bool seen = false;
+    for (auto& row : hsx::cutlist(q)) if (row.role == "front") {
+      NEAR(row.cutL, row.L - row.band[2] - row.band[3], 1e-9); NEAR(row.cutW, row.W - row.band[0] - row.band[1], 1e-9);
+      CHECK(row.cutL < row.L && row.cutW < row.W); seen = true; }
+    CHECK(seen);
+    auto nb = sp; nb.band = false; auto q3 = hsx::solve(nb);
+    for (auto& pn : q3.panels) for (double v : pn.band) CHECK(v == 0);
+    auto tb = sp; tb.bandThick = 0.45; auto q4 = hsx::solve(tb);
+    for (auto& pn : q4.panels) if (pn.name == "Hông trái") NEAR(pn.band[2], 0.45, 1e-9);
+  }
+  { auto b = board(); auto q = hsx::solve(b);                                // tấm ván gia công: mặc định dán 4 cạnh
+    NEAR(q.panels[0].band[0] + q.panels[0].band[1] + q.panels[0].band[2] + q.panels[0].band[3], 4.0, 1e-9);
+    NEAR(q.panels[0].banding, 2 * 600 + 2 * 400, 1e-9);
+    auto f = board(); f.bandEdges = "F"; auto q2 = hsx::solve(f);
+    NEAR(q2.panels[0].band[2], 1.0, 1e-9); NEAR(q2.panels[0].band[3], 0, 1e-9); NEAR(q2.panels[0].banding, 600, 1e-9); }
   CHECK(hsx::exportDxf(r, "/tmp/hsx_test.dxf"));
   // hậu quá khổ được tách, mỗi tấm <= khổ ván, tổng rộng đúng
   { double sum = 0; int n = 0;
@@ -84,6 +192,205 @@ int main() {
   { hsx::Params m; m.kind = "moulding"; m.profile = "zzz"; CHECK(!hsx::solve(m).ok); }
   { hsx::Params b; b.kind = "beam"; b.length = 1200; auto q = polyOk(b, "beam"); CHECK(q.panels[0].s[0] == 1200); }
   { hsx::Params b; b.kind = "nope"; CHECK(!hsx::solve(b).ok); }
+
+  // ===== tấm ván: bo/vát góc =====
+  const double PI_ = 3.14159265358979323846;
+  for (const char* st : {"round", "concave", "chamfer"}) {
+    auto b = board(); b.cornerStyle = st; b.cornerFL = b.cornerFR = b.cornerBR = b.cornerBL = 50;
+    auto q = hsx::solve(b); CHECK(q.ok);
+    const auto& pn = q.panels[0];
+    CHECK(!selfIntersects(pn.poly));
+    const double removed = std::string(st) == "round" ? 50.0 * 50 * (1 - PI_ / 4) : std::string(st) == "concave" ? PI_ * 50 * 50 / 4 : 50.0 * 50 / 2;
+    NEAR(polyArea(pn.poly), 600.0 * 400 - 4 * removed, 4 * removed * (std::string(st) == "chamfer" ? 1e-9 : 0.04));   // đa giác nội tiếp cung: sai số sag 0.3mm
+  }
+  { auto b = board(); b.cornerStyle = "bogus"; CHECK(!hsx::solve(b).ok); }
+  // ===== mộng dương/âm =====
+  { auto b = board(); b.jointType = "finger"; b.jointMode = "tab"; b.jointEdges = "F"; b.jointCount = 3; b.jointLen = 40; b.jointDepth = 18;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pn = q.panels[0];
+    CHECK(!selfIntersects(pn.poly));
+    NEAR(polyArea(pn.poly), 600.0 * 400 + 3 * 40 * 18, 1e-6);
+    NEAR(pn.o[1], -18, 1e-9);                                   // mộng nhô ra phía trước (y âm)
+    NEAR(pn.s[1], 400 + 18, 1e-9); }
+  { auto b = board(); b.jointType = "finger"; b.jointMode = "slot"; b.jointEdges = "FB"; b.jointCount = 2; b.jointLen = 40; b.jointDepth = 18;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pn = q.panels[0];
+    CHECK(!selfIntersects(pn.poly));
+    NEAR(polyArea(pn.poly), 600.0 * 400 - 2 * 2 * 40 * 18, 1e-6);   // 2 cạnh × 2 mộng âm
+    NEAR(pn.s[1], 400, 1e-9); }
+  { auto b = board(); b.jointType = "dovetail"; b.jointAngle = 10; b.jointCount = 3; b.jointLen = 40; b.jointDepth = 18;
+    auto q = hsx::solve(b); CHECK(q.ok); CHECK(!selfIntersects(q.panels[0].poly));
+    const double ex = 18 * std::tan(10 * PI_ / 180);
+    NEAR(polyArea(q.panels[0].poly), 600.0 * 400 + 3 * 18 * (40 + ex), 1e-6); }
+  { auto b = board(); b.jointType = "tee"; b.jointCount = 2; b.jointLen = 40; b.jointDepth = 20;
+    auto q = hsx::solve(b); CHECK(q.ok); CHECK(!selfIntersects(q.panels[0].poly));
+    const double hd = 10, h = 20;
+    NEAR(polyArea(q.panels[0].poly), 600.0 * 400 + 2 * (40 * h / 2 + (40 + 2 * hd) * h / 2), 1e-6); }
+  { auto b = board(); b.jointType = "finger"; b.jointCount = 30; b.jointLen = 40; CHECK(!hsx::solve(b).ok); }   // quá dày
+  { auto b = board(); b.jointType = "finger"; b.jointLen = 700; CHECK(!hsx::solve(b).ok); }                      // cạnh ngắn
+  { auto b = board(); b.jointType = "wat"; CHECK(!hsx::solve(b).ok); }
+  // ===== khử dao (dogbone) =====
+  { auto b = board(); b.jointType = "finger"; b.jointMode = "slot"; b.jointCount = 2; b.jointLen = 40; b.jointDepth = 18; b.dogbone = 12;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pn = q.panels[0];
+    CHECK(!selfIntersects(pn.poly));
+    auto plain = board(); plain.jointType = "finger"; plain.jointMode = "slot"; plain.jointCount = 2; plain.jointLen = 40; plain.jointDepth = 18;
+    const double a0 = polyArea(hsx::solve(plain).panels[0].poly);
+    // mỗi mộng âm có 2 góc đáy: dogbone cắt thêm 3/4 hình tròn trừ 1/4 đã thuộc khoang
+    NEAR(polyArea(pn.poly), a0 - 4 * (0.75 * PI_ * 6 * 6), 4 * 0.75 * PI_ * 36 * 0.06);
+    // bằng chứng: có đỉnh nằm ngoài khoang mộng (x < mép mộng) -> vùng khử dao
+    CHECK(pn.poly.size() > hsx::solve(plain).panels[0].poly.size()); }
+  // ===== đục khung + hèm kính =====
+  { auto b = board(); b.frameBorder = 60;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pn = q.panels[0];
+    CHECK(pn.pockets.size() == 1 && pn.pockets[0].top && std::fabs(pn.pockets[0].depth - 18) < 1e-9);
+    NEAR(-polyArea(pn.pockets[0].loop), 480.0 * 280, 1e-6);       // lỗ đi thuận kim đồng hồ (diện tích âm)
+    CHECK(!selfIntersects(pn.pockets[0].loop)); }
+  { auto b = board(); b.frameBorder = 60; b.frameStyle = "round"; b.frameR = 20;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& lp = q.panels[0].pockets[0].loop;
+    NEAR(-polyArea(lp), 480.0 * 280 - 4 * 20.0 * 20 * (1 - PI_ / 4), 4 * 20.0 * 20 * (1 - PI_ / 4) * 0.06); CHECK(!selfIntersects(lp)); }
+  { auto b = board(); b.frameBorder = 60; b.dogbone = 6;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& lp = q.panels[0].pockets[0].loop;
+    CHECK(!selfIntersects(lp)); CHECK(-polyArea(lp) > 480.0 * 280); }       // khử dao khoét rộng thêm ở 4 góc
+  { auto b = board(); b.frameBorder = 60; b.rabbetW = 12; b.rabbetD = 8;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pk = q.panels[0].pockets;
+    CHECK(pk.size() == 2 && pk[0].top && !pk[1].top);
+    NEAR(pk[0].depth, 18 - 8, 1e-9); NEAR(pk[1].depth, 8, 1e-9);            // 10 + 8 = dày 18: gặp nhau, thành lỗ xuyên
+    NEAR(-polyArea(pk[0].loop), 480.0 * 280, 1e-6); NEAR(-polyArea(pk[1].loop), 504.0 * 304, 1e-6); }
+  { auto b = board(); b.frameBorder = 250; CHECK(!hsx::solve(b).ok); }
+  { auto b = board(); b.frameBorder = 60; b.rabbetW = 70; b.rabbetD = 5; CHECK(!hsx::solve(b).ok); }
+  // ===== phay rãnh =====
+  { auto b = board(); b.grooveCount = 3; b.grooveW = 8; b.grooveDepth = 9; b.grooveOffset = 20;
+    auto q = hsx::solve(b); CHECK(q.ok); const auto& pk = q.panels[0].pockets;
+    CHECK(pk.size() == 3 && !pk[0].top);
+    for (auto& g : pk) { NEAR(g.depth, 9, 1e-9); NEAR(polyArea(g.loop), 600.0 * 8, 1e-6); }
+    // chia đều từ y=20 đến y=W-20: 3 rãnh -> cách đều
+    NEAR(pk[1].loop[1] - pk[0].loop[1], pk[2].loop[1] - pk[1].loop[1], 1e-9);
+    NEAR(pk[2].loop[1] + 8, 400 - 20, 1e-9); }
+  { auto b = board(); b.grooveCount = 1; b.grooveInset = 50; b.grooveFace = "top";
+    auto q = hsx::solve(b); CHECK(q.ok); NEAR(polyArea(q.panels[0].pockets[0].loop), 500.0 * 8, 1e-6); CHECK(q.panels[0].pockets[0].top); }
+  { auto b = board(); b.grooveCount = 1; b.grooveDepth = 18; CHECK(!hsx::solve(b).ok); }       // xuyên -> không hợp lệ
+  { auto b = board(); b.grooveCount = 1; b.grooveOffset = 395; CHECK(!hsx::solve(b).ok); }     // ngoài ván
+  // ===== uốn kerf =====
+  { hsx::Params k; k.kind = "kerf_bend"; k.width = 600; k.depth = 400; k.partThick = 18; k.kerfW = 3; k.kerfRemain = 2; k.bendRadius = 300; k.kerfStart = 20;
+    auto q = hsx::solve(k); CHECK(q.ok); const auto& pk = q.panels[0].pockets;
+    const double s = 300.0 * 3 / 16;                                  // R·k/(T-remain)
+    NEAR(pk[1].loop[1] - pk[0].loop[1], s, 1e-9);
+    CHECK((int)pk.size() == (int)std::floor((360 - 3) / s) + 1);
+    for (auto& g : pk) { NEAR(g.depth, 16, 1e-9); CHECK(!g.top); }
+    CHECK(q.info.find("rãnh") != std::string::npos);
+    auto k2 = k; k2.bendRadius = 20; CHECK(!hsx::solve(k2).ok);       // rãnh chồng nhau
+    // bán kính nhỏ hơn -> rãnh dày hơn (bước nhỏ hơn)
+    auto k3 = k; k3.bendRadius = 150; auto q3 = hsx::solve(k3); CHECK(q3.ok && q3.panels[0].pockets.size() > pk.size()); }
+  // ===== cánh khung/kính =====
+  { hsx::Params d; d.kind = "door_frame"; d.width = 500; d.height = 1800; d.stile = 60; d.rail = 70; d.frameThick = 20; d.panelThick = 6; d.panelType = "glass";
+    auto q = hsx::solve(d); CHECK(q.ok && q.panels.size() == 5);
+    for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+    double vol = 0; for (auto& pn : q.panels) vol += pn.s[0] * pn.s[1] * pn.s[2];
+    NEAR(vol, 2 * 60.0 * 20 * 1800 + 2 * (500 - 120.0) * 20 * 70 + (500 - 120.0) * 6 * (1800 - 140.0), 1e-6);
+    CHECK(q.panels[4].role == "glass");
+    auto n = d; n.panelType = "none"; CHECK(hsx::solve(n).panels.size() == 4);
+    auto bad = d; bad.stile = 300; CHECK(!hsx::solve(bad).ok); }
+
+  // ===== gom chi tiết + xếp ván =====
+  {
+    const auto cab = video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay);
+    hsx::NestResult R;
+    CHECK(runJob("kerf=4\ntrim=10\n---\ncount=3\n" + cabText(cab), R));
+    CHECK(R.ok && R.totalSheets > 0 && R.partCount > 0);
+    // số chi tiết = số tấm có thể cắt trong 1 tủ × 3; gom nhóm làm số dòng ít hơn số tấm
+    auto sol = hsx::solve(cab); int cuttable = 0;
+    for (auto& pn : sol.panels) cuttable += (pn.role == "carcass" || pn.role == "back" || pn.role == "front" || pn.role == "drawer");
+    CHECK(R.partCount == 3 * cuttable && (int)R.items.size() < cuttable);
+    int unitsPlaced = 0; double areaPlaced = 0;
+    for (auto& m : R.mats) {
+      CHECK(m.oversize.empty());
+      int mp = 0;
+      for (auto& sh : m.sheets) {
+        for (size_t i = 0; i < sh.items.size(); ++i) {
+          const auto& a = sh.items[i];
+          CHECK(a.x >= 10 - 1e-6 && a.y >= 10 - 1e-6 && a.x + a.w <= 2440 - 10 + 1e-6 && a.y + a.h <= 1220 - 10 + 1e-6);   // trong vùng cắt được
+          for (size_t j = i + 1; j < sh.items.size(); ++j) CHECK(rectsSeparated(a, sh.items[j], 4));                         // không chồng, đủ kerf
+          areaPlaced += a.w * a.h; ++unitsPlaced; ++mp;
+        }
+      }
+      CHECK(mp == m.parts);
+      NEAR(m.sheetArea, m.sheets.size() * 2440.0 * 1220.0, 1e-6);
+    }
+    CHECK(unitsPlaced == R.partCount);
+    double pa = 0; for (auto& m : R.mats) pa += m.partsArea; NEAR(areaPlaced, pa, 1e-3);
+    CHECK(R.wastePct > 0 && R.wastePct < 100);
+    // vật liệu tách theo độ dày (thân 17.5, hậu/đáy hộc 9.5, mặt cánh 18)
+    CHECK(R.mats.size() >= 3);
+    // gom giữa các tủ: 2 phần count=1 giống hệt = 1 phần count=2
+    hsx::NestResult A, B;
+    CHECK(runJob("---\ncount=1\n" + cabText(cab) + "---\ncount=1\n" + cabText(cab), A));
+    CHECK(runJob("---\ncount=2\n" + cabText(cab), B));
+    CHECK(A.items.size() == B.items.size() && A.partCount == B.partCount && A.totalSheets == B.totalSheets);
+    for (size_t i = 0; i < A.items.size(); ++i) CHECK(A.items[i].qty == B.items[i].qty);
+    // tất định
+    hsx::NestResult C2; CHECK(runJob("kerf=4\ntrim=10\n---\ncount=3\n" + cabText(cab), C2));
+    CHECK(hsx::nestSummaryJson(R) == hsx::nestSummaryJson(C2)); CHECK(hsx::nestSheetJson(R, 0, 0) == hsx::nestSheetJson(C2, 0, 0));
+    // kerf lớn hơn -> cần nhiều ván hơn hoặc bằng
+    hsx::NestResult K; CHECK(runJob("kerf=20\ntrim=10\n---\ncount=3\n" + cabText(cab), K)); CHECK(K.totalSheets >= R.totalSheets);
+    // lề cắt: sheet 2440x1220 trim 10 -> khổ thực 2420x1200
+    // quá khổ: tủ cao 3000 > 2420 -> hông không xếp được, báo oversize
+    auto tall = cab; tall.height = 3000; hsx::NestResult O; CHECK(runJob("---\ncount=1\n" + cabText(tall), O));
+    bool seen = false; for (auto& m : O.mats) for (auto& nme : m.oversize) seen = seen || nme.find("Hông") != std::string::npos; CHECK(seen);
+    // xoay: ván khổ dọc 1220x2440 + hông cao 2400: chỉ xếp được khi cho xoay
+    hsx::NestResult N1, N2;
+    CHECK(runJob("sheet_l=1220\nsheet_w=2440\nrotate=0\n---\ncount=1\n" + cabText(cab), N1));
+    CHECK(runJob("sheet_l=1220\nsheet_w=2440\nrotate=1\n---\ncount=1\n" + cabText(cab), N2));
+    bool over1 = false, over2 = false;
+    for (auto& m : N1.mats) over1 = over1 || !m.oversize.empty();
+    for (auto& m : N2.mats) over2 = over2 || !m.oversize.empty();
+    CHECK(over1 && !over2);
+    bool anyRot = false; for (auto& m : N2.mats) for (auto& sh : m.sheets) for (auto& pl : sh.items) anyRot = anyRot || pl.rot; CHECK(anyRot);
+    // tham số sai
+    hsx::NestJob bj; std::string err;
+    CHECK(!hsx::parseJob("wat=1\n", bj, err)); CHECK(!hsx::parseJob("sheet_l=50\n", bj, err));
+    CHECK(!hsx::parseJob("---\ncount=1\nwidth=abc\nbogus=3\n", bj, err));
+    hsx::NestResult E; CHECK(runJob("kerf=4\n", E)); CHECK(!E.ok);                     // không có chi tiết
+    // xuất DXF xếp ván
+    CHECK(hsx::exportNestDxf(R, "/tmp/hsx_nest.dxf"));
+    std::ifstream f("/tmp/hsx_nest.dxf"); std::stringstream ss; ss << f.rdbuf(); CHECK(ss.str().find("SHEET") != std::string::npos && ss.str().find("PARTS") != std::string::npos);
+  }
+  // ===== luồng nền (không chặn luồng gọi) =====
+  {
+    using clk = std::chrono::steady_clock;
+    const std::string job = "kerf=4\ntrim=10\n---\ncount=400\n" + cabText(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay));
+    auto t0 = clk::now(); int h = hsx_nest_start(job.c_str());
+    double startMs = std::chrono::duration<double, std::milli>(clk::now() - t0).count();
+    CHECK(h > 0); CHECK(startMs < 50.0);                                               // start trả về ngay, không chờ tính xong
+    double pr = 0; int st = hsx_nest_status(h, &pr);
+    int polls = 0; double lastPr = 0; bool monotone = true;
+    while (st == 0 && polls < 20000) {                                                 // luồng gọi vẫn "rảnh": chỉ thăm dò nhẹ
+      std::this_thread::sleep_for(std::chrono::milliseconds(1)); st = hsx_nest_status(h, &pr);
+      if (pr + 1e-9 < lastPr) monotone = false; lastPr = pr; ++polls;
+    }
+    CHECK(st == 1); CHECK(monotone); NEAR(pr, 1.0, 1e-9);
+    int need = hsx_nest_result(h, nullptr, 0); CHECK(need > 50);
+    std::string buf(need + 1, '\0'); CHECK(hsx_nest_result(h, &buf[0], need + 1) == need);
+    CHECK(buf.find("\"ok\":true") != std::string::npos && buf.find("\"totalSheets\"") != std::string::npos);
+    int sn = hsx_nest_sheet(h, 0, 0, nullptr, 0); CHECK(sn > 20);
+    std::string sb(sn + 1, '\0'); hsx_nest_sheet(h, 0, 0, &sb[0], sn + 1); CHECK(sb.find("\"items\"") != std::string::npos);
+    CHECK(hsx_nest_sheet(h, 99, 0, nullptr, 0) > 0);                                   // chỉ số sai -> {"ok":false}
+    CHECK(hsx_nest_export_dxf(h, "/tmp/hsx_nest_thread.dxf") == 1);
+    hsx_nest_free(h); CHECK(hsx_nest_status(h, nullptr) == -1);
+    // hủy giữa chừng
+    int h2 = hsx_nest_start(("---\ncount=3000\n" + cabText(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay))).c_str());
+    hsx_nest_cancel(h2); int s2 = 0, w = 0;
+    do { std::this_thread::sleep_for(std::chrono::milliseconds(1)); s2 = hsx_nest_status(h2, nullptr); } while (s2 == 0 && ++w < 20000);
+    CHECK(s2 == 3 || s2 == 1);                                                         // hủy kịp (3) hoặc đã xong trước (1)
+    if (s2 == 3) CHECK(hsx_nest_result(h2, nullptr, 0) > 0);                           // vẫn lấy được thông báo lỗi
+    hsx_nest_free(h2);
+    // lỗi tham số -> trạng thái 2 và có thông báo
+    int h3 = hsx_nest_start("wat=1\n"); int s3 = 0, w3 = 0;
+    do { std::this_thread::sleep_for(std::chrono::milliseconds(1)); s3 = hsx_nest_status(h3, nullptr); } while (s3 == 0 && ++w3 < 5000);
+    CHECK(s3 == 2); int n3 = hsx_nest_result(h3, nullptr, 0); std::string b3(n3 + 1, '\0'); hsx_nest_result(h3, &b3[0], n3 + 1);
+    CHECK(b3.find("\"ok\":false") != std::string::npos); hsx_nest_free(h3);
+    CHECK(hsx_nest_status(-5, nullptr) == -1);
+    // nhiều job cùng lúc
+    int hs[4]; for (int i = 0; i < 4; ++i) hs[i] = hsx_nest_start(("---\ncount=" + std::to_string(5 + i) + "\n" + cabText(video(1600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay))).c_str());
+    for (int i = 0; i < 4; ++i) { int s = 0, ww = 0; do { std::this_thread::sleep_for(std::chrono::milliseconds(1)); s = hsx_nest_status(hs[i], nullptr); } while (s == 0 && ++ww < 20000); CHECK(s == 1); hsx_nest_free(hs[i]); }
+  }
   // hiệu năng: 1000 lần giải + JSON phải rất nhanh (tương tác kéo giãn không giật)
   { auto t0 = std::chrono::steady_clock::now(); size_t sz = 0;
     for (int i = 0; i < 1000; ++i) sz += hsx::toJson(hsx::solve(video(1000 + i % 600, hsx::DoorStyle::Overlay, hsx::BackStyle::Overlay))).size();

@@ -4,10 +4,12 @@ require_relative 'bridge'
 require_relative 'draw_tool'
 require_relative 'part_tool'
 require_relative 'library'
+require_relative 'nest_session'
 
 module AicDesignDC
   module Dialog
     @dlg = nil
+    @nest = nil
 
     def self.selected_cab
       sel = Sketchup.active_model.selection
@@ -32,6 +34,8 @@ module AicDesignDC
 
     def self.push_part
       push("setPart(#{JSON.generate(JSON.generate(State.part))})")
+      res = Core.solve(State.part)
+      push("setPartInfo(#{JSON.generate(JSON.generate('ok' => res['ok'], 'error' => res['error'], 'info' => res['info']))})")
     end
 
     # Nạp mẫu từ thư viện.
@@ -53,6 +57,20 @@ module AicDesignDC
         end
         sync
       end
+    end
+
+    # Gom chi tiết + xếp ván: quét theo lát nhỏ, tính ở luồng nền (xem nest_session.rb).
+    def self.nest_start(opts)
+      @nest&.dispose
+      @last_summary = nil
+      scope_sel = opts.delete('scope') == 'selection'
+      o = { sheet_l: opts['sheet_l'].to_f, sheet_w: opts['sheet_w'].to_f, kerf: opts['kerf'].to_f, trim: opts['trim'].to_f, rotate: opts['rotate'] ? true : false }
+      @nest = NestJob::Session.new(
+        Sketchup.active_model, o, selection_only: scope_sel,
+        on_progress: ->(phase, v) { push("nestProgress(#{JSON.generate(phase.to_s)},#{v.to_f})") },
+        on_done: ->(res) { @last_summary = res; push("nestDone(#{JSON.generate(JSON.generate(res))})") },
+        on_error: ->(msg) { push("nestError(#{JSON.generate(msg.to_s)})") }
+      ).start
     end
 
     def self.apply(json)
@@ -83,7 +101,11 @@ module AicDesignDC
                                 scrollable: true, resizable: true, width: 340, height: 860, left: 60, top: 80, style: UI::HtmlDialog::STYLE_DIALOG)
       @dlg.set_file(File.join(__dir__, 'dialog.html'))
       @dlg.add_action_callback('ready') { |_c| push_library; push_part; sync }
-      @dlg.add_action_callback('part_apply') { |_c, json| State.part = PartParams.sanitize(JSON.parse(json)) }
+      @dlg.add_action_callback('part_apply') do |_c, json|
+        State.part = PartParams.sanitize(JSON.parse(json))
+        res = Core.solve(State.part)  # báo ngay thông số có hợp lệ không (vd. mộng quá dày, hèm quá sâu)
+        push("setPartInfo(#{JSON.generate(JSON.generate('ok' => res['ok'], 'error' => res['error'], 'info' => res['info']))})")
+      end
       @dlg.add_action_callback('place_part') { |_c| Sketchup.active_model.select_tool(PlaceTool.new) }
       @dlg.add_action_callback('lib_load') do |_c, name|
         begin
@@ -105,6 +127,23 @@ module AicDesignDC
       @dlg.add_action_callback('lib_delete') do |_c, name|
         Library.delete(name)
         push_library
+      end
+      @dlg.add_action_callback('nest_start') { |_c, json| nest_start(JSON.parse(json)) }
+      @dlg.add_action_callback('nest_cancel') { |_c| @nest&.cancel }
+      @dlg.add_action_callback('nest_sheet') do |_c, mat, idx|
+        sh = @nest&.sheet(mat.to_i, idx.to_i)
+        push("nestSheet(#{JSON.generate(JSON.generate(sh))})") if sh
+      end
+      @dlg.add_action_callback('nest_dxf') do |_c|
+        path = UI.savepanel('Xuất DXF xếp ván', nil, 'xep_van.dxf')
+        UI.messagebox(@nest&.export_dxf(path) ? "Đã xuất: #{path}" : 'Xuất DXF thất bại') if path
+      end
+      @dlg.add_action_callback('nest_csv') do |_c|
+        path = UI.savepanel('Xuất bảng chi tiết gộp (CSV)', nil, 'chi_tiet_gop.csv')
+        if path && @last_summary
+          File.write(path, NestJob.csv(@last_summary), encoding: 'UTF-8')
+          UI.messagebox("Đã xuất: #{path}")
+        end
       end
       @dlg.add_action_callback('apply') { |_c, json| apply(json) }
       @dlg.add_action_callback('draw') { |_c| Sketchup.active_model.select_tool(DrawTool.new) }

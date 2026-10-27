@@ -10,11 +10,18 @@
 namespace hsx {
 
 std::vector<CutRow> cutlist(const Result& r) {
-  std::map<std::tuple<std::string, long, long, long>, CutRow> m;
+  using Key = std::tuple<std::string, long, long, long, long, long, long, long>;
+  std::map<Key, CutRow> m;
   for (auto& p : r.panels) {
-    auto key = std::make_tuple(p.role, std::lround(p.L * 10), std::lround(p.W * 10), std::lround(p.T * 10));
+    CutRow row{p.role, p.L, p.W, p.T, 1, p.banding, 0, 0, {0, 0, 0, 0}};
+    row.band[0] = p.band[2 * p.wAxis];     row.band[1] = p.band[2 * p.wAxis + 1];   // cạnh dài ở W nhỏ / lớn
+    row.band[2] = p.band[2 * p.lAxis];     row.band[3] = p.band[2 * p.lAxis + 1];   // cạnh ngắn ở L nhỏ / lớn
+    row.cutW = p.W - row.band[0] - row.band[1];
+    row.cutL = p.L - row.band[2] - row.band[3];
+    auto q = [](double v) { return std::lround(v * 10); };
+    Key key{p.role, q(p.L), q(p.W), q(p.T), q(row.band[0]) * 1000 + q(row.band[1]), q(row.band[2]) * 1000 + q(row.band[3]), 0, 0};
     auto it = m.find(key);
-    if (it == m.end()) m[key] = CutRow{p.role, p.L, p.W, p.T, 1, p.banding};
+    if (it == m.end()) m[key] = row;
     else { it->second.qty++; it->second.banding += p.banding; }
   }
   std::vector<CutRow> out;
@@ -66,6 +73,22 @@ bool exportDxf(const Result& r, const std::string& path, double SL, double SW, d
       line(f, "PANEL", bx + L, by + W, bx, by + W);
       line(f, "PANEL", bx, by + W, bx, by);
     }
+    if (p->prismAxis >= 0 && p->prismAxis == p->tAxis) {      // rãnh/khoét: vẽ đường bao theo độ sâu
+      const int ia = (p->prismAxis + 1) % 3;
+      for (auto& pk : p->pockets) {
+        const size_t n = pk.loop.size() / 2;
+        char lay[64]; std::snprintf(lay, sizeof lay, "%s_%.1f", pk.kind.c_str(), pk.depth);
+        for (size_t i = 0; i < n; ++i) {
+          size_t j = (i + 1) % n; double q[4];
+          for (int t = 0; t < 2; ++t) {
+            size_t k = t ? j : i; double a = pk.loop[2 * k], b = pk.loop[2 * k + 1];
+            double wl = (ia == p->lAxis) ? a : b, ww = (ia == p->lAxis) ? b : a;
+            q[2 * t] = bx + wl - p->o[p->lAxis]; q[2 * t + 1] = by + ww - p->o[p->wAxis];
+          }
+          line(f, lay, q[0], q[1], q[2], q[3]);
+        }
+      }
+    }
     for (auto& h : p->holes) {
       if (h.axis != p->tAxis) continue;  // chỉ lỗ khoan mặt ván
       double u = h.p[p->lAxis] - p->o[p->lAxis], v = h.p[p->wAxis] - p->o[p->wAxis];
@@ -96,6 +119,9 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     else if (k == "door_thick") o.doorThick = d; else if (k == "gap") o.gap = d;
     else if (k == "front_return") o.frontReturn = d; else if (k == "loft_height") o.loftHeight = d;
     else if (k == "loft_doors") o.loftDoors = (int)d; else if (k == "cam") o.cam = b(v);
+    else if (k == "cam_spacing") o.camSpacing = d; else if (k == "cam_edge") o.camEdge = d; else if (k == "cam_back") o.camBack = d;
+    else if (k == "band") o.band = b(v); else if (k == "band_thick") o.bandThick = d;
+    else if (k == "band_front_thick") o.bandFrontThick = d; else if (k == "band_edges") o.bandEdges = v;
     else if (k == "sheet_w") o.sheetW = d; else if (k == "kind") o.kind = v;
     else if (k == "radius") o.radius = d; else if (k == "angle") o.angle = d;
     else if (k == "part_height") o.partHeight = d; else if (k == "part_thick") o.partThick = d;
@@ -103,6 +129,21 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     else if (k == "corner_br") o.cornerBR = d; else if (k == "corner_bl") o.cornerBL = d;
     else if (k == "length") o.length = d; else if (k == "size_a") o.sizeA = d; else if (k == "size_b") o.sizeB = d;
     else if (k == "profile") o.profile = v;
+    else if (k == "corner_style") o.cornerStyle = v; else if (k == "joint_type") o.jointType = v;
+    else if (k == "joint_mode") o.jointMode = v; else if (k == "joint_edges") o.jointEdges = v;
+    else if (k == "joint_count") o.jointCount = (int)d; else if (k == "joint_len") o.jointLen = d;
+    else if (k == "joint_depth") o.jointDepth = d; else if (k == "joint_margin") o.jointMargin = d;
+    else if (k == "joint_angle") o.jointAngle = d; else if (k == "dogbone") o.dogbone = d;
+    else if (k == "frame_border") o.frameBorder = d; else if (k == "frame_r") o.frameR = d;
+    else if (k == "frame_style") o.frameStyle = v; else if (k == "rabbet_w") o.rabbetW = d; else if (k == "rabbet_d") o.rabbetD = d;
+    else if (k == "groove_count") o.grooveCount = (int)d; else if (k == "groove_w") o.grooveW = d;
+    else if (k == "groove_depth") o.grooveDepth = d; else if (k == "groove_offset") o.grooveOffset = d;
+    else if (k == "groove_spacing") o.grooveSpacing = d; else if (k == "groove_inset") o.grooveInset = d;
+    else if (k == "groove_face") o.grooveFace = v;
+    else if (k == "kerf_w") o.kerfW = d; else if (k == "kerf_remain") o.kerfRemain = d;
+    else if (k == "bend_radius") o.bendRadius = d; else if (k == "kerf_zone") o.kerfZone = d; else if (k == "kerf_start") o.kerfStart = d;
+    else if (k == "stile") o.stile = d; else if (k == "rail") o.rail = d; else if (k == "frame_thick") o.frameThick = d;
+    else if (k == "panel_thick") o.panelThick = d; else if (k == "panel_type") o.panelType = v;
     else if (k == "col") {  // width,drawers,drawerPitch,shelves,doors
       Column c; double a[5] = {0, 0, 0, 0, 0}; int i = 0;
       std::istringstream cs(v); std::string tok;
@@ -122,7 +163,9 @@ std::string toJson(const Result& r) {
   std::string o; char buf[256];
   o.reserve(r.panels.size() * 400 + 256);
   if (!r.ok) { o = "{\"ok\":false,\"error\":\""; esc(o, r.error); return o + "\"}"; }
-  o = "{\"ok\":true,\"hinges\":" + std::to_string(r.hingeCount) + ",\"panels\":[";
+  o = "{\"ok\":true,\"hinges\":" + std::to_string(r.hingeCount) + ",\"info\":\"";
+  esc(o, r.info);
+  o += "\",\"panels\":[";
   for (size_t i = 0; i < r.panels.size(); ++i) {
     const Panel& p = r.panels[i];
     if (i) o += ',';
@@ -132,14 +175,29 @@ std::string toJson(const Result& r) {
       for (size_t j = 0; j < p.poly.size(); ++j) { std::snprintf(buf, sizeof buf, "%s%.3f", j ? "," : "", p.poly[j]); o += buf; }
       o += "],";
     }
+    {
+      bool any = false; for (double v : p.band) any = any || v > 0;
+      if (any) { std::snprintf(buf, sizeof buf, "\"band\":[%.2f,%.2f,%.2f,%.2f,%.2f,%.2f],", p.band[0], p.band[1], p.band[2], p.band[3], p.band[4], p.band[5]); o += buf; }
+    }
+    if (!p.pockets.empty()) {
+      o += "\"pockets\":[";
+      for (size_t j = 0; j < p.pockets.size(); ++j) {
+        const auto& pk = p.pockets[j];
+        std::snprintf(buf, sizeof buf, "%s{\"top\":%s,\"depth\":%.3f,\"kind\":\"%s\",\"loop\":[", j ? "," : "", pk.top ? "true" : "false", pk.depth, pk.kind.c_str());
+        o += buf;
+        for (size_t m = 0; m < pk.loop.size(); ++m) { std::snprintf(buf, sizeof buf, "%s%.3f", m ? "," : "", pk.loop[m]); o += buf; }
+        o += "]}";
+      }
+      o += "],";
+    }
     std::snprintf(buf, sizeof buf, "\"o\":[%.3f,%.3f,%.3f],\"s\":[%.3f,%.3f,%.3f],\"banding\":%.1f,\"holes\":[",
                   p.o[0], p.o[1], p.o[2], p.s[0], p.s[1], p.s[2], p.banding);
     o += buf;
     for (size_t j = 0; j < p.holes.size(); ++j) {
       const Hole& h = p.holes[j];
       if (j) o += ',';
-      std::snprintf(buf, sizeof buf, "{\"p\":[%.3f,%.3f,%.3f],\"axis\":%d,\"dia\":%.1f,\"depth\":%.1f,\"kind\":\"%s\"}",
-                    h.p[0], h.p[1], h.p[2], h.axis, h.dia, h.depth, h.kind);
+      std::snprintf(buf, sizeof buf, "{\"p\":[%.3f,%.3f,%.3f],\"axis\":%d,\"dia\":%.1f,\"depth\":%.1f,\"kind\":\"%s\",\"side\":%d}",
+                    h.p[0], h.p[1], h.p[2], h.axis, h.dia, h.depth, h.kind, h.side);
       o += buf;
     }
     o += "]}";
@@ -147,8 +205,10 @@ std::string toJson(const Result& r) {
   o += "],\"cutlist\":[";
   auto cl = cutlist(r);
   for (size_t i = 0; i < cl.size(); ++i) {
-    std::snprintf(buf, sizeof buf, "%s{\"role\":\"%s\",\"L\":%.1f,\"W\":%.1f,\"T\":%.1f,\"qty\":%d,\"banding\":%.0f}",
-                  i ? "," : "", cl[i].role.c_str(), cl[i].L, cl[i].W, cl[i].T, cl[i].qty, cl[i].banding);
+    std::snprintf(buf, sizeof buf,
+                  "%s{\"role\":\"%s\",\"L\":%.1f,\"W\":%.1f,\"T\":%.1f,\"qty\":%d,\"banding\":%.0f,\"cutL\":%.1f,\"cutW\":%.1f,\"band\":[%.2f,%.2f,%.2f,%.2f]}",
+                  i ? "," : "", cl[i].role.c_str(), cl[i].L, cl[i].W, cl[i].T, cl[i].qty, cl[i].banding, cl[i].cutL, cl[i].cutW,
+                  cl[i].band[0], cl[i].band[1], cl[i].band[2], cl[i].band[3]);
     o += buf;
   }
   return o + "]}";

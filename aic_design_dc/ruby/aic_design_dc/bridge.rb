@@ -7,9 +7,28 @@ require_relative 'params'
 module AicDesignDC
   module Core
     LIB_NAME = RUBY_PLATFORM =~ /mswin|mingw/ ? 'hsx_core.dll' : (RUBY_PLATFORM =~ /darwin/ ? 'libhsx_core.dylib' : 'libhsx_core.so')
-    LIB = Fiddle.dlopen(File.join(__dir__, LIB_NAME))
-    SOLVE = Fiddle::Function.new(LIB['hsx_solve'], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)
-    DXF = Fiddle::Function.new(LIB['hsx_export_dxf'], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+    LOAD_ERROR = nil
+    begin
+      LIB = Fiddle.dlopen(File.join(__dir__, LIB_NAME))
+      SOLVE = Fiddle::Function.new(LIB['hsx_solve'], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)
+      DXF = Fiddle::Function.new(LIB['hsx_export_dxf'], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+      # xếp ván chạy ở luồng nền của lõi C++: Ruby chỉ start / thăm dò / lấy kết quả (đều rất nhẹ)
+      N_START = Fiddle::Function.new(LIB['hsx_nest_start'], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+      N_STATUS = Fiddle::Function.new(LIB['hsx_nest_status'], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+      N_CANCEL = Fiddle::Function.new(LIB['hsx_nest_cancel'], [Fiddle::TYPE_INT], Fiddle::TYPE_VOID)
+      N_RESULT = Fiddle::Function.new(LIB['hsx_nest_result'], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)
+      N_SHEET = Fiddle::Function.new(LIB['hsx_nest_sheet'], [Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)
+      N_DXF = Fiddle::Function.new(LIB['hsx_nest_export_dxf'], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
+      N_FREE = Fiddle::Function.new(LIB['hsx_nest_free'], [Fiddle::TYPE_INT], Fiddle::TYPE_VOID)
+    rescue StandardError, LoadError => e
+      remove_const(:LOAD_ERROR)
+      const_set(:LOAD_ERROR, "Không nạp được #{LIB_NAME}: #{e.message}")
+    end
+
+    # Thiếu/hỏng DLL thì plugin báo lỗi rõ ràng thay vì làm hỏng lúc nạp (bài học từ WPS).
+    def self.available?
+      LOAD_ERROR.nil?
+    end
 
     def self.encode(params)
       lines = params.reject { |k, _| k == :cols }.map { |k, v| "#{k}=#{v == true ? 1 : v == false ? 0 : v}" }
@@ -28,11 +47,55 @@ module AicDesignDC
     def self.export_dxf(params, path)
       DXF.call(encode(params), path) == 1
     end
+
+    # --- xếp ván nền ---
+    def self.nest_start(job)
+      h = N_START.call(job)
+      raise 'Không tạo được luồng xếp ván' if h <= 0
+      h
+    end
+
+    # => [trạng thái(0 chạy,1 xong,2 lỗi,3 hủy,-1 sai handle), tiến độ 0..1]
+    def self.nest_status(h)
+      buf = Fiddle::Pointer.malloc(8)
+      st = N_STATUS.call(h, buf)
+      [st, buf[0, 8].unpack1('E')]
+    end
+
+    def self.nest_cancel(h)
+      N_CANCEL.call(h)
+    end
+
+    def self.read_json(fn, *args)
+      n = fn.call(*args, nil, 0)
+      return nil if n < 0
+      buf = Fiddle::Pointer.malloc(n + 1)
+      fn.call(*args, buf, n + 1)
+      JSON.parse(buf.to_s(n))
+    end
+
+    def self.nest_result(h)
+      read_json(N_RESULT, h)
+    end
+
+    def self.nest_sheet(h, mat, sheet)
+      read_json(N_SHEET, h, mat, sheet)
+    end
+
+    def self.nest_export_dxf(h, path)
+      N_DXF.call(h, path) == 1
+    end
+
+    def self.nest_free(h)
+      N_FREE.call(h)
+    end
   end
 
   COLORS = { 'carcass' => [235, 232, 224], 'back' => [200, 190, 170],
              'front' => [248, 248, 246], 'drawer' => [215, 200, 175],
-             'bend' => [235, 232, 224], 'moulding' => [244, 240, 230] }.freeze
+             'bend' => [235, 232, 224], 'moulding' => [244, 240, 230], 'glass' => [190, 225, 235] }.freeze
+
+  PART_NAMES = { 'door_frame' => 'Cánh khung' }.freeze
 
   module Builder
     def self.material(model, role)
@@ -49,6 +112,29 @@ module AicDesignDC
         next unless ed.faces[0].normal.angle_between(ed.faces[1].normal) < limit
         ed.soft = true
         ed.smooth = true
+      end
+    end
+
+    # Khoét/phay trên mặt tấm: mỗi pocket là 1 đa giác trên mặt top/bottom, đẩy vào trong `depth`.
+    def self.cut_pockets(g, pn, o, s)
+      ax = pn['axis']
+      ia = (ax + 1) % 3
+      ib = (ax + 2) % 3
+      dir = [X_AXIS, Y_AXIS, Z_AXIS][ax]
+      (pn['pockets'] || []).each do |pk|
+        c = pk['top'] ? o[ax] + s[ax] : o[ax]
+        pts = pk['loop'].each_slice(2).map do |u, v|
+          a = [0, 0, 0]
+          a[ax] = c
+          a[ia] = u.mm
+          a[ib] = v.mm
+          Geom::Point3d.new(*a)
+        end
+        face = g.entities.add_face(pts)
+        next unless face
+        outward = pk['top'] ? dir : dir.reverse
+        dist = pk['depth'].mm
+        face.pushpull(face.normal.dot(outward) > 0 ? -dist : dist)
       end
     end
 
@@ -72,6 +158,7 @@ module AicDesignDC
         dir = [X_AXIS, Y_AXIS, Z_AXIS][ax]
         face.reverse! if face.normal.dot(dir) < 0
         face.pushpull(s[ax])
+        cut_pockets(g, pn, o, s)
         smooth_curved(g.entities)
       else
         pts = [[0, 0], [s[0], 0], [s[0], s[1]], [0, s[1]]].map { |x, y| Geom::Point3d.new(o[0] + x, o[1] + y, o[2]) }
@@ -93,7 +180,8 @@ module AicDesignDC
       model.start_operation('AicDesignDC: Chi tiết', true)
       begin
         grp = model.active_entities.add_group
-        grp.name = res['panels'].first['name']
+        grp.name = res['panels'].size > 1 ? PART_NAMES.fetch(params[:kind], 'Chi tiết') : res['panels'].first['name']
+        Sketchup.status_text = res['info'] unless res['info'].to_s.empty?
         res['panels'].each { |pn| add_panel(grp.entities, pn, model) }
         grp.transformation = transformation if transformation
         grp.set_attribute('hsx', 'part_params', JSON.generate(params))

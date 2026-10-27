@@ -79,6 +79,7 @@ struct Builder {
     int sideR = add("Hông phải", "carcass", W - t, 0, 0, t, sideDepth, H, H);
     int bottom = add("Đáy", "carcass", t, 0, p.plinth, Wi, innerDepth, t, Wi);
     int top = add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
+    (void)bottom; (void)top;
     if (p.hasBack) {  // hậu rộng hơn khổ ván -> tách các tấm bằng nhau
       const bool ov = p.back == BackStyle::Overlay;
       const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : innerDepth;
@@ -105,24 +106,10 @@ struct Builder {
         x += t;
       }
     }
-    // cam cho từng ô ngang theo khoang
-    auto camSpan = [&](int hp, int i) {
-      if (!p.cam) return;
-      // ván ngang đã trải toàn bề rộng; thêm cam tại 2 vách bao quanh khoang i
-      Panel& h = r.panels[hp]; double zc = h.o[2] + h.s[2] / 2;
-      for (double y : {37.0, innerDepth - 37}) {
-        hole(hp, x0[i] + 34, y, zc, 2, 15, 12.5, "cam");
-        hole(hp, x0[i] + w[i] - 34, y, zc, 2, 15, 12.5, "cam");
-        hole(divs[i], x0[i], y, zc, 0, 5, 10, "bolt");
-        hole(divs[i + 1], x0[i] + w[i], y, zc, 0, 5, 10, "bolt");
-      }
-    };
-    for (int i = 0; i < n; ++i) {
-      camSpan(bottom, i); camSpan(top, i);
-      if (loftZ > 0) camSpan(add("K" + std::to_string(i + 1) + " Đợt hộc trên", "carcass", x0[i], 0, loftZ, w[i], innerDepth, t, w[i]), i);
-    }
+    if (loftZ > 0)
+      for (int i = 0; i < n; ++i)
+        add("K" + std::to_string(i + 1) + " Đợt hộc trên", "carcass", x0[i], 0, loftZ, w[i], innerDepth, t, w[i]);
 
-    const double outerBot = p.plinth, outerTop = H;
     for (int i = 0; i < n; ++i) {
       const Column& c = cols[i];
       const std::string tag = "K" + std::to_string(i + 1);
@@ -141,8 +128,7 @@ struct Builder {
       // ngăn kéo
       if (c.drawers > 0) {
         double capZ = zb + stack;
-        int cap = add(tag + " Đợt ngăn kéo", "carcass", x0[i], 0, capZ, w[i], innerDepth, t, w[i]);
-        (void)cap;
+        add(tag + " Đợt ngăn kéo", "carcass", x0[i], 0, capZ, w[i], innerDepth, t, w[i]);
         double fLo = zLeafLo(zb, true), fHi = zLeafHi(capZ, false);
         double fh = (fHi - fLo - (c.drawers - 1) * p.gap) / c.drawers;
         const double sl = 12.7, dt = 15;
@@ -171,13 +157,7 @@ struct Builder {
         double step = space / (c.shelves + 1);
         for (int s = 0; s < c.shelves; ++s) {
           double z = lo + step * (s + 1) + s * t;
-          int sp = add(tag + " Đợt " + std::to_string(s + 1), "carcass", x0[i], 0, z, w[i], innerDepth, t, w[i]);
-          if (p.cam) for (double y : {37.0, innerDepth - 37}) {
-            hole(sp, x0[i] + 34, y, z + t / 2, 2, 15, 12.5, "cam");
-            hole(sp, x0[i] + w[i] - 34, y, z + t / 2, 2, 15, 12.5, "cam");
-            hole(divs[i], x0[i], y, z + t / 2, 0, 5, 10, "bolt");
-            hole(divs[i + 1], x0[i] + w[i], y, z + t / 2, 0, 5, 10, "bolt");
-          }
+          add(tag + " Đợt " + std::to_string(s + 1), "carcass", x0[i], 0, z, w[i], innerDepth, t, w[i]);
         }
       }
 
@@ -211,6 +191,8 @@ struct Builder {
         doors(p.loftDoors, loftZ + t, false, zt, true, "trên ");
     }
     for (auto& a : r.panels) finalizePanel(a);
+    if (p.cam) addJoinery(r, p);
+    if (p.band) applyBanding(r, p);
   }
 };
 

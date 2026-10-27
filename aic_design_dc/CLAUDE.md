@@ -5,7 +5,7 @@ Plugin SketchUp dựng tủ tham số. Lõi C++17 (`core/`) tính danh sách t�
 ## Build & test (làm trước khi sửa bất cứ gì)
 - Linux/Mac: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build && ./build/test_core`
 - Windows (cmd/PowerShell, KHÔNG dùng `./`): `cmake -S . -B build` → `cmake --build build --config Release` → `build\Release\test_core.exe`
-- Kết quả đúng: dòng `OK: 30 panels, 15 hinges, 12 cutlist rows` (và dòng `perf:` < 5 ms/lần; thực tế ~0.1 ms).
+- Kết quả đúng: dòng `OK: 30 panels, 15 hinges, 12 cutlist rows` (và dòng `perf:` < 5 ms/lần; thực tế ~0.1–0.3 ms).
 - Có `FAIL`/`overlap`: tìm nguyên nhân gốc trong `core/`, không sửa/xóa test cho qua.
 
 ## Cài vào SketchUp
@@ -23,8 +23,10 @@ puts r["ok"], r["panels"].size, r["hinges"]'
 Chạy `ruby -c` cho mọi file `.rb`. Code Ruby phải chạy trên Ruby 2.7 (SketchUp ≤ 2022): không dùng `def x = ...`.
 
 ## Quy ước
-- Cam chốt đang TẮT (`cam=false`), chưa làm; không bật.
+- Cam chốt + dán cạnh BẬT mặc định (`core/joinery.cpp`); lỗ khoan/dán cạnh là dữ liệu số, không tạo hình trong model.
+- Gom chi tiết/xếp ván phải chạy ở luồng nền (`hsx_nest_*`); KHÔNG gọi thẳng việc nặng trên luồng UI SketchUp, và Ruby quét model phải theo lát nhỏ bằng `UI.start_timer` (xem `nest_session.rb`).
+- Chạy thêm sanitizer khi sửa code đa luồng: `g++ -std=c++17 -fsanitize=thread -pthread tests/test_core.cpp core/*.cpp -o t && ./t`.
 - Không đổi tên thư viện `hsx_core` hay khóa tham số trong `parseParams` (`core/export.cpp`).
 - Mọi thay đổi lõi C++ phải kèm test trong `tests/test_core.cpp`.
-- Cung tròn chia theo sai số 0.3 mm (`kSag` trong `core/parts.cpp`).
+- Cung tròn chia theo sai số 0.3 mm (`kSag` trong `core/geom.hpp`).
 - Báo rõ cái gì đã chạy thật và cái gì chưa (ví dụ chưa có SketchUp).
