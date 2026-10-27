@@ -201,12 +201,12 @@ module AicDesignDC
       Params.sanitize(JSON.parse(cab.get_attribute('hsx', 'params')))
     end
 
-    def self.build(model, params, transformation = nil, operation: true)
+    def self.build(model, params, transformation = nil, operation: true, parent: nil)
       params = Params.sanitize(params)
       res = Core.solve(params)
       raise res['error'].to_s unless res['ok']
       model.start_operation('AicDesignDC: Tủ', true) if operation
-      cab = model.active_entities.add_group
+      cab = (parent || model.active_entities).add_group
       cab.name = 'Khung tủ'
       res['panels'].each { |pn| add_panel(cab.entities, pn, model) }
       cab.transformation = transformation if transformation

@@ -6,6 +6,7 @@ require_relative 'part_tool'
 require_relative 'library'
 require_relative 'nest_session'
 require_relative 'opening_tools'
+require_relative 'cluster'
 
 module AicDesignDC
   module Dialog
@@ -15,6 +16,11 @@ module AicDesignDC
     def self.selected_cab
       sel = Sketchup.active_model.selection
       sel.length == 1 && Builder.cabinet?(sel.first) ? sel.first : nil
+    end
+
+    def self.selected_cluster
+      sel = Sketchup.active_model.selection
+      sel.length == 1 && Cluster.cluster?(sel.first) ? sel.first : nil
     end
 
     # Đẩy tham số của tủ đang chọn (hoặc mặc định) lên hộp thoại.
@@ -43,6 +49,13 @@ module AicDesignDC
     def self.load_template(name)
       e = Library.find(name)
       raise "Không thấy mẫu: #{name}" unless e
+      if e['kind'] == 'cluster'
+        model = Sketchup.active_model
+        grp = Cluster.create(model, JSON.parse(JSON.generate(e['params'])))
+        model.selection.clear
+        model.selection.add(grp)
+        return
+      end
       if e['kind'] == 'part'
         State.part = PartParams.sanitize(e['params'])
         push_part
@@ -168,7 +181,8 @@ module AicDesignDC
       @dlg.add_action_callback('draw') { |_c| Sketchup.active_model.select_tool(DrawTool.new) }
       @dlg.add_action_callback('cutlist') do |_c|
         cab = selected_cab
-        rows = cab ? Builder.cutlist(cab) : Core.solve(State.params)['cutlist']
+        cl = selected_cluster
+        rows = cab ? Builder.cutlist(cab) : cl ? Cluster.cutlist(Cluster.spec_of(cl)) : Core.solve(State.params)['cutlist']
         @dlg.execute_script("showCutlist(#{JSON.generate(JSON.generate(rows))})")
       end
       @dlg.add_action_callback('dxf') do |_c|

@@ -1,5 +1,6 @@
 # encoding: UTF-8
 require_relative 'bridge'
+require_relative 'cluster'
 
 module AicDesignDC
   # Bắt thao tác Scale gốc của SketchUp trên tủ -> tính lại tủ theo lõi C++.
@@ -13,6 +14,15 @@ module AicDesignDC
         model.active_entities.grep(Sketchup::Group).select { |g| Builder.cabinet?(g) && Builder.scaled?(g) }.each do |g|
           begin
             n = Builder.normalize_scale(model, g)
+            model.selection.clear
+            model.selection.add(n)
+          rescue StandardError => e
+            UI.messagebox("AicDesignDC: #{e.message}")
+          end
+        end
+        model.active_entities.grep(Sketchup::Group).select { |g| Cluster.cluster?(g) && Cluster.scaled?(g) }.each do |g|
+          begin
+            n = Cluster.normalize_scale(model, g)
             model.selection.clear
             model.selection.add(n)
           rescue StandardError => e

@@ -149,7 +149,7 @@
  // ---- Thư viện ----
  var libItems=[];
  function setLibrary(s){libItems=JSON.parse(s); var sel=document.getElementById('lib'); sel.innerHTML='';
-  libItems.forEach(function(e){var o=document.createElement('option'); o.value=e.name; o.textContent=(e.kind==='part'?'◐ ':'▣ ')+e.name+(e.builtin?'':' ★'); sel.appendChild(o);});}
+  libItems.forEach(function(e){var o=document.createElement('option'); o.value=e.name; o.textContent=(e.kind==='part'?'◐ ':e.kind==='cluster'?'▦ ':'▣ ')+e.name+(e.builtin?'':' ★'); sel.appendChild(o);});}
  function libSel(){return document.getElementById('lib').value}
  function libLoad(){var n=libSel(); if(n)sketchup.lib_load(n)}
  function libDel(){var n=libSel(); if(n&&confirm('Xóa mẫu "'+n+'"?'))sketchup.lib_delete(n)}

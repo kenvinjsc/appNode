@@ -6,8 +6,19 @@ require_relative 'params'
 module AicDesignDC
   # Thư viện mẫu: có sẵn + mẫu người dùng lưu (~/.aic_design_dc/library.json).
   module Library
+    # Cụm tủ bếp mẫu: 5 tủ dưới + 5 tủ treo (như model tham chiếu, ~2950 mm) + thanh che chạy suốt tủ treo.
+    def self.kitchen_spec
+      lower = [400, 900, 450, 800, 400].map { |w| { 'w' => w, 'fixed' => false, 'params' => { 'layout' => 'V(0:L[l=-1])' } } }
+      lower[2]['params'] = { 'layout' => 'V(0:L[d=3])' }
+      upper = [400, 900, 550, 600, 500].map { |w| { 'w' => w, 'fixed' => false, 'params' => { 'layout' => 'V(0:L[l=-1])' } } }
+      { 'rows' => [{ 'name' => 'Tủ dưới', 'type' => 'base', 'x0' => 0, 'modules' => lower },
+                   { 'name' => 'Tủ treo', 'type' => 'wall', 'x0' => 0, 'modules' => upper }],
+        'mouldings' => [{ 'name' => 'Phào', 'row' => 'Tủ treo', 'profile' => 'rect', 'size_a' => 50, 'size_b' => 55 }] }
+    end
+
     # Mẫu KHUNG (rỗng, rồi thêm đợt/vách/ngăn kéo/cánh bằng công cụ) + mẫu tủ có sẵn nội dung để tham khảo.
     BUILTIN = [
+      { 'name' => 'Cụm bếp mẫu: 5 tủ dưới + 5 tủ treo + phào', 'kind' => 'cluster', 'params' => kitchen_spec },
       { 'name' => 'Khung tủ áo 1600x2400 (rỗng)', 'kind' => 'cabinet', 'params' => {} },
       { 'name' => 'Khung tủ áo 2 khoang + hộc trên (rỗng)', 'kind' => 'cabinet', 'params' => {
         'layout' => 'V(0:H(0:L[],400:L[]),0:H(0:L[],400:L[]))' } },
