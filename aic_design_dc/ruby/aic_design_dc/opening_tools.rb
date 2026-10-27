@@ -83,6 +83,50 @@ module AicDesignDC
 
     def hover(_op, _hit); end
 
+    # Phím số bấm là áp dụng (như video: "gõ 1..9"); gõ nhiều số liền nhau thì gom lại, hết 0,6 s hoặc Enter mới áp dụng.
+    DIGIT_KEYS = ((48..57).to_a + (96..105).to_a).freeze
+    TAB_KEY = 9
+
+    def digit_of(key)
+      return nil unless DIGIT_KEYS.include?(key)
+      key >= 96 ? key - 96 : key - 48
+    end
+
+    def onKeyDown(key, _repeat, _flags, view)
+      if (d = digit_of(key))
+        @buf = "#{@buf}#{d}"
+        UI.stop_timer(@buf_timer) if @buf_timer
+        @buf_timer = UI.start_timer(0.6, false) { flush_buffer(view) }
+        return
+      end
+      key_down(key, view)
+    end
+
+    def key_down(_key, _view); end
+
+    def flush_buffer(view)
+      text = @buf.to_s
+      @buf = nil
+      @buf_timer = nil
+      return if text.empty?
+      @applied = [text, Time.now]
+      handle_digits(text, view)
+    end
+
+    def onUserText(text, view)
+      t = text.to_s.strip
+      return if @applied && @applied[0] == t && Time.now - @applied[1] < 4   # đã áp dụng bằng phím số
+      UI.stop_timer(@buf_timer) if @buf_timer
+      @buf = @buf_timer = nil
+      handle_text(t, view)
+    end
+
+    def handle_digits(text, view)
+      handle_text(text, view)
+    end
+
+    def handle_text(_text, _view); end
+
     # ---- dựng lại tủ với bố cục mới --------------------------------------------------------
     def current_root(cab)
       Layout.from_params(Builder.params_of(cab))
@@ -128,7 +172,7 @@ module AicDesignDC
     KIND = 'divide'.freeze
 
     def status
-      Sketchup.status_text = 'Bấm vào khoang. Gõ: 3 = 3 ván đều · /3 = chia 3 khoảng · 200 = cách mép 200 rồi Enter · Alt: đợt ↔ vách'
+      Sketchup.status_text = 'Click: chia tại con trỏ | phím 2..9: chia N khoang | gõ 200 + Enter: cách mép 200 | Alt/Tab: đợt ↔ vách'
       Sketchup.vcb_label = 'Chia'
     end
 
@@ -146,11 +190,16 @@ module AicDesignDC
       Sketchup.vcb_value = format('%d mm', d.round)
     end
 
-    def onKeyDown(key, _repeat, _flags, view)
-      return unless key == ALT_MODIFIER_KEY
+    def key_down(key, view)
+      return unless key == ALT_MODIFIER_KEY || key == TAB_KEY
       State.tool[:mode] = mode == :shelf ? 'divider' : 'shelf'
       OptionBar.push('divide')
       view.invalidate
+    end
+
+    # một phím số (2..9) = chia khoang thành N khoang đều; nhiều chữ số = khoảng cách mm
+    def handle_digits(text, view)
+      handle_text(text.length == 1 ? "/#{text}" : text, view)
     end
 
     # xem trước tấm ván sẽ chia (ở vị trí con trỏ)
@@ -178,7 +227,7 @@ module AicDesignDC
       view.invalidate
     end
 
-    def onUserText(text, view)
+    def handle_text(text, view)
       return UI.beep unless @cab && @op && @hit
       ext, cur = extent_cursor(@op, @hit)
       sizes = Layout.parse_divide(text, ext, cur, State.params[:thick])
@@ -199,12 +248,18 @@ module AicDesignDC
     KIND = 'drawer'.freeze
 
     def status
-      Sketchup.status_text = 'Bấm vào khoang để đặt ngăn kéo. Gõ số để đổi số ngăn.'
+      Sketchup.status_text = 'Click khoang: đặt ngăn kéo | phím 1..9: số ngăn | Tab: đặt ↔ xóa'
       Sketchup.vcb_label = 'Số ngăn'
       Sketchup.vcb_value = State.tool[:drawer_count].to_s
     end
 
-    def onUserText(text, _view)
+    def key_down(key, view)
+      return unless key == TAB_KEY
+      State.tool[:clear] = State.tool[:clear].to_i == 1 ? 0 : 1
+      OptionBar.push('drawer')
+    end
+
+    def handle_text(text, _view)
       n = text.to_i
       return UI.beep unless n >= 1 && n <= 12
       State.tool[:drawer_count] = n
@@ -238,20 +293,25 @@ module AicDesignDC
     KIND = 'door'.freeze
 
     def status
-      Sketchup.status_text = 'Bấm vào khoang để đặt cánh | Shift: cài đặt (dày cánh, khe hở, rộng tối đa một cánh)'
+      Sketchup.status_text = 'Click khoang: đặt cánh | phím 1..4: số cánh | Tab: kiểu cánh | Shift: cài đặt (dày cánh, khe, rộng tối đa)'
       Sketchup.vcb_label = 'Số cánh'
       Sketchup.vcb_value = State.tool[:door_count] < 0 ? 'tự' : State.tool[:door_count].to_s
     end
 
-    def onUserText(text, _view)
+    def handle_text(text, _view)
       n = text.strip.downcase == 'a' ? -1 : text.to_i
       return UI.beep unless n == -1 || (n >= 1 && n <= 8)
       State.tool[:door_count] = n
       OptionBar.push('door')
     end
 
-    def onKeyDown(key, _repeat, _flags, _view)
-      settings if key == CONSTRAIN_MODIFIER_KEY
+    def key_down(key, _view)
+      if key == CONSTRAIN_MODIFIER_KEY
+        settings
+      elsif key == TAB_KEY   # Tab: đổi kiểu cánh trùm ngoài -> trùm nửa -> lọt trong
+        State.tool[:door_style] = State.tool[:door_style] % 3 + 1
+        OptionBar.push('door')
+      end
     end
 
     def settings

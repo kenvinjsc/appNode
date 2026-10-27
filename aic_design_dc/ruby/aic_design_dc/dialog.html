@@ -2,7 +2,10 @@
 <html lang="vi"><head><meta charset="utf-8"><title>Thông số</title>
 <style>
  body{font:12px/1.3 "Segoe UI",sans-serif;margin:0;background:#f4f4f2;color:#222}
- h4{margin:0;padding:6px 10px;background:#dfeadf;font-size:13px}
+ summary{padding:5px 10px;background:#dfeadf;font-size:13px;font-weight:600;cursor:pointer;list-style:none}
+ summary::before{content:'▸ '} details[open]>summary::before{content:'▾ '}
+ details.sub>summary{background:#eef3ee;font-weight:400;font-size:12px}
+ details{border-bottom:1px solid #d5d5d0}
  .sec{padding:6px 10px}
  label{display:flex;align-items:center;justify-content:space-between;margin:3px 0}
  input[type=number],select{width:90px;padding:2px 4px;box-sizing:border-box}
@@ -12,16 +15,24 @@
  .tip{color:#777;font-size:11px;margin-top:4px}
  #cut td,#cut th{border-bottom:1px solid #ddd;text-align:right;padding:2px 4px} #cut td:first-child,#cut th:first-child{text-align:left}
 </style></head><body>
-<h4 id="title">Khung tủ</h4>
-<div class="sec">
+<details open><summary>Thêm vào khung (bấm vào khoang)</summary><div class="sec">
+ <button onclick="sketchup.tool('divide')">Đợt / Vách</button>
+ <button onclick="sketchup.tool('drawer')">Ngăn kéo</button>
+ <button onclick="sketchup.tool('door')">Cánh</button>
+ <button onclick="if(confirm('Xóa hết đợt, vách, ngăn kéo, cánh – về khung rỗng?'))sketchup.reset_frame()">Về khung rỗng</button>
+ <div class="tip">Quy trình: chọn mẫu khung rỗng ở Thư viện (hoặc Vẽ tủ mới) → chia đợt/vách → đặt ngăn kéo → đặt cánh. Mỗi bước là một lần Undo. Bố cục hiện tại: <code id="lay"></code></div>
+ <div class="tip">Kéo giãn: chọn tủ, dùng công cụ Scale (S) của SketchUp, tủ tự tính lại — ván giữ độ dày.</div>
+</div></details>
+<details open><summary id="title">Khung tủ</summary><div class="sec">
  <label>Rộng <span><input type="number" data-k="width"> mm</span></label>
  <label>Sâu <span><input type="number" data-k="depth"> mm</span></label>
  <label>Cao <span><input type="number" data-k="height"> mm</span></label>
+ <label>Loại tủ <select data-k="cab_type"><option value="std">Thường</option><option value="base">Tủ dưới (thanh giằng)</option><option value="wall">Tủ treo</option><option value="tall">Tủ cao</option></select></label>
+ <label>Treo cách sàn <span><input type="number" data-k="hang_z"> mm</span></label>
+<details class="sub"><summary>Nâng cao (ván, chân, cánh, cam chốt, dán cạnh)</summary>
  <label>Dày ván <span><input type="number" step="0.5" data-k="thick"> mm</span></label>
  <label>Dày hậu <span><input type="number" step="0.5" data-k="back_thick"> mm</span></label>
  <label>Len chân <span><input type="number" data-k="plinth"> mm</span></label>
- <label>Loại tủ <select data-k="cab_type"><option value="std">Thường</option><option value="base">Tủ dưới (thanh giằng)</option><option value="wall">Tủ treo</option><option value="tall">Tủ cao</option></select></label>
- <label>Treo cách sàn <span><input type="number" data-k="hang_z"> mm</span></label>
  <label>Thanh giằng (rộng / số) <span><input type="number" data-k="rail_w"> / <input type="number" data-k="rail_count"></span></label>
  <label>Hồi đứng trên chân <input type="checkbox" data-k="side_on_plinth"></label>
  <label>Có tấm chân trước <input type="checkbox" data-k="plinth_front"></label>
@@ -41,32 +52,22 @@
  <label>Dán cạnh tự động <input type="checkbox" data-k="band"></label>
  <label>Dày chỉ thân tủ <span><input type="number" step="0.05" data-k="band_thick"> mm</span></label>
  <label>Dày chỉ cánh/hộc kéo <span><input type="number" step="0.05" data-k="band_front_thick"> mm</span></label>
-</div>
-<h4>Thư viện mẫu</h4>
-<div class="sec">
+</details>
+</div></details>
+<details><summary>Thư viện mẫu</summary><div class="sec">
  <select id="lib" size="6" style="width:100%"></select>
  <button onclick="libLoad()">Nạp mẫu</button>
  <button onclick="libSave()">Lưu mẫu hiện tại…</button>
  <button onclick="libDel()">Xóa</button>
  <div class="tip">Nạp: mẫu tủ áp vào tủ đang chọn (hoặc làm mặc định cho tủ mới); mẫu chi tiết đưa vào mục Chi tiết bên dưới.</div>
-</div>
-<h4>Thêm vào khung (bấm vào khoang)</h4>
-<div class="sec">
- <button onclick="sketchup.tool('divide')">Đợt / Vách</button>
- <button onclick="sketchup.tool('drawer')">Ngăn kéo</button>
- <button onclick="sketchup.tool('door')">Cánh</button>
- <button onclick="if(confirm('Xóa hết đợt, vách, ngăn kéo, cánh – về khung rỗng?'))sketchup.reset_frame()">Về khung rỗng</button>
- <div class="tip">Quy trình: chọn mẫu khung rỗng ở Thư viện (hoặc Vẽ tủ mới) → chia đợt/vách → đặt ngăn kéo → đặt cánh. Mỗi bước là một lần Undo. Bố cục hiện tại: <code id="lay"></code></div>
- <div class="tip">Kéo giãn: chọn tủ, dùng công cụ Scale (S) của SketchUp, tủ tự tính lại — ván giữ độ dày.</div>
-</div>
+</div></details>
 <div class="sec">
  <button onclick="sketchup.draw()">Vẽ tủ mới</button>
  <button onclick="sketchup.cutlist()">Bảng cắt</button>
  <button onclick="sketchup.dxf()">Xuất DXF</button>
  <table id="cut"></table>
 </div>
-<h4>Gom chi tiết &amp; tối ưu cắt ván</h4>
-<div class="sec">
+<details><summary>Gom chi tiết &amp; tối ưu cắt ván</summary><div class="sec">
  <label>Khổ ván (dài × rộng) <span><input type="number" id="n_l" value="2440"> × <input type="number" id="n_w" value="1220"></span></label>
  <label>Mạch cưa / lề cắt <span><input type="number" id="n_k" value="4"> / <input type="number" id="n_t" value="10"></span></label>
  <label>Cho phép xoay (bỏ vân) <input type="checkbox" id="n_r"></label>
@@ -82,15 +83,14 @@
  <div id="n_svg"></div>
  <table id="n_items"></table>
  <div class="tip">Chạy ở luồng nền: SketchUp vẫn thao tác bình thường trong lúc tính. Chỉ đọc tham số tủ, không tạo thêm hình trong model.</div>
-</div>
-<h4>Chi tiết (uốn cong / phào / xà)</h4>
-<div class="sec">
+</div></details>
+<details><summary>Chi tiết (uốn cong / phào / xà)</summary><div class="sec">
  <label>Loại <select id="pkind"><option value="bend">Uốn cong</option><option value="shelf_round">Đợt bo góc</option><option value="moulding">Phào</option><option value="beam">Xà</option><option value="board">Tấm ván gia công (bo góc, mộng, đục khung, rãnh)</option><option value="kerf_bend">Ván uốn xẻ rãnh (kerf)</option><option value="door_frame">Cánh khung / kính</option></select></label>
  <div id="pfields"></div>
  <div id="pinfo" class="tip"></div>
  <button onclick="sketchup.place_part()">Đặt chi tiết</button>
  <button onclick="libSavePart()">Lưu chi tiết vào thư viện…</button>
-</div>
+</div></details>
 <script>
  var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick','rail_w','rail_count','hang_z','plinth_setback','slide_len','end_panel_w','top_cover','top_cover_overhang'];
  function q(s){return document.querySelectorAll(s)}

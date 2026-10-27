@@ -31,10 +31,10 @@ Chưa làm: bo góc/cong cho thân tủ liền khối, khấu ván khi các tấ
 Giả định cần bạn xác nhận: "Hồi lên trước 19" = cánh lọt lòng thụt vào 19mm; cam cách đầu tấm 34mm, cách đầu mối nối 37mm, bước tối đa 320mm; chốt gỗ Ø8 nằm giữa hai cam.
 
 ## Quy trình dựng tủ (như video): khung rỗng → thêm từng thứ
-1. **Vẽ tủ mới** / nạp mẫu "Khung tủ … (rỗng)" ở Thư viện: chỉ có khung (hông, đáy, nóc, hậu).
-2. **Đợt / Vách**: bấm vào khoang để chia (xem trước ván); gõ `3` = 3 ván đều, `/3` = chia 3 khoảng, `200` = cách mép 200 mm; **Alt** đổi đợt ↔ vách.
-3. **Ngăn kéo**: bấm vào khoang, đặt từ đáy khoang lên (số ngăn, cao mỗi ngăn trên thanh tuỳ chọn).
-4. **Cánh**: Trùm ngoài / Trùm nửa / Lọt trong, số bản lề, số cánh (tự theo rộng tối đa); **Shift** mở cài đặt dày cánh/khe/rộng tối đa.
+1. **Vẽ tủ mới** (Tab đổi mẫu khung rỗng ngay lúc vẽ, không cần mở hộp thoại) / nạp mẫu "Khung tủ … (rỗng)" ở Thư viện: chỉ có khung (hông, đáy, nóc, hậu).
+2. **Đợt / Vách**: bấm vào khoang để chia tại con trỏ (xem trước ván); **phím 2..9** = chia ngay thành N khoang đều (không cần Enter); gõ `200` + Enter = cách mép 200 mm; **Alt/Tab** đổi đợt ↔ vách.
+3. **Ngăn kéo**: bấm vào khoang (phím 1..9 = số ngăn, Tab = đặt ↔ xóa), đặt từ đáy khoang lên (số ngăn, cao mỗi ngăn trên thanh tuỳ chọn).
+4. **Cánh** (phím 1..4 = số cánh, Tab = đổi kiểu cánh): Trùm ngoài / Trùm nửa / Lọt trong, số bản lề, số cánh (tự theo rộng tối đa); **Shift** mở cài đặt dày cánh/khe/rộng tối đa.
 Bố cục là cây khoang (`V(...)`/`H(...)`/`L[...]`, `core/layout.cpp`); mỗi thao tác sửa cây rồi lõi C++ dựng lại (một Undo). Khoang lấy từ `openings` của lõi.
 
 ### Tủ bếp (loại tủ, cụm)

@@ -113,7 +113,7 @@ module AicDesignDC
         return
       end
       @dlg = UI::HtmlDialog.new(dialog_title: 'Thông số', preferences_key: 'AicDesignDC.Params',
-                                scrollable: true, resizable: true, width: 340, height: 860, left: 60, top: 80, style: UI::HtmlDialog::STYLE_DIALOG)
+                                scrollable: true, resizable: true, width: 320, height: 560, left: 60, top: 80, style: UI::HtmlDialog::STYLE_DIALOG)
       @dlg.set_file(File.join(__dir__, 'dialog.html'))
       @dlg.add_action_callback('ready') { |_c| push_library; push_part; sync }
       @dlg.add_action_callback('part_apply') do |_c, json|
