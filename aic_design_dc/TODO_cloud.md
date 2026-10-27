@@ -119,3 +119,11 @@ Ghi chú: component "ThomThom" 803×803×1856 trong model là hình người m�
 27. [ ] **Đợt hai bên ống**: mỗi bên 172 × 220 sâu tại z1945, trong 650 cao của ống → trong khối 673.
 28. [ ] Gốc cánh có đường chéo nét đứt (ký hiệu mở) và lỗ khoan/cam ở 4 góc thanh giằng, bản dựng chưa có ở mặt cánh (đường chéo) — xem mục 3.2.
 Nhắc lại cách kiểm: chụp xuyên thấu cả hai bên cạnh nhau và đo bảng số, không kết luận bằng mắt một mặt.
+
+## 10. YÊU CẦU người dùng: hậu phải chọn được kiểu — PHỦ / LỌT / ĐÂM XUYÊN (và khớp hậu gốc)
+Hiện: `BackStyle { Overlay, Inset }` (`core/cabinet.hpp:9`), khóa `back_style` = `overlay|inset` (`core/export.cpp:117`), dialog có "Phủ / Âm" (`dialog.html:32`). Người dùng nói hậu bản dựng "chưa khớp hậu của họ" và cần **3 kiểu chọn được**:
+29. [ ] **Phủ**: hậu phủ ngoài lưng, rộng/cao bằng khung ngoài (kiểu hiện tại, dày 10 → dùng `back_thick`).
+30. [ ] **Lọt**: hậu nằm trong khung, ăn vào rãnh hồi/đáy/nóc. **Đây là kiểu của tủ bếp gốc** (đo từ model): hậu dày 9, rộng = khoang − 19 (khoang 400→381, 450→431, 550→531, 600→581, 800→781, 900→880/881, 500→481). Hông trong rộng 365 (400 − 17.5×2) mà hậu 381 ⇒ mỗi bên ăn vào hồi ~8 mm (rãnh). Cao 781 tủ dưới (z84..865), 851–861 tủ treo; đặt sát lưng (tủ dưới y554..563 trong sâu 561; tủ treo y564..573). Cần tham số rãnh: sâu rãnh (8), lùi từ lưng (tủ treo 18), dày hậu.
+31. [ ] **Đâm xuyên**: CHƯA RÕ nghĩa — hỏi người dùng (khả năng: hậu chạy suốt qua nhiều khối / hậu xuyên qua hồi, không bị chia theo khoang). Không tự đoán; thêm lựa chọn sau khi người dùng xác nhận.
+32. [ ] UI: chọn kiểu hậu ở dialog "Thông số" (`dialog.html`) và option bar; khóa `back_style` nhận `overlay|inset|through` (+ tham số `back_groove`, `back_setback`). Không đổi tên khóa cũ (`CLAUDE.md`): chỉ thêm giá trị mới; test lõi mỗi kiểu (không chồng lấn tấm, kích thước hậu đúng bảng trên).
+33. [ ] `Library.kitchen_spec` dùng kiểu "Lọt" với dày hậu 9 và hậu khối hút mùi cao 668 (z1687) để khớp gốc.
