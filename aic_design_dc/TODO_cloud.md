@@ -238,3 +238,8 @@ Lỗi/gap tìm được khi thao tác:
 71. [ ] **VCB bỏ qua "đơn vị mm"**: `draw_tool.rb:65` dùng `"450".to_l.to_mm` ⇒ trong model đơn vị **inch** (model của người dùng `LengthUnit=0`), gõ `450` ra 450 **inch** (kẹp 6000 mm). Người dùng xác nhận "đơn vị mm": mọi số gõ vào VCB của plugin (Vẽ tủ, Đợt/Vách `3`, `/3`, `200`...) phải hiểu là **mm** bất kể đơn vị model (hoặc đọc theo đơn vị hiển thị và hiện rõ trong nhãn VCB). Kiểm tra cả `opening_tools.rb`.
 72. [ ] **Làm tròn mm**: `DrawTool#dims` làm tròn số nguyên ⇒ gõ `560.5` ra sâu **561**. Kho dùng 560,5; cần giữ phần thập phân khi gõ VCB (và khi đọc từ `finish`).
 73. [ ] Chiều cao mỗi ngăn kéo chỉ đều (`p=180`), kho cần 220/355/160 (xem mục 68). Công cụ nên cho đặt chiều cao từng ngăn.
+
+## Bên test — thử chuột thật trên 2 màn hình (đợt này)
+- **Cách thao tác thật đã chạy**: máy có 2 màn hình, màn chính DPI 125%. Script chuột phải gọi `SetProcessDPIAware()` thì toạ độ mới khớp ảnh chụp; không có thì click vào thanh công cụ/menu bị trượt (viewport vẫn "đúng" vì đã hiệu chỉnh trong cùng hệ toạ độ co).
+- Kết quả thật: bấm icon **Vẽ tủ** trên toolbar bằng chuột → tool `RubyTool` bật; click điểm 1 → rê → gõ `900mm,560.5mm` + Enter → "Khung tủ" **900 × 561 × 866**, 7 tấm. Vẫn còn lỗi cũ: sâu 560,5 bị làm tròn thành 561 (mục 71–73).
+- Chưa thử bằng chuột thật: Đợt/Vách, Ngăn kéo, Cánh, Thông số, Scale, menu Extensions, Undo.
