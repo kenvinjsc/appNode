@@ -4,6 +4,14 @@
  body{font:12px/1.3 "Segoe UI",sans-serif;margin:0;background:#f4f4f2;color:#222}
  summary{padding:5px 10px;background:#dfeadf;font-size:13px;font-weight:600;cursor:pointer;list-style:none}
  summary::before{content:'▸ '} details[open]>summary::before{content:'▾ '}
+ .tools{display:flex;gap:6px;padding:8px 10px 2px}
+ .tools button{flex:1;margin:0;padding:6px 2px;font-size:11px;line-height:1.5;border:1px solid #c9c9c4;background:#fff;border-radius:6px}
+ .tools button:hover{background:#eef5ff;border-color:#2a7be4}
+ .tl{padding:0 10px 6px;margin:2px 0}
+ .two input{width:56px!important}
+ select{max-width:150px;width:130px}
+ #lib{max-width:none;width:100%}
+ input[type=number]{width:72px}
  details.sub>summary{background:#eef3ee;font-weight:400;font-size:12px}
  details{border-bottom:1px solid #d5d5d0}
  .sec{padding:6px 10px}
@@ -15,31 +23,30 @@
  .tip{color:#777;font-size:11px;margin-top:4px}
  #cut td,#cut th{border-bottom:1px solid #ddd;text-align:right;padding:2px 4px} #cut td:first-child,#cut th:first-child{text-align:left}
 </style></head><body>
-<details open><summary>Thêm vào khung (bấm vào khoang)</summary><div class="sec">
- <button onclick="sketchup.tool('divide')">Đợt / Vách</button>
- <button onclick="sketchup.tool('drawer')">Ngăn kéo</button>
- <button onclick="sketchup.tool('door')">Cánh</button>
- <button onclick="if(confirm('Xóa hết đợt, vách, ngăn kéo, cánh – về khung rỗng?'))sketchup.reset_frame()">Về khung rỗng</button>
- <div class="tip">Quy trình: chọn mẫu khung rỗng ở Thư viện (hoặc Vẽ tủ mới) → chia đợt/vách → đặt ngăn kéo → đặt cánh. Mỗi bước là một lần Undo. Bố cục hiện tại: <code id="lay"></code></div>
- <div class="tip">Kéo giãn: chọn tủ, dùng công cụ Scale (S) của SketchUp, tủ tự tính lại — ván giữ độ dày.</div>
-</div></details>
+<div class="tools">
+ <button onclick="sketchup.draw()" title="Vẽ khung tủ (Tab đổi mẫu khung)">▭<br>Vẽ khung</button>
+ <button onclick="sketchup.tool('divide')" title="Chia khoang: click, phím 2..9, Alt/Tab đợt↔vách">┼<br>Đợt / Vách</button>
+ <button onclick="sketchup.tool('drawer')" title="Đặt ngăn kéo vào khoang">☰<br>Ngăn kéo</button>
+ <button onclick="sketchup.tool('door')" title="Đặt cánh vào khoang (Tab kiểu cánh)">▯<br>Cánh</button>
+</div>
+<div class="tip tl">Chọn mẫu khung rỗng trong Thư viện → Đợt/Vách → Ngăn kéo → Cánh. Mỗi bước 1 Undo. <a href="#" onclick="if(confirm('Về khung rỗng (xóa đợt, vách, ngăn kéo, cánh)?'))sketchup.reset_frame();return false">Về khung rỗng</a><span style="display:none"><code id="lay"></code></span></div>
 <details open><summary id="title">Khung tủ</summary><div class="sec">
  <label>Rộng <span><input type="number" data-k="width"> mm</span></label>
  <label>Sâu <span><input type="number" data-k="depth"> mm</span></label>
  <label>Cao <span><input type="number" data-k="height"> mm</span></label>
- <label>Loại tủ <select data-k="cab_type"><option value="std">Thường</option><option value="base">Tủ dưới (thanh giằng)</option><option value="wall">Tủ treo</option><option value="tall">Tủ cao</option></select></label>
- <label>Treo cách sàn <span><input type="number" data-k="hang_z"> mm</span></label>
+ <label>Loại tủ <select data-k="cab_type"><option value="std">Thường</option><option value="base">Tủ dưới</option><option value="wall">Tủ treo</option><option value="tall">Tủ cao</option></select></label>
+ <label data-show="wall">Treo cách sàn <span><input type="number" data-k="hang_z"> mm</span></label>
+ <label data-show="base">Thanh giằng (rộng / số) <span class="two"><input type="number" data-k="rail_w"> / <input type="number" data-k="rail_count"></span></label>
+ <label data-show="base,tall">Hồi đứng trên chân <input type="checkbox" data-k="side_on_plinth"></label>
+ <label data-show="base,tall">Có tấm chân trước <input type="checkbox" data-k="plinth_front"></label>
+ <label data-show="base,tall">Chân lùi vào <span><input type="number" data-k="plinth_setback"> mm</span></label>
+ <label data-show="base,tall">Tấm ốp hông (L/R/LR) <span class="two"><input type="text" size="3" data-k="end_panel"> rộng <input type="number" data-k="end_panel_w"></span></label>
+ <label data-show="base">Tấm đỉnh phủ (dày / nhô trước) <span class="two"><input type="number" data-k="top_cover"> / <input type="number" data-k="top_cover_overhang"> mm</span></label>
 <details class="sub"><summary>Nâng cao (ván, chân, cánh, cam chốt, dán cạnh)</summary>
  <label>Dày ván <span><input type="number" step="0.5" data-k="thick"> mm</span></label>
  <label>Dày hậu <span><input type="number" step="0.5" data-k="back_thick"> mm</span></label>
  <label>Len chân <span><input type="number" data-k="plinth"> mm</span></label>
- <label>Thanh giằng (rộng / số) <span><input type="number" data-k="rail_w"> / <input type="number" data-k="rail_count"></span></label>
- <label>Hồi đứng trên chân <input type="checkbox" data-k="side_on_plinth"></label>
- <label>Có tấm chân trước <input type="checkbox" data-k="plinth_front"></label>
- <label>Chân lùi vào <span><input type="number" data-k="plinth_setback"> mm</span></label>
- <label>Ray ngăn kéo <span><select data-k="drawer_slide"><option value="side">Ray bi hông</option><option value="under">Ray âm</option></select> <input type="number" data-k="slide_len"> mm</span></label>
- <label>Tấm ốp hông (L/R/LR) <span><input type="text" size="3" data-k="end_panel"> rộng <input type="number" data-k="end_panel_w"></span></label>
- <label>Tấm đỉnh phủ (dày / nhô trước) <span><input type="number" data-k="top_cover"> / <input type="number" data-k="top_cover_overhang"> mm</span></label>
+ <label>Ray ngăn kéo <span class="two"><select data-k="drawer_slide"><option value="side">Ray bi hông</option><option value="under">Ray âm</option></select> <input type="number" data-k="slide_len"> mm</span></label>
  <label>Có hậu <input type="checkbox" data-k="has_back"></label>
  <label>Kiểu hậu <select data-k="back_style"><option value="overlay">Phủ</option><option value="inset">Âm</option></select></label>
  <label>Cánh <select data-k="door_style"><option value="overlay">Trùm ngoài</option><option value="half">Trùm nửa</option><option value="inset">Lọt lòng</option></select></label>
@@ -62,7 +69,6 @@
  <div class="tip">Nạp: mẫu tủ áp vào tủ đang chọn (hoặc làm mặc định cho tủ mới); mẫu chi tiết đưa vào mục Chi tiết bên dưới.</div>
 </div></details>
 <div class="sec">
- <button onclick="sketchup.draw()">Vẽ tủ mới</button>
  <button onclick="sketchup.cutlist()">Bảng cắt</button>
  <button onclick="sketchup.dxf()">Xuất DXF</button>
  <table id="cut"></table>
@@ -94,15 +100,16 @@
 <script>
  var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick','rail_w','rail_count','hang_z','plinth_setback','slide_len','end_panel_w','top_cover','top_cover_overhang'];
  function q(s){return document.querySelectorAll(s)}
+ function vis(){var t=cur.cab_type||'std'; q('[data-show]').forEach(function(e){e.style.display=e.dataset.show.split(',').indexOf(t)>=0?'':'none';});}
  function fill(){
   q('[data-k]').forEach(function(e){var v=cur[e.dataset.k]; if(e.type==='checkbox')e.checked=!!v; else e.value=v;});
   document.getElementById('lay').textContent=cur.layout||'';
-  bind();
+  vis(); bind();
  }
  function bind(){q('input,select').forEach(function(e){e.onchange=e.oninput=changed;});}
  function changed(){
   q('[data-k]').forEach(function(e){var k=e.dataset.k; cur[k]=e.type==='checkbox'?e.checked:(NUM.indexOf(k)>=0?parseFloat(e.value)||0:e.value);});
-  clearTimeout(timer); timer=setTimeout(function(){sketchup.apply(JSON.stringify(cur))},250);
+  vis(); clearTimeout(timer); timer=setTimeout(function(){sketchup.apply(JSON.stringify(cur))},250);
  }
  // Ruby -> JS (không kích hoạt apply)
  function setParams(s,isCab){cur=JSON.parse(s); document.getElementById('title').textContent=isCab?'Khung tủ (đang chọn)':'Khung tủ (mặc định cho tủ mới)'; fill();}
