@@ -113,3 +113,9 @@ Ghi chú: component "ThomThom" 803×803×1856 trong model là hình người m�
 23. [ ] **Khối treo trái 400**: gốc KHÔNG có hậu như các khối khác (màu tối riêng, sâu 350) — kiểm tra lại có hậu hay hở lưng.
 24. [ ] **Tủ dưới nhìn từ sau**: gốc thấy thanh giằng sau + lỗ khoan ở 4 góc, mặt ĐỈNH 9 mm phủ phía trên; bản dựng hở. (Gộp mục 17.)
 25. [ ] Cần so lại bằng ảnh sau mỗi lần sửa: chụp cả mặt trước lẫn mặt sau, đo từng nhóm tấm (tên, rộng, sâu, cao, vị trí) so với bảng ở trên, KHÔNG kết luận "khớp" khi mới nhìn một mặt.
+
+## 9. Ảnh xuyên thấu (Screenshot 123549): khối hút mùi sai chiều đứng; thiếu đợt/cánh chéo
+26. [ ] **Khối hút mùi (600)**: ngang đúng (ống trái x+190, phải x+393, tấm fix hậu 185–220 rộng ở giữa) nhưng DỌC SAI: bản dựng cao 880 từ z1495 với ống cao 845 từ z1513; gốc khối này cao **673, đáy nâng lên z1677 (hồi z1692..2365)**, ống cao **650 (z1696..2346)** nằm trên tấm fix mặt trước 600×155 (z1540..1695), cánh 2 lá cao 810 (z1565..2375). Cần: `hang_z`/chiều cao riêng cho khối hút mùi trong `kitchen_spec` (cao 673, hang 1692) và ống tính theo chiều cao khoang trừ tấm fix.
+27. [ ] **Đợt hai bên ống**: mỗi bên 172 × 220 sâu tại z1945, trong 650 cao của ống → trong khối 673.
+28. [ ] Gốc cánh có đường chéo nét đứt (ký hiệu mở) và lỗ khoan/cam ở 4 góc thanh giằng, bản dựng chưa có ở mặt cánh (đường chéo) — xem mục 3.2.
+Nhắc lại cách kiểm: chụp xuyên thấu cả hai bên cạnh nhau và đo bảng số, không kết luận bằng mắt một mặt.
