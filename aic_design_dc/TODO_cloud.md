@@ -77,3 +77,9 @@ Giả định cần xác nhận: hồi lên trước 19; cam cách đầu 34 / �
 6. [ ] Chưa kiểm tra: bấm chuột bằng DivideTool/DoorTool/DrawerTool (chỉ test qua API), dialog/toolbar mở bằng menu.
 7. [ ] Quy ước trục: lõi dùng Y=sâu, Z=cao (đúng). Lưu ý `Sketchup::BoundingBox#height`=Y, `#depth`=Z khi viết test/đo.
 Việc dựng thử có thể chạy lại: 5 tủ dưới `{width:W, depth:561, height:866, plinth:75}`, 5 tủ treo `{depth:331, height:880, plinth:0}`, đặt bằng `Geom::Transformation.translation`.
+
+### Bổ sung (đo trên khối dựng thử): hồi / chân / phào
+Mỗi khối `Builder.build` chỉ ra 5 tấm: Hông trái, Hông phải, Đáy, Nóc, Hậu.
+8. [ ] **Hồi**: hông chạy từ z=0 (sàn) đến hết chiều cao; tủ bếp gốc đặt hồi TRÊN chân (z≈89 trở lên, hồi dưới cao ~779). Cần tham số "hồi đứng trên chân" khi có chân.
+9. [ ] **Chân**: `plinth` chỉ nâng Đáy lên z=plinth, KHÔNG tạo tấm CHÂN TRƯỚC (gốc: 1 tấm liền 1282 × 17 × 75 cho nhiều khối, lùi vào so với mặt trước). Cần tấm chân trước (và tuỳ chọn chân sau/bên) có độ lùi.
+10. [ ] **Phào**: không có tấm phào; gốc có PHÀO 50 × 18 ở đỉnh tủ treo, chạy suốt nhiều khối (x1849..3299, z2365). Cần phào gắn theo khối/cụm (dùng `moulding` trong `core/parts.cpp`, nhưng hiện chỉ đặt rời, chưa gắn vào tủ).
