@@ -100,3 +100,16 @@ Ghi chú: component "ThomThom" 803×803×1856 trong model là hình người m�
 18. [ ] Tổng rộng 2967 so với gốc 3000: gốc có thêm ốp/hồi chồng ~33 mm (khối trái gốc bắt đầu x1449 và tủ dưới kéo tới x4402+50). Kiểm tra cách tính `Cluster.placements` (khe giữa khối, hồi dùng chung hay hồi đôi).
 19. [ ] Khối hút mùi: đã có ống + tấm fix + cánh 2 lá; cần đo lại kích thước cánh (gốc 298 × 810, z1565..2375) so với bản dựng.
 20. [ ] Chưa kiểm tra bằng chuột: co giãn cụm bằng Scale gốc, DivideTool/DoorTool/DrawerTool, mở dialog/toolbar qua menu.
+
+## 8. Người dùng chụp mặt SAU: kết cấu CHƯA khớp (thu hồi nhận định "khớp" ở mục 7, vốn chỉ dựa vào ảnh nhìn trước)
+Ảnh người dùng gửi (Screenshot 2026-10-27 123447.png): trái = bản dựng plugin, phải = tủ gốc, nhìn từ phía sau. Số đo (mm, gốc toạ độ = góc trái-trước của cụm gốc x1449, y1690):
+21. [ ] **Chưa có ĐỢT**. Gốc có 10 tấm ĐỢT DI ĐỘNG, bản dựng 0. Vị trí gốc (x rộng+, y sâu, z cao):
+    - Tủ dưới: 3 đợt — khối 400 (rộng 365, sâu 514, z462), khối 800 (rộng 765, z463), khối 400 cuối (365, z462). Các khối 900 và 450 không có đợt (900: cánh đôi, chỉ thanh giằng; 450: ngăn kéo).
+    - Tủ treo khối trái 400 (hộc mở, sâu 350): 2 đợt rộng 365, sâu 314, z1790 và z2086 → 3 hộc.
+    - Tủ treo 900: 1 đợt 865 × 284 sâu, z1945; 550: 1 đợt 515, z1945; 500: 1 đợt 465, z1945.
+    - Khối hút mùi 600: 2 đợt 172 rộng × 220 sâu (z1945) nằm HAI BÊN ống (x≈3317 và 3709 tuyệt đối), không phải một đợt suốt.
+    Cần: đợt theo khoang (`L[s=n]`) trong `kitchen_spec` + đợt hai bên ống hút mùi; kiểm tra đợt lùi mặt trước (sâu 514 so với thân 561; 284 so với 331).
+22. [ ] **Hậu**: gốc hậu dày 9, rộng = khoang − 19 (400→381, 900→880/881, 450→431, 800→781, 550→531, 600→581, 500→481), cao 781 (tủ dưới, z84..865) / 851–861 (tủ treo, z1504..), đặt sát lưng (tủ dưới y554..563; tủ treo y564..573), có lỗ khoan (thấy các chấm cam ở thanh giằng sau). Bản dựng: hậu dày 10, rộng bằng đúng khoang (phủ ngoài, back_style=overlay), cao 791 từ z75. Dùng `back_style: 'inset'`, `back_thick: 9` trong `kitchen_spec` và kiểm tra hậu khối hút mùi cao 668 (z1687).
+23. [ ] **Khối treo trái 400**: gốc KHÔNG có hậu như các khối khác (màu tối riêng, sâu 350) — kiểm tra lại có hậu hay hở lưng.
+24. [ ] **Tủ dưới nhìn từ sau**: gốc thấy thanh giằng sau + lỗ khoan ở 4 góc, mặt ĐỈNH 9 mm phủ phía trên; bản dựng hở. (Gộp mục 17.)
+25. [ ] Cần so lại bằng ảnh sau mỗi lần sửa: chụp cả mặt trước lẫn mặt sau, đo từng nhóm tấm (tên, rộng, sâu, cao, vị trí) so với bảng ở trên, KHÔNG kết luận "khớp" khi mới nhìn một mặt.
