@@ -38,6 +38,9 @@ struct Parser {
         case 'l': n.leaf.doors = (int)v; break;
         case 'm': n.leaf.doorStyle = (int)v - 1; break;
         case 'h': n.leaf.hinges = (int)v; break;
+        case 'f': n.leaf.fixH = v; break;
+        case 'x': n.leaf.ductW = v; break;
+        case 'r': n.leaf.hingeSide = (int)v; break;
         default: return fail(std::string("Khóa khoang không hợp lệ: ") + k);
       }
       if (i < s.size() && s[i] == ',') ++i;

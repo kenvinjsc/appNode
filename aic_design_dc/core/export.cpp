@@ -124,6 +124,7 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     else if (k == "band_front_thick") o.bandFrontThick = d; else if (k == "band_edges") o.bandEdges = v;
     else if (k == "cab_type") o.cabType = v; else if (k == "rail_w") o.railW = d; else if (k == "rail_count") o.railCount = (int)d;
     else if (k == "drawer_slide") o.drawerSlide = v; else if (k == "slide_len") o.slideLen = d;
+    else if (k == "end_panel") o.endPanel = v; else if (k == "end_panel_w") o.endPanelW = d;
     else if (k == "hang_z") o.hangZ = d; else if (k == "side_on_plinth") o.sideOnPlinth = b(v);
     else if (k == "plinth_front") o.plinthFront = b(v); else if (k == "plinth_setback") o.plinthSetback = d; else if (k == "door_max_w") o.doorMaxW = d; else if (k == "layout") o.layout = v;
     else if (k == "sheet_w") o.sheetW = d; else if (k == "kind") o.kind = v;

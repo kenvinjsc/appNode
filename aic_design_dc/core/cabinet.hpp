@@ -17,6 +17,9 @@ struct Column {            // 1 khoang giữa 2 vách đứng
   int doors = 0;           // số cánh (0 = hở, -1 = tự theo rộng tối đa một cánh)
   int doorStyle = -1;      // kiểu cánh riêng của khoang: 0 trùm ngoài, 1 trùm nửa, 2 lọt lòng; -1 = theo tủ
   int hinges = 0;          // số bản lề mỗi cánh (0 = tự theo chiều cao)
+  double fixH = 0;         // tấm fix che phía dưới khoang (cao fixH), cánh bắt đầu phía trên tấm fix
+  double ductW = 0;        // ống hút mùi: hộp ống rộng ductW nằm giữa khoang, sát hậu (2 tấm dọc + tấm fix hậu)
+  int hingeSide = 0;       // cánh đơn: 1 bản lề trái, 2 bản lề phải, 0 = trái
 };
 
 struct Params {
@@ -42,6 +45,8 @@ struct Params {
   std::string cabType = "std"; // std | base (tủ dưới: không nóc, thay bằng thanh giằng) | wall (tủ treo) | tall (tủ cao)
   double railW = 70;           // rộng thanh giằng (tủ dưới)
   int railCount = 2;           // số thanh giằng (2 = trước + sau; >2 chia đều giữa)
+  std::string endPanel;        // tấm ốp hông ngoài thân tủ: "L", "R" hoặc "LR"
+  double endPanelW = 50;       // rộng (theo chiều sâu) tấm ốp hông
   bool sideOnPlinth = false;   // hồi (hông) đứng trên chân thay vì chạy xuống sàn
   bool plinthFront = false;    // thêm tấm chân trước (cao = plinth) lùi vào plinthSetback
   double plinthSetback = 50;

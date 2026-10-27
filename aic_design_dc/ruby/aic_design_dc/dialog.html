@@ -27,6 +27,7 @@
  <label>Có tấm chân trước <input type="checkbox" data-k="plinth_front"></label>
  <label>Chân lùi vào <span><input type="number" data-k="plinth_setback"> mm</span></label>
  <label>Ray ngăn kéo <span><select data-k="drawer_slide"><option value="side">Ray bi hông</option><option value="under">Ray âm</option></select> <input type="number" data-k="slide_len"> mm</span></label>
+ <label>Tấm ốp hông (L/R/LR) <span><input type="text" size="3" data-k="end_panel"> rộng <input type="number" data-k="end_panel_w"></span></label>
  <label>Có hậu <input type="checkbox" data-k="has_back"></label>
  <label>Kiểu hậu <select data-k="back_style"><option value="overlay">Phủ</option><option value="inset">Âm</option></select></label>
  <label>Cánh <select data-k="door_style"><option value="overlay">Trùm ngoài</option><option value="half">Trùm nửa</option><option value="inset">Lọt lòng</option></select></label>
@@ -90,7 +91,7 @@
  <button onclick="libSavePart()">Lưu chi tiết vào thư viện…</button>
 </div>
 <script>
- var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick','rail_w','rail_count','hang_z','plinth_setback','slide_len'];
+ var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors','band_thick','band_front_thick','rail_w','rail_count','hang_z','plinth_setback','slide_len','end_panel_w'];
  function q(s){return document.querySelectorAll(s)}
  function fill(){
   q('[data-k]').forEach(function(e){var v=cur[e.dataset.k]; if(e.type==='checkbox')e.checked=!!v; else e.value=v;});

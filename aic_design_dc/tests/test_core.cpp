@@ -386,6 +386,24 @@ int main() {
       auto bandBottom = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name == "Hông trái") return pn.band[4]; return -1.0; };
       NEAR(bandBottom(qw0), 0, 1e-9); NEAR(bandBottom(qw), 1.0, 1e-9);   // treo: cạnh dưới hông lộ ra nên dán; chạm sàn thì không
     }
+    // ===== ống hút mùi, tấm fix, ốp hông, bản lề phải =====
+    { hsx::Params h; h.cabType = "wall"; h.width = 600; h.depth = 331; h.height = 673; h.plinth = 0; h.hangZ = 1692; h.endPanel = "LR";
+      h.layout = "V(0:L[x=220,f=100,l=1,r=2])";
+      auto q = hsx::solve(h); CHECK(q.ok);
+      int duct = 0, fix = 0, ep = 0; double doorH = 0;
+      for (auto& pn : q.panels) {
+        if (pn.name.find("Ống") != std::string::npos) ++duct;
+        if (pn.name.find("Tấm fix") != std::string::npos) { ++fix; NEAR(pn.s[2], 100, 1e-6); }
+        if (pn.name.find("Tấm ốp hông") != std::string::npos) ++ep;
+        if (pn.name.find("Cánh") != std::string::npos) { doorH = pn.s[2]; CHECK(pn.holes[0].p[0] > pn.o[0] + pn.s[0] / 2); }   // bản lề bên phải
+      }
+      CHECK(duct == 3 && fix == 1 && ep == 2);
+      auto q0 = h; q0.layout = "V(0:L[l=1])"; auto r0 = hsx::solve(q0); double d0 = 0; for (auto& pn : r0.panels) if (pn.name.find("Cánh") != std::string::npos) d0 = pn.s[2];
+      CHECK(d0 - doorH > 100 && d0 - doorH < 120);   // cánh ngắn đi chiều cao tấm fix (+ phần trùm ván đáy không còn)
+      for (size_t i = 0; i < q.panels.size(); ++i) for (size_t j = i + 1; j < q.panels.size(); ++j) CHECK(!overlap(q.panels[i], q.panels[j]));
+      auto bad = h; bad.layout = "V(0:L[x=900])"; CHECK(!hsx::solve(bad).ok);
+      bad.layout = "V(0:L[f=900,l=1])"; CHECK(!hsx::solve(bad).ok);
+    }
     { hsx::Params d; d.width = 900; d.depth = 561; d.height = 866; d.plinth = 75; d.layout = "V(0:L[d=3,l=1])";
       auto qs = hsx::solve(d); d.drawerSlide = "under"; auto qu = hsx::solve(d); CHECK(qs.ok && qu.ok);
       auto sideW = [](const hsx::Result& r) { for (auto& pn : r.panels) if (pn.name.find("Hộc kéo 1 đáy") != std::string::npos) return pn.s[0]; return -1.0; };

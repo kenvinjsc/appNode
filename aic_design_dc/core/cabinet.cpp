@@ -157,6 +157,20 @@ struct Builder {
         add(tag + " Đợt " + std::to_string(s + 1), "carcass", x0, 0, lo + step * (s + 1) + s * t, w, innerDepth, t, w);
     }
 
+    if (c.fixH > 0) {   // tấm fix che phía dưới khoang (vd. dưới hộp hút mùi); cánh bắt đầu phía trên
+      if (doorLo + c.fixH + 100 > z1) { failMsg = "Tấm fix quá cao trong khoang " + tag; return; }
+      add(tag + " Tấm fix", "carcass", x0, 0, doorLo, w, t, c.fixH, w);
+      doorLo += c.fixH; doorLoOuter = false;
+    }
+    if (c.ductW > 0) {   // ống hút mùi: 2 tấm dọc + tấm fix hậu, nằm giữa khoang sát hậu
+      const double dw = c.ductW, dd = 202.0;
+      if (dw < 100 || dw > w - 40 || dd > innerDepth - 100) { failMsg = "Ống hút mùi không vừa khoang " + tag; return; }
+      const double cx = (x0 + x1) / 2, yb = innerDepth - dd, h = z1 - z0;
+      add(tag + " Ống dọc trái", "carcass", cx - dw / 2, yb, z0, t, dd, h, h);
+      add(tag + " Ống dọc phải", "carcass", cx + dw / 2 - t, yb, z0, t, dd, h, h);
+      add(tag + " Ống tấm fix hậu", "carcass", cx - dw / 2 + t, yb - t, z0, dw - 2 * t, t, h, dw - 2 * t);
+    }
+
     int count = c.doors;
     if (count < 0) count = std::max(1, (int)std::ceil((fx1 - fx0) / std::max(100.0, p.doorMaxW) - 1e-9));   // tự theo rộng tối đa một cánh
     if (count > 0) {
@@ -170,6 +184,7 @@ struct Builder {
         const double lx = fx0 + k * (lw + p.gap);
         bool left = (k == 0) || (k % 2 == 0 && k != count - 1);
         if (count > 1 && k == count - 1) left = false;
+        if (count == 1 && c.hingeSide == 2) left = false;
         const int id = add(tag + " Cánh " + std::to_string(k + 1), "front", lx, frontY(ds), fLo, lw, p.doorThick, fh, 2 * lw + 2 * fh);
         const double hx = left ? lx + 22.5 : lx + lw - 22.5;          // lỗ chén Ø35 cách mép 22.5, cách đầu 100
         const double px = left ? x0 : x1;
@@ -224,6 +239,11 @@ struct Builder {
         add(pieces > 1 ? "Hậu " + std::to_string(k + 1) : "Hậu", "back", bx + k * bw / pieces, by, bz, bw / pieces, bt, bh, 0);
     }
 
+    for (const char ch : p.endPanel) {   // tấm ốp hông ngoài thân tủ (vd. cuối dãy tủ dưới), cao đến dưới mặt hông 10 mm
+      if (ch != 'L' && ch != 'R') continue;
+      const double ew = std::max(20.0, std::min(p.endPanelW, innerDepth));
+      add(ch == 'L' ? "Tấm ốp hông trái" : "Tấm ốp hông phải", "carcass", ch == 'L' ? -t : W, 0, sz0, t, ew, sh - 10, sh - 10);
+    }
     layoutNode(root, t, W - t, zb, zt, {});
     if (!failMsg.empty()) { r.ok = false; r.error = failMsg; return; }
     for (auto& a : r.panels) finalizePanel(a);

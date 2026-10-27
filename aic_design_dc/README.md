@@ -37,6 +37,11 @@ Giả định cần bạn xác nhận: "Hồi lên trước 19" = cánh lọt l�
 4. **Cánh**: Trùm ngoài / Trùm nửa / Lọt trong, số bản lề, số cánh (tự theo rộng tối đa); **Shift** mở cài đặt dày cánh/khe/rộng tối đa.
 Bố cục là cây khoang (`V(...)`/`H(...)`/`L[...]`, `core/layout.cpp`); mỗi thao tác sửa cây rồi lõi C++ dựng lại (một Undo). Khoang lấy từ `openings` của lõi.
 
+### Tủ bếp (loại tủ, cụm)
+- `cab_type`: `base` (không nóc, thanh giằng `rail_w`/`rail_count`), `wall` (treo cao `hang_z`), `tall`. Chân: `side_on_plinth`, `plinth_front`, `plinth_setback`. Ray âm: `drawer_slide=under`, `slide_len`. Tấm ốp hông: `end_panel`.
+- Khóa khoang thêm: `f=` tấm fix dưới khoang, `x=` ống hút mùi, `r=` bản lề cánh đơn (1 trái, 2 phải).
+- **Cụm** (`ruby/.../cluster.rb`): nhiều khối xếp hàng (tủ dưới/treo/cao), kéo giãn chung bằng Scale gốc (khối `fixed` giữ rộng, khối còn lại chia lại), phào/thanh che chạy suốt hàng, bảng cắt gộp. Mẫu "Cụm bếp mẫu" trong Thư viện. Test: `ruby -Ku tests/cluster_test.rb`.
+
 ## Lớp SketchUp (Ruby) — `ruby/`
 Cài: chép `ruby/aic_design_dc.rb` + thư mục `ruby/aic_design_dc/` vào thư mục Plugins; đặt `hsx_core.dll` (Win) / `libhsx_core.dylib` (Mac) vào `aic_design_dc/`.
 
