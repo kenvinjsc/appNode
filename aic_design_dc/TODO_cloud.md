@@ -83,3 +83,12 @@ Mỗi khối `Builder.build` chỉ ra 5 tấm: Hông trái, Hông phải, Đáy,
 8. [ ] **Hồi**: hông chạy từ z=0 (sàn) đến hết chiều cao; tủ bếp gốc đặt hồi TRÊN chân (z≈89 trở lên, hồi dưới cao ~779). Cần tham số "hồi đứng trên chân" khi có chân.
 9. [ ] **Chân**: `plinth` chỉ nâng Đáy lên z=plinth, KHÔNG tạo tấm CHÂN TRƯỚC (gốc: 1 tấm liền 1282 × 17 × 75 cho nhiều khối, lùi vào so với mặt trước). Cần tấm chân trước (và tuỳ chọn chân sau/bên) có độ lùi.
 10. [ ] **Phào**: không có tấm phào; gốc có PHÀO 50 × 18 ở đỉnh tủ treo, chạy suốt nhiều khối (x1849..3299, z2365). Cần phào gắn theo khối/cụm (dùng `moulding` trong `core/parts.cpp`, nhưng hiện chỉ đặt rời, chưa gắn vào tủ).
+
+### Bổ sung: ống hút mùi, cánh, HT (đọc từ model gốc, mm)
+Khối treo rộng 600 (x3299..3899) là khối HÚT MÙI (đáy nâng lên z1692, cao 673):
+11. [ ] **Ống hút mùi** = 2 TẤM DỌC (17 × 202 deep × 650 cao, tại x3490 và x3691, y2051, z1696..2346) + 1 TẤM FIX hậu 220 × 18 × 650 (x3489, y2034). Tức một hộp ống rộng ~220 nằm lệch trong khoang. Plugin chưa có "ống/hộp ống" (cần chi tiết hộp rỗng không đáy gắn vào khoang, có tham số rộng, sâu, cao, vị trí ngang).
+12. [ ] **TẤM FIX 600 × 18 × 155** (x3299, y1950, z1540..1695) che phía dưới khoang hút mùi; cánh khối này chỉ cao 810 (z1565..2375, 2 lá 298), KHÔNG phải 880 như các khối treo khác. Cần cánh ngắn hơn khoang + tấm fix bù phía dưới.
+13. [ ] **Cánh**: kích thước theo khoang trừ khe, không đều: tủ dưới 400 / 448 / 397 (cao 785, z45..830, sâu y1690 = phủ ngoài), tủ treo 447 / 448 / 548 / 498 (cao 880, z1495..2375). Có khoang 2 lá (448+447, 397+397) và 1 lá (400, 548, 498). Cần cánh 1 lá/2 lá, bản lề trái/phải theo khoang, "cánh A" (tên loại) — kiểm tra DoorTool sinh đúng kích thước này.
+14. [ ] **HT: 30 / HT: 20**: thanh che mặt trước đỉnh tủ treo, cao 55 / 50, dày 18, chạy suốt (HT 30: x1849..3299 và x3299..4449, z2365; HT 20 ở khối trái cao 50 tại z2375, cả mặt trước 383 và mặt hông 313). Gần giống PHÀO nhưng liền nhiều khối. Gộp chung với mục 10 (phào/thanh che chạy suốt cụm).
+15. [ ] **TẤM DỌC** ốp hông cuối tủ dưới: 17 × 50 deep × 780 cao (x4402, y1708, z75..855).
+Ghi chú: component "ThomThom" 803×803×1856 trong model là hình người mẫu (entourage), không phải tủ.
