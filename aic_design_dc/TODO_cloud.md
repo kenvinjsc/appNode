@@ -194,4 +194,20 @@ Cách thử (model MỚI, không đụng model thật). Build lại `hsx_core.dl
 4. **Báo lỗi** theo mẫu: bước nào, thấy gì, lỗi Ruby Console (copy nguyên văn), ảnh chụp nếu được. Nêu rõ cái gì CHẠY ĐƯỢC để cloud không sửa nhầm.
 
 ## 9. KẾT QUẢ BÊN TEST (điền vào đây, rồi push)
-(chưa có)
+**Bên test (AicDCNative, SketchUp 2025 thật, bản d7aa3dd, 2026-10-27).** Chỉ làm phần đo qua MCP; **CHƯA thử bằng chuột** (mục 1, 2 ở trên) vì không có người thao tác lúc này.
+- CHẠY ĐƯỢC: extension nạp, `hsx_core.dll` mới nạp; `Cluster.create(m, Cluster.sample_kitchen, tr)` dựng được 101 tấm (gốc 120). Build Release + `test_core` OK (30 panels, 15 hinges, 12 cutlist rows).
+- ĐO so `BANG-TAM.csv` (kho DesignApp, 120 tấm, ±0,5 mm, so ba kích thước đã sắp xếp): **chỉ khớp 4/120**. Lệch theo loại tấm (mine = bản dựng, ref = kho):
+  - **CÁNH** 12/12 tấm nhưng dày **18,0** (ref 17,5); rộng 449/399/400 (ref 448/397,3/447,5); tủ dưới cao **791** (ref **785**). Khối hút mùi 299×810,2 (ref 298×810 ✔ gần). Cánh tủ treo 449×880 (ref 447,5×880).
+  - **CHÂN TRƯỚC** 5 tấm theo khối (400/450/800/900/400) — ref **2 tấm liền** 1282,5 và 1697 (xem `VI-TRI-TU.csv`).
+  - **THANH GIẰNG** 10 (ref 16): thiếu giằng ngang/chữ T của B450 (415×60 ở z170,5/550) và các giằng 365/382,5/515,5/516,5; một số rộng 65/60 chứ không 70.
+  - **HẬU** dày **9,5** (ref 9,0), rộng bằng đúng khoang 400/450/900 (ref 381/431/880–881), cao 791 (ref 781,5; tủ treo 851–861) ⇒ chưa lọt rãnh.
+  - **HỒI** tủ dưới sâu **551,5 × cao 791** (ref **560,5 × 773,5**); tủ treo **321,5 × 880** (ref **330,5 × 852,5**; W400 350×880; W600 330,5×670). Tức độ sâu thùng đang trừ ~9 (chạm hậu?) và hồi chưa đứng trên đáy trùm.
+  - **ĐÁY** tủ dưới 551,5 sâu (ref 560,5); đáy tủ treo 330,5.
+  - **ĐỈNH/NÓC** tủ dưới: 9 mm × 570,5 sâu (ref 9 × **580–580,5**); tủ treo 17,5×340,5 (ref 330,5).
+  - **ỐNG hút mùi**: tấm dọc 17,5×202×**845** (ref 17,5×202,5×**650,5**); tấm fix 565×155 (ref **600**×155) và **thiếu** tấm fix hậu 220×650,5.
+  - **NGĂN KÉO** chỉ 3 tấm (mặt) + 3 đáy 9,5×343×435 (ref 9×382×450); ref có **15** tấm (TNK trái/phải/sau, đáy, mặt...). Ray âm 450 không có hình.
+  - **PHÀO/HT**: 1 tấm 50×55×3000 (ref 9 tấm: phào 1450, 1150, HT 30/20, 47×810, 50×313, 50×382,5, 50×880...). Mỗi tủ khác nhau, xem §4 MO-TA.md.
+  - **ĐỢT** chưa có trong bản dựng (xem mục 21/46).
+- Gợi ý ưu tiên sửa: (1) độ sâu thùng/hồi/đáy dùng 560,5 và hồi 773,5 đứng trên đáy trùm; (2) dày ván cánh 17,5 và khe 2 (cánh 397,3/448/…); (3) hậu 9 lọt rãnh + `back_groove_extra`; (4) chân trước liền theo cụm; (5) ngăn kéo ray âm đủ chi tiết; (6) ống hút mùi 650,5; (7) phào/HT từng tủ.
+- Tái hiện: `m=Sketchup.active_model; g=AicDesignDC::Cluster.create(m, AicDesignDC::Cluster.sample_kitchen, tr)` rồi duyệt nhóm lá, so bounds đã sắp xếp với `BANG-TAM.csv` (ghép tham lam ±0,5 mm).
+- Nhóm "Cụm tủ" thử nằm bên phải tủ gốc trong model người dùng, chưa lưu.
