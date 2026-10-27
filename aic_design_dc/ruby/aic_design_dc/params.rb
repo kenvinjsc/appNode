@@ -33,7 +33,9 @@ module AicDesignDC
     # Nhận Hash (khóa string/symbol, giá trị từ JSON/hộp thoại) -> Hash sạch, đúng kiểu, trong giới hạn.
     def self.sanitize(input, base = DEFAULTS)
       h = base.dup
+      keys = (input || {}).keys.map(&:to_sym)
       (input || {}).each { |k, v| h[k.to_sym] = v }
+      h[:layout] = '' if keys.include?(:cols) && !keys.include?(:layout)   # truyền cols (kiểu cũ) mà không truyền layout -> cols có hiệu lực
       NUMERIC.each { |k| h[k] = h[k].to_f }
       %i[loft_doors].each { |k| h[k] = h[k].to_i }
       %i[has_back cam band].each { |k| h[k] = [true, 1, '1', 'true'].include?(h[k]) }
@@ -62,7 +64,9 @@ module AicDesignDC
 
     def self.sanitize(input, base = PART_DEFAULTS)
       h = base.dup
+      keys = (input || {}).keys.map(&:to_sym)
       (input || {}).each { |k, v| h[k.to_sym] = v }
+      h[:layout] = '' if keys.include?(:cols) && !keys.include?(:layout)   # truyền cols (kiểu cũ) mà không truyền layout -> cols có hiệu lực
       NUM.each { |k| h[k] = [h[k].to_f, 0.0].max }
       INTS.each { |k| h[k] = [h[k].to_i, 0].max }
       h[:kind] = PART_KINDS.include?(h[:kind].to_s) ? h[:kind].to_s : 'bend'
