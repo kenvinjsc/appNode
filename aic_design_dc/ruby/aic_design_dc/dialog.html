@@ -29,6 +29,14 @@
  <label>Cao hộc trên <span><input type="number" data-k="loft_height"> mm</span></label>
  <label>Cánh hộc trên <span><input type="number" data-k="loft_doors"></span></label>
 </div>
+<h4>Thư viện mẫu</h4>
+<div class="sec">
+ <select id="lib" size="6" style="width:100%"></select>
+ <button onclick="libLoad()">Nạp mẫu</button>
+ <button onclick="libSave()">Lưu mẫu hiện tại…</button>
+ <button onclick="libDel()">Xóa</button>
+ <div class="tip">Nạp: mẫu tủ áp vào tủ đang chọn (hoặc làm mặc định cho tủ mới); mẫu chi tiết đưa vào mục Chi tiết bên dưới.</div>
+</div>
 <h4>Khoang</h4>
 <div class="sec">
  <table id="cols"><thead><tr><th>#</th><th>Rộng<br>(0=đều)</th><th>Ngăn<br>kéo</th><th>Cao<br>ngăn</th><th>Đợt</th><th>Cánh</th><th></th></tr></thead><tbody></tbody></table>
@@ -40,6 +48,13 @@
  <button onclick="sketchup.cutlist()">Bảng cắt</button>
  <button onclick="sketchup.dxf()">Xuất DXF</button>
  <table id="cut"></table>
+</div>
+<h4>Chi tiết (uốn cong / phào / xà)</h4>
+<div class="sec">
+ <label>Loại <select id="pkind"><option value="bend">Uốn cong</option><option value="shelf_round">Đợt bo góc</option><option value="moulding">Phào</option><option value="beam">Xà</option></select></label>
+ <div id="pfields"></div>
+ <button onclick="sketchup.place_part()">Đặt chi tiết</button>
+ <button onclick="libSavePart()">Lưu chi tiết vào thư viện…</button>
 </div>
 <script>
  var cur={cols:[]}, timer=null, NUM=['width','depth','height','thick','back_thick','plinth','door_thick','gap','front_return','loft_height','loft_doors'];
@@ -65,5 +80,37 @@
  function showCutlist(s){var r=JSON.parse(s),h='<tr><th>Loại</th><th>Dài</th><th>Rộng</th><th>Dày</th><th>SL</th><th>Dán cạnh</th></tr>';
   r.forEach(function(x){h+='<tr><td>'+x.role+'</td><td>'+x.L+'</td><td>'+x.W+'</td><td>'+x.T+'</td><td>'+x.qty+'</td><td>'+x.banding+'</td></tr>'});
   document.getElementById('cut').innerHTML=h;}
+ 
+ // ---- Thư viện ----
+ var libItems=[];
+ function setLibrary(s){libItems=JSON.parse(s); var sel=document.getElementById('lib'); sel.innerHTML='';
+  libItems.forEach(function(e){var o=document.createElement('option'); o.value=e.name; o.textContent=(e.kind==='part'?'◐ ':'▣ ')+e.name+(e.builtin?'':' ★'); sel.appendChild(o);});}
+ function libSel(){return document.getElementById('lib').value}
+ function libLoad(){var n=libSel(); if(n)sketchup.lib_load(n)}
+ function libDel(){var n=libSel(); if(n&&confirm('Xóa mẫu "'+n+'"?'))sketchup.lib_delete(n)}
+ function libSave(){var n=prompt('Tên mẫu tủ:'); if(n)sketchup.lib_save(JSON.stringify({name:n,kind:'cabinet',params:cur}))}
+ function libSavePart(){var n=prompt('Tên chi tiết:'); if(n)sketchup.lib_save(JSON.stringify({name:n,kind:'part',params:part}))}
+ // ---- Chi tiết ----
+ var part={kind:'bend'}, PF={
+  bend:[['radius','Bán kính trong'],['angle','Góc uốn (độ)'],['part_height','Cao'],['part_thick','Dày']],
+  shelf_round:[['width','Rộng'],['depth','Sâu'],['part_thick','Dày'],['corner_fl','Bo trước-trái'],['corner_fr','Bo trước-phải'],['corner_br','Bo sau-phải'],['corner_bl','Bo sau-trái']],
+  moulding:[['length','Dài'],['size_a','Rộng (Y)'],['size_b','Cao (Z)'],['profile','Kiểu']],
+  beam:[['length','Dài'],['size_a','Rộng (Y)'],['size_b','Cao (Z)']]};
+ var PROFILES=[['cove','Cong lõm'],['round','Cong lồi'],['bevel','Vát'],['step','Bậc'],['rect','Chữ nhật']];
+ function renderPart(){
+  document.getElementById('pkind').value=part.kind;
+  var h='';PF[part.kind].forEach(function(f){
+   if(f[0]==='profile'){h+='<label>'+f[1]+' <select data-p="profile">'+PROFILES.map(function(p){return '<option value="'+p[0]+'"'+(part.profile===p[0]?' selected':'')+'>'+p[1]+'</option>'}).join('')+'</select></label>';}
+   else h+='<label>'+f[1]+' <span><input type="number" step="any" data-p="'+f[0]+'" value="'+(part[f[0]]||0)+'"> mm</span></label>';});
+  document.getElementById('pfields').innerHTML=h;
+  q('[data-p]').forEach(function(e){e.onchange=partChanged;});
+ }
+ function partChanged(){
+  part.kind=document.getElementById('pkind').value;
+  q('[data-p]').forEach(function(e){part[e.dataset.p]=e.tagName==='SELECT'?e.value:(parseFloat(e.value)||0);});
+  sketchup.part_apply(JSON.stringify(part));
+ }
+ function setPart(s){part=JSON.parse(s); renderPart();}
+ document.getElementById('pkind').onchange=function(){part.kind=this.value; renderPart(); partChanged();};
  window.onload=function(){sketchup.ready()};
 </script></body></html>

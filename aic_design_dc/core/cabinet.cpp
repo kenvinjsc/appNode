@@ -79,11 +79,13 @@ struct Builder {
     int sideR = add("Hông phải", "carcass", W - t, 0, 0, t, sideDepth, H, H);
     int bottom = add("Đáy", "carcass", t, 0, p.plinth, Wi, innerDepth, t, Wi);
     int top = add("Nóc", "carcass", t, 0, zt, Wi, innerDepth, t, Wi);
-    if (p.hasBack) {
-      if (p.back == BackStyle::Overlay)
-        add("Hậu", "back", 0, D - bt, p.plinth, W, bt, H - p.plinth, 0);
-      else
-        add("Hậu", "back", t, innerDepth, zb, Wi, bt, zt - zb, 0);
+    if (p.hasBack) {  // hậu rộng hơn khổ ván -> tách các tấm bằng nhau
+      const bool ov = p.back == BackStyle::Overlay;
+      const double bx = ov ? 0 : t, bw = ov ? W : Wi, by = ov ? D - bt : innerDepth;
+      const double bz = ov ? p.plinth : zb, bh = ov ? H - p.plinth : zt - zb;
+      int pieces = p.sheetW > 0 ? std::max(1, (int)std::ceil(bw / p.sheetW - 1e-9)) : 1;
+      for (int k = 0; k < pieces; ++k)
+        add(pieces > 1 ? "Hậu " + std::to_string(k + 1) : "Hậu", "back", bx + k * bw / pieces, by, bz, bw / pieces, bt, bh, 0);
     }
     const double loftZ = (p.loftHeight > 0) ? zt - p.loftHeight - t : -1;  // đáy ván ngăn hộc trên
     if (loftZ > 0 && loftZ < zb + 200) { r.ok = false; r.error = "Hộc trên quá cao"; return; }
@@ -208,19 +210,14 @@ struct Builder {
       if (loftZ > 0 && p.loftDoors > 0)
         doors(p.loftDoors, loftZ + t, false, zt, true, "trên ");
     }
-    for (auto& a : r.panels) {  // finalize: trục dày/dài/rộng
-      int t0 = 0;
-      for (int k = 1; k < 3; ++k) if (a.s[k] < a.s[t0]) t0 = k;
-      int o1 = (t0 + 1) % 3, o2 = (t0 + 2) % 3;
-      if (a.s[o1] >= a.s[o2]) { a.lAxis = o1; a.wAxis = o2; } else { a.lAxis = o2; a.wAxis = o1; }
-      a.tAxis = t0; a.T = a.s[t0]; a.L = a.s[a.lAxis]; a.W = a.s[a.wAxis];
-    }
+    for (auto& a : r.panels) finalizePanel(a);
   }
 };
 
 }  // namespace
 
 Result solve(const Params& p) {
+  if (p.kind != "cabinet") return solvePart(p);
   Result r;
   Builder b(p, r);
   b.run();

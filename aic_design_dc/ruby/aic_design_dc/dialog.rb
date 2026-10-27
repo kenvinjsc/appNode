@@ -2,6 +2,8 @@
 require 'json'
 require_relative 'bridge'
 require_relative 'draw_tool'
+require_relative 'part_tool'
+require_relative 'library'
 
 module AicDesignDC
   module Dialog
@@ -18,6 +20,39 @@ module AicDesignDC
       cab = selected_cab
       h = cab ? Builder.params_of(cab) : State.params
       @dlg.execute_script("setParams(#{JSON.generate(JSON.generate(h)).to_s},#{cab ? 'true' : 'false'})")
+    end
+
+    def self.push(js)
+      @dlg.execute_script(js) if @dlg && @dlg.visible?
+    end
+
+    def self.push_library
+      push("setLibrary(#{JSON.generate(JSON.generate(Library.all))})")
+    end
+
+    def self.push_part
+      push("setPart(#{JSON.generate(JSON.generate(State.part))})")
+    end
+
+    # Nạp mẫu từ thư viện.
+    def self.load_template(name)
+      e = Library.find(name)
+      raise "Không thấy mẫu: #{name}" unless e
+      if e['kind'] == 'part'
+        State.part = PartParams.sanitize(e['params'])
+        push_part
+      else
+        cab = selected_cab
+        merged = Params.sanitize(e['params'], Params::DEFAULTS)  # mẫu tính từ mặc định
+        if cab
+          new_cab = Builder.rebuild(Sketchup.active_model, cab, merged)
+          Sketchup.active_model.selection.clear
+          Sketchup.active_model.selection.add(new_cab)
+        else
+          State.params = merged
+        end
+        sync
+      end
     end
 
     def self.apply(json)
@@ -45,9 +80,32 @@ module AicDesignDC
         return
       end
       @dlg = UI::HtmlDialog.new(dialog_title: 'Thông số', preferences_key: 'AicDesignDC.Params',
-                                scrollable: true, resizable: true, width: 320, height: 720, left: 60, top: 80, style: UI::HtmlDialog::STYLE_DIALOG)
+                                scrollable: true, resizable: true, width: 340, height: 860, left: 60, top: 80, style: UI::HtmlDialog::STYLE_DIALOG)
       @dlg.set_file(File.join(__dir__, 'dialog.html'))
-      @dlg.add_action_callback('ready') { |_c| sync }
+      @dlg.add_action_callback('ready') { |_c| push_library; push_part; sync }
+      @dlg.add_action_callback('part_apply') { |_c, json| State.part = PartParams.sanitize(JSON.parse(json)) }
+      @dlg.add_action_callback('place_part') { |_c| Sketchup.active_model.select_tool(PlaceTool.new) }
+      @dlg.add_action_callback('lib_load') do |_c, name|
+        begin
+          load_template(name)
+        rescue StandardError => e
+          UI.messagebox("AicDesignDC: #{e.message}")
+        end
+      end
+      @dlg.add_action_callback('lib_save') do |_c, json|
+        begin
+          e = JSON.parse(json)
+          params = e['kind'] == 'part' ? PartParams.sanitize(e['params']) : Params.sanitize(e['params'])
+          Library.save(e['name'], e['kind'], params)
+          push_library
+        rescue StandardError => err
+          UI.messagebox("AicDesignDC: #{err.message}")
+        end
+      end
+      @dlg.add_action_callback('lib_delete') do |_c, name|
+        Library.delete(name)
+        push_library
+      end
       @dlg.add_action_callback('apply') { |_c, json| apply(json) }
       @dlg.add_action_callback('draw') { |_c| Sketchup.active_model.select_tool(DrawTool.new) }
       @dlg.add_action_callback('cutlist') do |_c|

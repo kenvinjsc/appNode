@@ -31,7 +31,8 @@ module AicDesignDC
   end
 
   COLORS = { 'carcass' => [235, 232, 224], 'back' => [200, 190, 170],
-             'front' => [248, 248, 246], 'drawer' => [215, 200, 175] }.freeze
+             'front' => [248, 248, 246], 'drawer' => [215, 200, 175],
+             'bend' => [235, 232, 224], 'moulding' => [244, 240, 230] }.freeze
 
   module Builder
     def self.material(model, role)
@@ -40,19 +41,68 @@ module AicDesignDC
       m
     end
 
+    # Làm mịn các cạnh của mặt cong (góc giữa 2 mặt kề nhỏ) để hiển thị cung tròn mượt.
+    def self.smooth_curved(ents)
+      limit = 35.degrees
+      ents.grep(Sketchup::Edge).each do |ed|
+        next unless ed.faces.size == 2
+        next unless ed.faces[0].normal.angle_between(ed.faces[1].normal) < limit
+        ed.soft = true
+        ed.smooth = true
+      end
+    end
+
     def self.add_panel(ents, pn, model)
       g = ents.add_group
       g.name = pn['name']
       o = pn['o'].map(&:mm)
       s = pn['s'].map(&:mm)
-      pts = [[0, 0], [s[0], 0], [s[0], s[1]], [0, s[1]]].map { |x, y| Geom::Point3d.new(o[0] + x, o[1] + y, o[2]) }
-      face = g.entities.add_face(pts)
-      face.reverse! if face.normal.z < 0
-      face.pushpull(s[2])
+      if pn['poly'] && pn['axis']
+        ax = pn['axis']
+        ia = (ax + 1) % 3
+        ib = (ax + 2) % 3
+        pts = pn['poly'].each_slice(2).map do |u, v|
+          c = [0, 0, 0]
+          c[ax] = o[ax]
+          c[ia] = u.mm
+          c[ib] = v.mm
+          Geom::Point3d.new(*c)
+        end
+        face = g.entities.add_face(pts)
+        dir = [X_AXIS, Y_AXIS, Z_AXIS][ax]
+        face.reverse! if face.normal.dot(dir) < 0
+        face.pushpull(s[ax])
+        smooth_curved(g.entities)
+      else
+        pts = [[0, 0], [s[0], 0], [s[0], s[1]], [0, s[1]]].map { |x, y| Geom::Point3d.new(o[0] + x, o[1] + y, o[2]) }
+        face = g.entities.add_face(pts)
+        face.reverse! if face.normal.z < 0
+        face.pushpull(s[2])
+      end
       g.material = material(model, pn['role'])
       g.set_attribute('hsx', 'role', pn['role'])
       g.set_attribute('hsx', 'holes', JSON.generate(pn['holes']))
       g
+    end
+
+    # Chi tiết lẻ (uốn cong, đợt bo góc, phào, xà): 1 group, lưu tham số để sửa/xuất sau.
+    def self.build_part(model, params, transformation = nil)
+      params = PartParams.sanitize(params)
+      res = Core.solve(params)
+      raise res['error'].to_s unless res['ok']
+      model.start_operation('AicDesignDC: Chi tiết', true)
+      begin
+        grp = model.active_entities.add_group
+        grp.name = res['panels'].first['name']
+        res['panels'].each { |pn| add_panel(grp.entities, pn, model) }
+        grp.transformation = transformation if transformation
+        grp.set_attribute('hsx', 'part_params', JSON.generate(params))
+        model.commit_operation
+        grp
+      rescue StandardError
+        model.abort_operation
+        raise
+      end
     end
 
     def self.cabinet?(e)

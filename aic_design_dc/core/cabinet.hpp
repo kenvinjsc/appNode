@@ -29,6 +29,15 @@ struct Params {
   double loftHeight = 0;       // khoang trên (hộc tủ trên); 0 = không có
   int loftDoors = 0;           // số cánh mỗi khoang ở hộc trên
   bool cam = false;            // sinh lỗ cam chốt (để sau; mặc định tắt)
+  double sheetW = 1220;        // khổ ván: hậu rộng hơn sẽ tách thành nhiều tấm bằng nhau
+
+  // --- chi tiết lẻ (kind != "cabinet") ---
+  std::string kind = "cabinet";  // cabinet | bend | shelf_round | moulding | beam
+  double radius = 100, angle = 90;         // bend: bán kính trong, góc uốn (độ)
+  double partHeight = 400, partThick = 17.5;  // bend/shelf_round: cao, dày
+  double cornerFL = 0, cornerFR = 0, cornerBR = 0, cornerBL = 0;  // shelf_round: bo góc (dùng width/depth)
+  double length = 1000, sizeA = 60, sizeB = 60;  // moulding/beam: dài, rộng(Y), cao(Z)
+  std::string profile = "cove";            // moulding: cove | round | bevel | step | rect
   std::vector<Column> cols;
 };
 
@@ -44,6 +53,10 @@ struct Panel {
   double o[3];              // góc min
   double s[3];              // kích thước theo X,Y,Z
   double banding = 0;       // tổng chiều dài dán cạnh (mm)
+  // Hình lăng trụ: đa giác `poly` (cặp tọa độ thế giới trên 2 trục còn lại: a=(axis+1)%3, b=(axis+2)%3)
+  // đùn dọc trục `prismAxis` từ o[axis] dài s[axis]. -1 = hộp thẳng.
+  int prismAxis = -1;
+  std::vector<double> poly;
   std::vector<Hole> holes;
   // suy ra khi finalize
   int tAxis = 0, lAxis = 0, wAxis = 0;
@@ -57,7 +70,9 @@ struct Result {
   int hingeCount = 0;
 };
 
-Result solve(const Params& p);
+Result solve(const Params& p);      // kind=cabinet -> tủ; còn lại -> chi tiết lẻ
+Result solvePart(const Params& p);
+void finalizePanel(Panel& a);       // suy ra trục dày/dài/rộng từ hộp bao
 
 // Bảng cắt gộp theo (vật liệu, kích thước).
 struct CutRow { std::string role; double L, W, T; int qty; double banding; };

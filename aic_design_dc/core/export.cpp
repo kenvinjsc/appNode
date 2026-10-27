@@ -48,10 +48,24 @@ bool exportDxf(const Result& r, const std::string& path, double SL, double SW, d
     if (ox + L > SL) { ox = 0; oy += rowH + kerf; rowH = 0; }
     if (oy + W > SW) { ++sheet; ox = 0; oy = 0; rowH = 0; }
     double bx = ox, by = oy + sheet * (SW + 200);
-    line(f, "PANEL", bx, by, bx + L, by);
-    line(f, "PANEL", bx + L, by, bx + L, by + W);
-    line(f, "PANEL", bx + L, by + W, bx, by + W);
-    line(f, "PANEL", bx, by + W, bx, by);
+    if (p->prismAxis >= 0 && p->prismAxis == p->tAxis && p->poly.size() >= 6) {  // biên dạng thật (vd. đợt bo góc)
+      const int ia = (p->prismAxis + 1) % 3;
+      const size_t n = p->poly.size() / 2;
+      auto map = [&](size_t i, double& x, double& y) {
+        double a = p->poly[2 * i], b = p->poly[2 * i + 1];
+        double wl = (ia == p->lAxis) ? a : b, ww = (ia == p->lAxis) ? b : a;
+        x = bx + wl - p->o[p->lAxis]; y = by + ww - p->o[p->wAxis];
+      };
+      for (size_t i = 0; i < n; ++i) {
+        double x1, y1, x2, y2; map(i, x1, y1); map((i + 1) % n, x2, y2);
+        line(f, "PANEL", x1, y1, x2, y2);
+      }
+    } else {
+      line(f, "PANEL", bx, by, bx + L, by);
+      line(f, "PANEL", bx + L, by, bx + L, by + W);
+      line(f, "PANEL", bx + L, by + W, bx, by + W);
+      line(f, "PANEL", bx, by + W, bx, by);
+    }
     for (auto& h : p->holes) {
       if (h.axis != p->tAxis) continue;  // chỉ lỗ khoan mặt ván
       double u = h.p[p->lAxis] - p->o[p->lAxis], v = h.p[p->wAxis] - p->o[p->wAxis];
@@ -82,6 +96,13 @@ bool parseParams(const std::string& text, Params& o, std::string& err) {
     else if (k == "door_thick") o.doorThick = d; else if (k == "gap") o.gap = d;
     else if (k == "front_return") o.frontReturn = d; else if (k == "loft_height") o.loftHeight = d;
     else if (k == "loft_doors") o.loftDoors = (int)d; else if (k == "cam") o.cam = b(v);
+    else if (k == "sheet_w") o.sheetW = d; else if (k == "kind") o.kind = v;
+    else if (k == "radius") o.radius = d; else if (k == "angle") o.angle = d;
+    else if (k == "part_height") o.partHeight = d; else if (k == "part_thick") o.partThick = d;
+    else if (k == "corner_fl") o.cornerFL = d; else if (k == "corner_fr") o.cornerFR = d;
+    else if (k == "corner_br") o.cornerBR = d; else if (k == "corner_bl") o.cornerBL = d;
+    else if (k == "length") o.length = d; else if (k == "size_a") o.sizeA = d; else if (k == "size_b") o.sizeB = d;
+    else if (k == "profile") o.profile = v;
     else if (k == "col") {  // width,drawers,drawerPitch,shelves,doors
       Column c; double a[5] = {0, 0, 0, 0, 0}; int i = 0;
       std::istringstream cs(v); std::string tok;
@@ -99,12 +120,18 @@ static void esc(std::string& out, const std::string& s) {
 
 std::string toJson(const Result& r) {
   std::string o; char buf[256];
+  o.reserve(r.panels.size() * 400 + 256);
   if (!r.ok) { o = "{\"ok\":false,\"error\":\""; esc(o, r.error); return o + "\"}"; }
   o = "{\"ok\":true,\"hinges\":" + std::to_string(r.hingeCount) + ",\"panels\":[";
   for (size_t i = 0; i < r.panels.size(); ++i) {
     const Panel& p = r.panels[i];
     if (i) o += ',';
     o += "{\"name\":\""; esc(o, p.name); o += "\",\"role\":\"" + p.role + "\",";
+    if (p.prismAxis >= 0) {
+      o += "\"axis\":" + std::to_string(p.prismAxis) + ",\"poly\":[";
+      for (size_t j = 0; j < p.poly.size(); ++j) { std::snprintf(buf, sizeof buf, "%s%.3f", j ? "," : "", p.poly[j]); o += buf; }
+      o += "],";
+    }
     std::snprintf(buf, sizeof buf, "\"o\":[%.3f,%.3f,%.3f],\"s\":[%.3f,%.3f,%.3f],\"banding\":%.1f,\"holes\":[",
                   p.o[0], p.o[1], p.o[2], p.s[0], p.s[1], p.s[2], p.banding);
     o += buf;
