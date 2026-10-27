@@ -176,3 +176,22 @@ Sửa so với mục 6-11 (số tôi đo bằng bounding box bị cộng 3–6 m
 62. [ ] Scale cụm nhân cả `hang_z` (`cluster.rb:64-68`), không giữ khoảng tương đối sàn–tủ dưới–tủ treo.
 63. [ ] Test còn cố định 2950 mm (`tests/cluster_test.rb:13-19`) trong khi bếp thật 3000: sửa test theo `VI-TRI-TU.csv`.
 **Thứ tự ưu tiên đề xuất:** (1) `kitchen_spec` đúng số đo kho; (2) hậu lọt + `back_groove_extra`; (3) hút mùi 673 + đợt hai bên ống; (4) tấm đỉnh 9 + cutlist; (5) sửa lỗi 56–60; (6) hậu liền suốt; (7) workflow video (mục 34–41).
+
+## 8. GHI CHÚ CHO BÊN TEST (SketchUp 2025 thật) — việc cần bạn làm, Claude cloud KHÔNG làm được
+Bản cần pull: commit `7cb9ac4` trở lên. Cloud đã làm xong mục 1–19 và chỉ kiểm bằng test lõi C++ + giả lập API SketchUp; **mục 20 (thử bằng chuột) chỉ bên test làm được**. Sau khi thử, ghi kết quả vào file này (mục 9) rồi push; cloud sẽ sửa tiếp theo đó.
+
+Cách thử (model MỚI, không đụng model thật). Build lại `hsx_core.dll` Release từ bản mới, chép đè vào `aic_design_dc\`, `load` lại `aic_design_dc.rb`:
+1. **Công cụ chuột (mục 20)**
+   - [ ] "Vẽ tủ mới" (2 click) → ra khung RỖNG (hông/đáy/nóc/hậu).
+   - [ ] Công cụ **Đợt / Vách**: rê chuột có sáng khoang + xem trước ván; click chia; gõ `3`, `/3`, `200` + Enter vào VCB; **Alt** đổi đợt ↔ vách; mỗi lần là 1 Undo.
+   - [ ] Công cụ **Ngăn kéo**: click khoang → ra ngăn kéo từ đáy lên; thanh chip (số ngăn, cao ngăn, "Xóa ngăn kéo"); gõ số đổi số ngăn.
+   - [ ] Công cụ **Cánh**: chip Trùm ngoài / Trùm nửa / Lọt trong, số bản lề, số cánh; **Shift** mở hộp cài đặt (dày cánh, khe, rộng tối đa).
+   - [ ] Chip bar (`HtmlDialog` nhỏ) hiện đúng, bấm chip có đổi trạng thái; đóng khi bỏ công cụ.
+   - [ ] Nút toolbar/menu cho 3 công cụ (icon `divide/drawer/door.svg`) hiện và chạy.
+   - [ ] Hộp thoại "Thông số": mục "Thêm vào khung", nút "Về khung rỗng", các ô mới (Loại tủ, treo cách sàn, thanh giằng, hồi trên chân, chân trước, ray, ốp hông, tấm đỉnh), nạp mẫu thư viện (đặc biệt mục ▦ Cụm bếp mẫu).
+2. **Co giãn bằng Scale gốc**: trên một tủ đơn, và trên **Cụm bếp mẫu** (kéo rộng/sâu/cao): ván giữ độ dày, khối `fixed` giữ rộng, Undo 1 lần.
+3. **Đo lại cụm bếp** (mục 18, 19): tổng rộng thanh che 3000? cánh hút mùi 810 (z1565..2375)? tấm đỉnh tủ dưới z866–875, nhô trước 19?
+4. **Báo lỗi** theo mẫu: bước nào, thấy gì, lỗi Ruby Console (copy nguyên văn), ảnh chụp nếu được. Nêu rõ cái gì CHẠY ĐƯỢC để cloud không sửa nhầm.
+
+## 9. KẾT QUẢ BÊN TEST (điền vào đây, rồi push)
+(chưa có)
